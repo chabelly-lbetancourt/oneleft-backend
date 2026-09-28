@@ -14,6 +14,10 @@ spring:
     gateway:
       server:
         webmvc:
+          # Sin esta propiedad el gateway no añade las cabeceras X-Forwarded-* a las peticiones que reenvía,
+          # y los servicios generarían URL con su host interno (por ejemplo, http://plans:8082).
+          # Solo se confía en X-Forwarded-* recibidas desde redes privadas (Docker, VPC de AWS).
+          trusted-proxies: ${TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1|10\..*|172\.(1[6-9]|2[0-9]|3[01])\..*|192\.168\..*}
           routes:
             - id: users
               uri: ${USERS_URL:http://localhost:8081}
