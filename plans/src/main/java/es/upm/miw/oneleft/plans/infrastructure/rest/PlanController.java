@@ -39,7 +39,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping(PlanController.PLANS)
-@Tag(name = "Planes", description = "Planes para las próximas horas con plazas libres")
+@Tag(name = "Plans", description = "Plans for the next few hours with free spots")
 public class PlanController {
 
     public static final String PLANS = "/api/v1/plans";
@@ -60,12 +60,12 @@ public class PlanController {
     }
 
     @PostMapping
-    @Operation(summary = "Publicar un plan (HU-003)",
-            description = "Publica un plan que empieza entre 5 minutos y 12 horas desde ahora, con las plazas libres "
-                    + "que faltan por cubrir. Emite el evento PlanPublicado.")
-    @ApiResponse(responseCode = "201", description = "Plan publicado")
-    @ApiResponse(responseCode = "400", description = "Datos no válidos", content = @Content)
-    @ApiResponse(responseCode = "401", description = "Falta el token o no es válido", content = @Content)
+    @Operation(summary = "Publish a plan (HU-003)",
+            description = "Publishes a plan that starts between 5 minutes and 12 hours from now, with the free spots "
+                    + "still to fill. Emits the PlanPublished event.")
+    @ApiResponse(responseCode = "201", description = "Plan published")
+    @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
     public ResponseEntity<PlanResponse> publish(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                                 @Valid @RequestBody PublishPlanRequest request) {
         var organizer = new Organizer(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name"));
@@ -77,45 +77,45 @@ public class PlanController {
     }
 
     @GetMapping(PLAN)
-    @Operation(summary = "Detalle de un plan")
+    @Operation(summary = "Plan detail")
     @ApiResponse(responseCode = "200", description = "Plan")
-    @ApiResponse(responseCode = "404", description = "El plan no existe", content = @Content)
+    @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
     public PlanResponse plan(@PathVariable UUID planId) {
         return PlanResponse.of(queryPlans.plan(planId));
     }
 
     @GetMapping(MINE)
-    @Operation(summary = "Mis próximos planes", description = "Planes que organizo y aún no han empezado.")
+    @Operation(summary = "My upcoming plans", description = "Plans I organize that have not started yet.")
     public List<PlanResponse> mine(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return queryPlans.upcomingPlansOrganizedBy(UUID.fromString(jwt.getSubject())).stream()
                 .map(PlanResponse::of).toList();
     }
 
     @GetMapping(NEARBY)
-    @Operation(summary = "Planes cercanos (HU-004)",
-            description = "Planes abiertos con plazas libres a menos de `radius` metros, del más cercano al más "
-                    + "lejano. No incluye los planes propios. Como mucho 50.")
-    @ApiResponse(responseCode = "200", description = "Planes cercanos")
-    @ApiResponse(responseCode = "400", description = "Parámetros fuera de rango", content = @Content)
+    @Operation(summary = "Nearby plans (HU-004)",
+            description = "Open plans with free spots less than `radius` metres away, from the nearest to the "
+                    + "farthest. Own plans are not included. At most 50.")
+    @ApiResponse(responseCode = "200", description = "Nearby plans")
+    @ApiResponse(responseCode = "400", description = "Parameters out of range", content = @Content)
     @SuppressWarnings("java:S107")
     public List<NearbyPlanResponse> nearby(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                            @Parameter(example = "40.391") @RequestParam double latitude,
                                            @Parameter(example = "-3.629") @RequestParam double longitude,
-                                           @Parameter(description = "Radio en metros (500 a 25 000)")
+                                           @Parameter(description = "Radius in metres (500 to 25,000)")
                                            @RequestParam(defaultValue = "5000") int radius,
-                                           @Parameter(description = "Actividades; sin indicar, todas")
+                                           @Parameter(description = "Activities; all of them if omitted")
                                            @RequestParam(name = "activity", required = false) List<Activity> activities,
-                                           @Parameter(description = "Empiezan en las próximas horas (1 a 12)")
+                                           @Parameter(description = "Starting within the next hours (1 to 12)")
                                            @RequestParam(defaultValue = "12") int withinHours) {
         var search = search(jwt, latitude, longitude, radius, activities, withinHours);
         return queryPlans.nearbyPlans(search).stream().map(NearbyPlanResponse::of).toList();
     }
 
     @GetMapping(path = NEARBY_STREAM, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Planes cercanos en tiempo real (HU-004)",
-            description = "Server-Sent Events con los mismos filtros que `/nearby`. Emite `ready` al conectar y "
-                    + "`plan-published` con un NearbyPlanEvent cada vez que se publica un plan que encaja.")
-    @ApiResponse(responseCode = "200", description = "Flujo de eventos",
+    @Operation(summary = "Nearby plans in real time (HU-004)",
+            description = "Server-Sent Events with the same filters as `/nearby`. Emits `ready` on connection and "
+                    + "`plan-published` with a NearbyPlanEvent every time a matching plan is published.")
+    @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = NearbyPlanEvent.class)))
     @SuppressWarnings("java:S107")

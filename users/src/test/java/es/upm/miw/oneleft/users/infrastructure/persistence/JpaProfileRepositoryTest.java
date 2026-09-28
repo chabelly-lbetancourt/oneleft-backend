@@ -15,7 +15,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Prueba de integración del adaptador con PostgreSQL real (Testcontainers) y el esquema de Flyway.
+ * Integration test of the adapter with a real PostgreSQL (Testcontainers) and the Flyway schema.
  */
 @SpringBootTest
 class JpaProfileRepositoryTest {
@@ -27,7 +27,7 @@ class JpaProfileRepositoryTest {
     void savesAndLoadsAProfileWithZoneAndHobbies() {
         var id = UUID.randomUUID();
         var profile = new Profile(id, "Ana", new ApproximateZone("Vallecas", 40.3912, -3.6287),
-                List.of(new Hobby(Activity.PADEL, Level.INTERMEDIO), new Hobby(Activity.RUNNING, Level.AVANZADO)));
+                List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE), new Hobby(Activity.RUNNING, Level.ADVANCED)));
 
         repository.save(profile);
         var loaded = repository.findById(id).orElseThrow();
@@ -41,13 +41,13 @@ class JpaProfileRepositoryTest {
     void updatingReplacesHobbiesAndCanRemoveTheZone() {
         var id = UUID.randomUUID();
         repository.save(new Profile(id, "Ana", new ApproximateZone("Vallecas", 40.39, -3.62),
-                List.of(new Hobby(Activity.PADEL, Level.INTERMEDIO))));
+                List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE))));
 
-        repository.save(new Profile(id, "Ana", null, List.of(new Hobby(Activity.CINE, Level.PRINCIPIANTE))));
+        repository.save(new Profile(id, "Ana", null, List.of(new Hobby(Activity.CINEMA, Level.BEGINNER))));
         var loaded = repository.findById(id).orElseThrow();
 
         assertThat(loaded.zone()).isNull();
-        assertThat(loaded.hobbies()).containsExactly(new Hobby(Activity.CINE, Level.PRINCIPIANTE));
+        assertThat(loaded.hobbies()).containsExactly(new Hobby(Activity.CINEMA, Level.BEGINNER));
     }
 
     @Test

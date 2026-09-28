@@ -10,8 +10,8 @@
         <appender-ref ref="CONSOLE"/>
     </root>
 
-    <!-- En local, con el perfil «observability», los logs se envían también a Loki.
-         En Kubernetes se recogen de la salida estándar de los contenedores. -->
+    <!-- Locally, with the "observability" profile, logs are also pushed to Loki.
+         In Kubernetes they are collected from the containers' standard output. -->
     <springProfile name="observability">
         <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
             <http>

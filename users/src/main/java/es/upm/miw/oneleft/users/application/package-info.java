@@ -1,4 +1,4 @@
 /**
- * Aplicación: implementación de los casos de uso, orquestando el dominio a través de sus puertos.
+ * Application: use case implementations that orchestrate the domain through its ports.
  */
 package es.upm.miw.oneleft.users.application;

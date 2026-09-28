@@ -8,8 +8,8 @@ import com.tngtech.archunit.lang.ArchRule;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
- * Verifica las reglas de dependencia de la arquitectura hexagonal:
- * el dominio no depende de nadie y la aplicación no depende de la infraestructura.
+ * Checks the dependency rules of the hexagonal architecture:
+ * the domain depends on nobody and the application does not depend on the infrastructure.
  */
 @AnalyzeClasses(packages = "es.upm.miw.oneleft.plans", importOptions = ImportOption.DoNotIncludeTests.class)
 class HexagonalArchitectureTest {

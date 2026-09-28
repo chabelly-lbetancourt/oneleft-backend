@@ -1,13 +1,13 @@
 package es.upm.miw.oneleft.plans.domain.model;
 
 /**
- * Distancia sobre la superficie terrestre con la fórmula del haversine. La base de datos filtra con PostGIS; esta
- * función sirve para mostrar la distancia y para decidir en memoria si un plan recién publicado interesa a quien
- * está mirando la lista.
+ * Distance over the Earth's surface with the haversine formula. The database filters with PostGIS; this function is
+ * used to show the distance and to decide in memory whether a newly published plan is relevant to someone watching
+ * the list.
  */
 public final class GeoDistance {
 
-    /** Radio medio de la Tierra (IUGG), en metros. */
+    /** Mean Earth radius (IUGG), in metres. */
     static final double EARTH_RADIUS_METERS = 6_371_008.8;
 
     private GeoDistance() {

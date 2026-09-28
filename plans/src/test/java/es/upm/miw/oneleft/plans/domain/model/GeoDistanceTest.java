@@ -14,7 +14,7 @@ class GeoDistanceTest {
 
     @Test
     void measuresShortDistancesInTheCity() {
-        // Puerta del Sol → Estación de Atocha (Madrid): unos 1,5 km en línea recta
+        // Puerta del Sol to Atocha station (Madrid): about 1.7 km as the crow flies
         assertThat(GeoDistance.meters(40.4169, -3.7035, 40.4066, -3.6892)).isCloseTo(1_680, within(20.0));
         assertThat(GeoDistance.meters(40.4169, -3.7035, 40.4169, -3.7035)).isZero();
     }

@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
 
-/** Reloj inyectable: permite probar las reglas temporales de los planes con un reloj fijo. */
+/** Injectable clock: lets the time rules of plans be tested with a fixed clock. */
 @Configuration
 public class ClockConfig {
 

@@ -18,12 +18,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Adaptador de salida con Spring Data JPA, Hibernate Spatial y PostGIS.
+ * Output adapter with Spring Data JPA, Hibernate Spatial and PostGIS.
  */
 @Repository
 public class JpaPlanRepository implements PlanRepository {
 
-    /** WGS84, el sistema de referencia del GPS. En PostGIS el orden es (longitud, latitud). */
+    /** WGS84, the GPS reference system. PostGIS uses the (longitude, latitude) order. */
     static final int WGS84 = 4326;
     private static final GeometryFactory GEOMETRY = new GeometryFactory(new PrecisionModel(), WGS84);
 
@@ -60,7 +60,7 @@ public class JpaPlanRepository implements PlanRepository {
     public List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit) {
         var activities = (search.activities().isEmpty() ? Arrays.stream(Activity.values())
                 : search.activities().stream()).map(Enum::name).toList();
-        // Sin quien busca, no se excluye a ningún organizador (ningún usuario tiene el UUID nulo)
+        // Without a requester no organizer is excluded (no user has the nil UUID)
         var requester = search.requesterId() == null ? NOBODY : search.requesterId();
         return jpa.findOpenNearby(search.latitude(), search.longitude(), search.radiusMeters(), activities, requester,
                         now, search.until(now), limit).stream()

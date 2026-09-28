@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Adaptador de salida: implementa el puerto del dominio con Spring Data JPA y PostgreSQL.
+ * Output adapter: implements the domain port with Spring Data JPA and PostgreSQL.
  */
 @Repository
 public class JpaProfileRepository implements ProfileRepository {

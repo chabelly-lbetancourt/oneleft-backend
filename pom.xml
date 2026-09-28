@@ -15,7 +15,7 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>OneLeft · Backend</name>
-    <description>Microservicios de OneLeft. TFM del Máster en Ingeniería Web (UPM)</description>
+    <description>OneLeft microservices. Master's thesis, Master in Web Engineering (UPM)</description>
 
     <modules>
         <module>gateway</module>
@@ -31,7 +31,7 @@
         <loki4j.version>2.1.0</loki4j.version>
         <springdoc.version>3.1.1</springdoc.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
-        <!-- Umbral mínimo de cobertura de líneas (definición de terminado) -->
+        <!-- Minimum line coverage (definition of done) -->
         <coverage.minimum>0.80</coverage.minimum>
 
         <!-- SonarQube Cloud -->
@@ -91,7 +91,7 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
                 <configuration>
-                    <!-- Las clases *Application solo arrancan Spring: no aportan lógica que probar -->
+                    <!-- *Application classes only start Spring: there is no logic to test -->
                     <excludes>
                         <exclude>**/*Application.class</exclude>
                     </excludes>

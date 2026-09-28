@@ -34,12 +34,12 @@ class UserControllerTest {
     void meReturnsTheAuthenticatedUser() throws Exception {
         mockMvc.perform(get(ME).with(jwt().jwt(token -> token
                         .subject(SUBJECT)
-                        .claim("name", "Admin Pruebas")
+                        .claim("name", "Admin Test")
                         .claim("email", "admin@oneleft.dev")
                         .claim("realm_access", Map.of("roles", List.of("user", "admin", "offline_access"))))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(SUBJECT))
-                .andExpect(jsonPath("$.name").value("Admin Pruebas"))
+                .andExpect(jsonPath("$.name").value("Admin Test"))
                 .andExpect(jsonPath("$.email").value("admin@oneleft.dev"))
                 .andExpect(jsonPath("$.roles", contains("ADMIN", "USER")));
     }

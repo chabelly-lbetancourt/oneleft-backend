@@ -21,7 +21,7 @@ import static es.upm.miw.oneleft.plans.PlanFixtures.padelPlan;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integración con RabbitMQ real: el evento llega en JSON a quien se suscribe a plan.published.
+ * Integration with a real RabbitMQ: the event reaches, as JSON, whoever subscribes to plan.published.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)

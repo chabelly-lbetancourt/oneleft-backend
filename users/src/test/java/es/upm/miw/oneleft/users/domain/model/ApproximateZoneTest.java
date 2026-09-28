@@ -25,8 +25,8 @@ class ApproximateZoneTest {
 
     @Test
     void coordinatesMustBeInRange() {
-        assertThatThrownBy(() -> new ApproximateZone("Polo", 91, 0)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ApproximateZone("Polo", -91, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ApproximateZone("Pole", 91, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ApproximateZone("Pole", -91, 0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ApproximateZone("Fecha", 0, 181)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ApproximateZone("Fecha", 0, -181)).isInstanceOf(IllegalArgumentException.class);
     }

@@ -24,9 +24,9 @@ public final class PlanDtos {
     private PlanDtos() {
     }
 
-    @Schema(description = "Lugar de encuentro")
+    @Schema(description = "Meeting point")
     public record MeetingPointDto(
-            @NotBlank @Size(max = MeetingPoint.MAX_NAME_LENGTH) @Schema(example = "Pistas del polideportivo") String name,
+            @NotBlank @Size(max = MeetingPoint.MAX_NAME_LENGTH) @Schema(example = "Sports centre courts") String name,
             @NotNull @DecimalMin("-90") @DecimalMax("90") @Schema(example = "40.3912") Double latitude,
             @NotNull @DecimalMin("-180") @DecimalMax("180") @Schema(example = "-3.6287") Double longitude) {
 
@@ -39,20 +39,20 @@ public final class PlanDtos {
         }
     }
 
-    @Schema(description = "Plan que se quiere publicar")
+    @Schema(description = "Plan to publish")
     public record PublishPlanRequest(
             @NotNull @Schema(example = "PADEL") Activity activity,
             @NotBlank @Size(min = Plan.MIN_TITLE_LENGTH, max = Plan.MAX_TITLE_LENGTH)
-            @Schema(example = "Partido de pádel, falta uno") String title,
-            @Size(max = Plan.MAX_DESCRIPTION_LENGTH) @Schema(example = "Nivel medio, pista cubierta") String description,
+            @Schema(example = "Padel match, one player missing") String title,
+            @Size(max = Plan.MAX_DESCRIPTION_LENGTH) @Schema(example = "Intermediate level, indoor court") String description,
             @NotNull @Valid MeetingPointDto meetingPoint,
-            @NotNull @Schema(description = "Hora de inicio: entre 5 minutos y 12 horas desde ahora",
+            @NotNull @Schema(description = "Start time: between 5 minutes and 12 hours from now",
                     example = "2026-09-28T17:00:00Z") Instant startsAt,
-            @Min(1) @Max(Plan.MAX_SPOTS) @Schema(description = "Plazas libres a cubrir", example = "1") int spots,
-            @Schema(example = "INTERMEDIO") Level level) {
+            @Min(1) @Max(Plan.MAX_SPOTS) @Schema(description = "Free spots to fill", example = "1") int spots,
+            @Schema(example = "INTERMEDIATE") Level level) {
     }
 
-    @Schema(description = "Plan publicado")
+    @Schema(description = "Published plan")
     public record PlanResponse(UUID id, UUID organizerId, @Schema(example = "Ana") String organizerName,
                                Activity activity, String title, String description, MeetingPointDto meetingPoint,
                                Instant startsAt, int spots, int occupied, int freeSpots, Level level,
@@ -65,7 +65,7 @@ public final class PlanDtos {
         }
     }
 
-    @Schema(description = "Plan cercano con la distancia desde la posición de búsqueda")
+    @Schema(description = "Nearby plan with the distance from the search position")
     public record NearbyPlanResponse(PlanResponse plan, @Schema(example = "850") long distanceMeters) {
 
         static NearbyPlanResponse of(NearbyPlan nearby) {

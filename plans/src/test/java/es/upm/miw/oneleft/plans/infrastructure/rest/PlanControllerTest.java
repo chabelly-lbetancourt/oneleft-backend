@@ -32,14 +32,14 @@ class PlanControllerTest {
     private MockMvc mockMvc;
 
     private static RequestPostProcessor user(String subject) {
-        return jwt().jwt(token -> token.subject(subject).claim("name", "Ana Pruebas"));
+        return jwt().jwt(token -> token.subject(subject).claim("name", "Ana Test"));
     }
 
     private static String planJson(Instant startsAt, int spots) {
         return """
-                {"activity": "PADEL", "title": "Partido de pádel, falta uno", "description": "Nivel medio",
-                 "meetingPoint": {"name": "Pistas del polideportivo", "latitude": 40.3912, "longitude": -3.6287},
-                 "startsAt": "%s", "spots": %d, "level": "INTERMEDIO"}""".formatted(startsAt, spots);
+                {"activity": "PADEL", "title": "Padel match, one player missing", "description": "Intermediate level",
+                 "meetingPoint": {"name": "Sports centre courts", "latitude": 40.3912, "longitude": -3.6287},
+                 "startsAt": "%s", "spots": %d, "level": "INTERMEDIATE"}""".formatted(startsAt, spots);
     }
 
     @Test
@@ -52,15 +52,15 @@ class PlanControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", startsWith("http://localhost/api/v1/plans/")))
                 .andExpect(jsonPath("$.organizerId").value(subject))
-                .andExpect(jsonPath("$.organizerName").value("Ana Pruebas"))
-                .andExpect(jsonPath("$.status").value("ABIERTO"))
+                .andExpect(jsonPath("$.organizerName").value("Ana Test"))
+                .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.freeSpots").value(1))
                 .andExpect(jsonPath("$.meetingPoint.latitude").value(40.3912));
 
         mockMvc.perform(get(PlanController.PLANS + PlanController.MINE).with(user(subject)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].title").value("Partido de pádel, falta uno"));
+                .andExpect(jsonPath("$[0].title").value("Padel match, one player missing"));
     }
 
     @Test
@@ -95,7 +95,8 @@ class PlanControllerTest {
         mockMvc.perform(post(PlanController.PLANS).with(user(subject)).contentType(MediaType.APPLICATION_JSON)
                         .content(planJson(Instant.now().plus(Duration.ofDays(2)), 1)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("El plan debe empezar dentro de las próximas 12 horas"));
+                .andExpect(jsonPath("$.detail").value("The plan must start within the next 12 hours"))
+                .andExpect(jsonPath("$.code").value("plan.startsTooLate"));
         mockMvc.perform(post(PlanController.PLANS).with(user(subject)).contentType(MediaType.APPLICATION_JSON)
                         .content(planJson(Instant.now().plus(Duration.ofHours(1)), 0)))
                 .andExpect(status().isBadRequest());

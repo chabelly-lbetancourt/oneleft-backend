@@ -18,16 +18,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Clientes que están mirando planes cercanos, cada uno con su búsqueda. Cuando se publica un plan, se avisa por
- * Server-Sent Events solo a quienes les encaja.
+ * Clients watching nearby plans, each one with its search. When a plan is published, only the clients it matches are
+ * notified through Server-Sent Events.
  *
- * <p>Las suscripciones viven en la memoria de cada réplica. Con varias réplicas funciona porque cada una recibe
- * todos los eventos de RabbitMQ en su propia cola (ver {@code PlanPublishedListener}).
+ * <p>Subscriptions live in the memory of each replica. It works with several replicas because each one receives
+ * every RabbitMQ event in its own queue (see {@code PlanPublishedListener}).
  */
 @Component
 public class NearbyPlanSubscriptions {
 
-    /** El cliente vuelve a conectarse al caducar; así se liberan conexiones olvidadas. */
+    /** The client reconnects when it expires; this frees forgotten connections. */
     static final Duration TIMEOUT = Duration.ofMinutes(30);
     static final String READY = "ready";
     static final String PLAN_PUBLISHED = "plan-published";
@@ -40,7 +40,7 @@ public class NearbyPlanSubscriptions {
     public NearbyPlanSubscriptions(Clock clock, MeterRegistry meterRegistry) {
         this.clock = clock;
         Gauge.builder("oneleft.plans.nearby.subscriptions", subscriptions, Map::size)
-                .description("Clientes conectados a la lista de planes cercanos en tiempo real")
+                .description("Clients connected to the real-time list of nearby plans")
                 .register(meterRegistry);
     }
 
@@ -50,7 +50,7 @@ public class NearbyPlanSubscriptions {
         emitter.onTimeout(emitter::complete);
         emitter.onError(error -> subscriptions.remove(emitter));
         subscriptions.put(emitter, search);
-        // Primer evento: confirma la suscripción y hace que las cabeceras lleguen ya al cliente
+        // First event: confirms the subscription and makes the headers reach the client right away
         send(emitter, SseEmitter.event().name(READY).data("ok"));
         return emitter;
     }
@@ -65,7 +65,7 @@ public class NearbyPlanSubscriptions {
         });
     }
 
-    /** Latido para que proxies y balanceadores no corten las conexiones sin tráfico. */
+    /** Heartbeat so that proxies and load balancers do not cut idle connections. */
     @Scheduled(fixedRateString = "${oneleft.realtime.heartbeat:PT20S}")
     public void heartbeat() {
         subscriptions.keySet().forEach(emitter -> send(emitter, SseEmitter.event().comment("ping")));
@@ -79,8 +79,8 @@ public class NearbyPlanSubscriptions {
         try {
             emitter.send(event);
         } catch (IOException | IllegalStateException exception) {
-            // El cliente se ha ido: se olvida la suscripción
-            log.debug("Suscripción cerrada: {}", exception.getMessage());
+            // The client is gone: forget the subscription
+            log.debug("Subscription closed: {}", exception.getMessage());
             subscriptions.remove(emitter);
         }
     }
