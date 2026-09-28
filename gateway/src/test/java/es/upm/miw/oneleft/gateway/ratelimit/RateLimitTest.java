@@ -64,6 +64,9 @@ class RateLimitTest {
         try {
             var server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
             server.createContext("/", exchange -> {
+                // Read the request and close the connection, so the proxy never reuses one the stub is closing
+                exchange.getRequestBody().readAllBytes();
+                exchange.getResponseHeaders().add("Connection", "close");
                 exchange.sendResponseHeaders(200, -1);
                 exchange.close();
             });
