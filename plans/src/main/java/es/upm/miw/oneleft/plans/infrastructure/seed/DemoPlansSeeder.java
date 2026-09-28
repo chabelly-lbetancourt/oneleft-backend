@@ -61,9 +61,10 @@ public class DemoPlansSeeder implements ApplicationRunner {
             new DemoPlan(DIEGO, Activity.CYCLING, "Ruta en bici por el Anillo Verde", "Unos 25 km, sin prisa",
                     new MeetingPoint("Entrada del Parque de la Gavia", 40.3730, -3.6100), Duration.ofHours(5), 3,
                     Level.INTERMEDIATE),
-            new DemoPlan(LUCIA, Activity.CINEMA, "Sesión doble de las 22:00", null,
+            new DemoPlan(LUCIA, Activity.CINEMA, "Sesión doble de cine", null,
                     new MeetingPoint("Cines del centro", 40.4169, -3.7035), Duration.ofHours(8), 2, null),
-            new DemoPlan(MARTA, Activity.CONCERTS, "Me sobra una entrada para esta noche", "Concierto de indie",
+            new DemoPlan(MARTA, Activity.CONCERTS, "Me sobra una entrada para un concierto",
+                    "Concierto de indie en sala pequeña",
                     new MeetingPoint("Sala de conciertos de Malasaña", 40.4260, -3.7030), Duration.ofHours(10), 1,
                     null));
 
