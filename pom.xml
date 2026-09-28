@@ -29,6 +29,7 @@
         <archunit.version>1.4.1</archunit.version>
         <jacoco.version>0.8.15</jacoco.version>
         <loki4j.version>2.1.0</loki4j.version>
+        <springdoc.version>3.1.1</springdoc.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
         <!-- Umbral mínimo de cobertura de líneas (definición de terminado) -->
         <coverage.minimum>0.80</coverage.minimum>
@@ -50,6 +51,16 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.github.loki4j</groupId>
