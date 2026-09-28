@@ -1,6 +1,12 @@
 spring:
   application:
     name: users
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Emisor de los tokens (realm de Keycloak). Las claves públicas se descargan de su JWKS.
+          issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}
 
 server:
   port: ${PORT:8081}
