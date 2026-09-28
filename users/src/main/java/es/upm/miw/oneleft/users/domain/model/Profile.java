@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Perfil público de un usuario: nombre visible, zona aproximada y aficiones con su nivel.
+ * Public profile of a user: display name, approximate zone and hobbies with their level.
  */
 public record Profile(UUID userId, String displayName, ApproximateZone zone, List<Hobby> hobbies) {
 
@@ -14,23 +14,23 @@ public record Profile(UUID userId, String displayName, ApproximateZone zone, Lis
 
     public Profile {
         if (userId == null) {
-            throw new IllegalArgumentException("El perfil debe pertenecer a un usuario");
+            throw new ValidationException("profile.userRequired", "The profile must belong to a user");
         }
         if (displayName == null || displayName.isBlank() || displayName.strip().length() > MAX_DISPLAY_NAME_LENGTH) {
-            throw new IllegalArgumentException(
-                    "El nombre visible es obligatorio y admite hasta " + MAX_DISPLAY_NAME_LENGTH + " caracteres");
+            throw new ValidationException("profile.displayName",
+                    "The display name is required and allows up to " + MAX_DISPLAY_NAME_LENGTH + " characters");
         }
         displayName = displayName.strip();
         hobbies = hobbies == null ? List.of() : List.copyOf(hobbies);
         if (hobbies.size() > MAX_HOBBIES) {
-            throw new IllegalArgumentException("Se admiten como máximo " + MAX_HOBBIES + " aficiones");
+            throw new ValidationException("profile.tooManyHobbies", "At most " + MAX_HOBBIES + " hobbies are allowed");
         }
         if (hobbies.stream().map(Hobby::activity).distinct().count() != hobbies.size()) {
-            throw new IllegalArgumentException("Cada actividad solo puede aparecer una vez");
+            throw new ValidationException("profile.duplicateActivity", "Each activity can only appear once");
         }
     }
 
-    /** Perfil inicial de un usuario recién llegado: su nombre de Keycloak, sin zona ni aficiones. */
+    /** Initial profile of a newcomer: their Keycloak name, with no zone or hobbies. */
     public static Profile initial(User user) {
         return new Profile(user.id(), user.name(), null, List.of());
     }

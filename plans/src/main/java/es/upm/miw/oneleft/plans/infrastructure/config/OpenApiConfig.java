@@ -14,8 +14,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Documentación OpenAPI del servicio. El servidor es el API Gateway, de modo que las pruebas desde
- * Swagger UI siguen el mismo camino que la app, y la seguridad es Keycloak (Authorization Code + PKCE).
+ * OpenAPI description of the service. The server is the API Gateway, so requests tried from Swagger UI follow the
+ * same path as the app, and security is Keycloak (Authorization Code + PKCE).
  */
 @Configuration
 public class OpenApiConfig {
@@ -28,14 +28,14 @@ public class OpenApiConfig {
         var flow = new OAuthFlow()
                 .authorizationUrl(issuer + "/protocol/openid-connect/auth")
                 .tokenUrl(issuer + "/protocol/openid-connect/token")
-                .scopes(new Scopes().addString("openid", "Identidad").addString("profile", "Nombre")
+                .scopes(new Scopes().addString("openid", "Identity").addString("profile", "Name")
                         .addString("email", "Email"));
         return new OpenAPI()
-                .info(new Info().title("OneLeft · plans").version("v1").description("Publicación de planes, plazas libres y caducidad."))
+                .info(new Info().title("OneLeft · plans").version("v1").description("Plan publishing, free spots, nearby search and expiry."))
                 .addServersItem(new Server().url(gatewayUrl).description("API Gateway"))
                 .components(new Components().addSecuritySchemes(KEYCLOAK, new SecurityScheme()
                         .type(SecurityScheme.Type.OAUTH2)
-                        .description("Inicio de sesión con Keycloak")
+                        .description("Sign in with Keycloak")
                         .flows(new OAuthFlows().authorizationCode(flow))))
                 .addSecurityItem(new SecurityRequirement().addList(KEYCLOAK));
     }

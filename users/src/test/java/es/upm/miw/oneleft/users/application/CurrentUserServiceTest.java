@@ -16,13 +16,13 @@ class CurrentUserServiceTest {
 
     @Test
     void mapsIdentityToUserKeepingOnlyKnownRoles() {
-        var identity = new Identity(subject, "Admin Pruebas", "admin@oneleft.dev",
+        var identity = new Identity(subject, "Admin Test", "admin@oneleft.dev",
                 Set.of("admin", "user", "offline_access", "uma_authorization"));
 
         var user = service.currentUser(identity);
 
         assertThat(user.id()).isEqualTo(UUID.fromString(subject));
-        assertThat(user.name()).isEqualTo("Admin Pruebas");
+        assertThat(user.name()).isEqualTo("Admin Test");
         assertThat(user.email()).isEqualTo("admin@oneleft.dev");
         assertThat(user.roles()).containsExactlyInAnyOrder(Role.ADMIN, Role.USER);
     }

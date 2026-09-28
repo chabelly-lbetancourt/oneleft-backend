@@ -17,7 +17,7 @@ public interface PlanRepository {
     List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from);
 
     /**
-     * Planes abiertos, con plazas libres y que empiezan en la ventana de la búsqueda, ordenados por distancia.
+     * Open plans with free spots that start within the search window, sorted by distance.
      */
     List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit);
 }

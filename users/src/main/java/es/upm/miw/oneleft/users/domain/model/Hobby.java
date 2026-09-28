@@ -4,7 +4,7 @@ public record Hobby(Activity activity, Level level) {
 
     public Hobby {
         if (activity == null || level == null) {
-            throw new IllegalArgumentException("Una afición necesita actividad y nivel");
+            throw new ValidationException("hobby.incomplete", "A hobby needs an activity and a level");
         }
     }
 }

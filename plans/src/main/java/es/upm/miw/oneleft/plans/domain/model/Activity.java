@@ -1,9 +1,9 @@
 package es.upm.miw.oneleft.plans.domain.model;
 
 /**
- * Actividades de los planes. Mismo catálogo que el servicio users; cada servicio tiene su propia copia para
- * no compartir código entre contextos (los códigos son el contrato).
+ * Plan activities. Same catalog as the users service; each service keeps its own copy so that no code is shared
+ * between bounded contexts (the codes are the contract).
  */
 public enum Activity {
-    PADEL, FUTBOL, BALONCESTO, TENIS, RUNNING, CICLISMO, SENDERISMO, JUEGOS_DE_MESA, CINE, CONCIERTOS
+    PADEL, FOOTBALL, BASKETBALL, TENNIS, RUNNING, CYCLING, HIKING, BOARD_GAMES, CINEMA, CONCERTS
 }

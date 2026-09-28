@@ -16,8 +16,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Adaptador entre los tokens JWT de Keycloak y el modelo de OneLeft.
- * Keycloak publica los roles del realm en el claim {@code realm_access.roles}.
+ * Adapter between Keycloak JWTs and the OneLeft model.
+ * Keycloak publishes the realm roles in the {@code realm_access.roles} claim.
  */
 public final class KeycloakJwt {
 
@@ -38,7 +38,7 @@ public final class KeycloakJwt {
     }
 
     /**
-     * Convierte los roles del realm en autoridades de Spring Security ({@code ROLE_ADMIN}, {@code ROLE_USER}...).
+     * Turns the realm roles into Spring Security authorities ({@code ROLE_ADMIN}, {@code ROLE_USER}...).
      */
     public static Converter<Jwt, AbstractAuthenticationToken> authenticationConverter() {
         return jwt -> {

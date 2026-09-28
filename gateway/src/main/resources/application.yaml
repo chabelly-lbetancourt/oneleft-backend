@@ -5,18 +5,18 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Emisor de los tokens (realm de Keycloak). Las claves públicas se descargan de su JWKS.
+          # Token issuer (Keycloak realm). The public keys are downloaded from its JWKS.
           issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}
-          # Dentro de Docker las claves se descargan por la red interna (keycloak:8180),
-          # pero el emisor de los tokens sigue siendo la URL pública (localhost:8180)
+          # Inside Docker the keys are downloaded through the internal network (keycloak:8180),
+          # but the token issuer is still the public URL (localhost:8180)
           jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
   cloud:
     gateway:
       server:
         webmvc:
-          # Sin esta propiedad el gateway no añade las cabeceras X-Forwarded-* a las peticiones que reenvía,
-          # y los servicios generarían URL con su host interno (por ejemplo, http://plans:8082).
-          # Solo se confía en X-Forwarded-* recibidas desde redes privadas (Docker, VPC de AWS).
+          # Without this property the gateway does not add X-Forwarded-* headers to the requests it forwards,
+          # and the services would build URLs with their internal host (for example, http://plans:8082).
+          # X-Forwarded-* is only trusted when it comes from private networks (Docker, AWS VPC).
           trusted-proxies: ${TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1|10\..*|172\.(1[6-9]|2[0-9]|3[01])\..*|192\.168\..*}
           routes:
             - id: users
@@ -27,7 +27,7 @@ spring:
               uri: ${PLANS_URL:http://localhost:8082}
               predicates:
                 - Path=/api/v1/plans/**
-            # Documentación OpenAPI de cada servicio, que agrupa Swagger UI
+            # OpenAPI description of each service, aggregated by Swagger UI
             - id: users-docs
               uri: ${USERS_URL:http://localhost:8081}
               predicates:
@@ -44,7 +44,7 @@ spring:
 server:
   port: ${PORT:8080}
 
-# Swagger UI con la API de todos los microservicios: http://localhost:8080/swagger-ui.html
+# Swagger UI with the API of every microservice: http://localhost:8080/swagger-ui.html
 springdoc:
   api-docs:
     enabled: true
@@ -67,7 +67,7 @@ management:
     tags:
       application: ${spring.application.name}
     distribution:
-      # Histogramas para calcular percentiles de latencia (p95, p99) en Prometheus
+      # Histograms to compute latency percentiles (p95, p99) in Prometheus
       percentiles-histogram:
         http.server.requests: true
   endpoints:
@@ -81,5 +81,5 @@ management:
 
 oneleft:
   cors:
-    # App web en desarrollo y app Android con Capacitor (https://localhost y capacitor://localhost)
+    # Web app in development and Android app with Capacitor (https://localhost and capacitor://localhost)
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,https://localhost,capacitor://localhost}

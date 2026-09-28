@@ -43,11 +43,11 @@ class KeycloakJwtTest {
 
     @Test
     void buildsIdentityFromClaims() {
-        var token = jwt(Map.of("name", "Ana Pruebas", "email", "ana@oneleft.dev",
+        var token = jwt(Map.of("name", "Ana Test", "email", "ana@oneleft.dev",
                 "realm_access", Map.of("roles", List.of("user"))));
         var identity = KeycloakJwt.toIdentity(token);
         assertThat(identity.subject()).isEqualTo(token.getSubject());
-        assertThat(identity.name()).isEqualTo("Ana Pruebas");
+        assertThat(identity.name()).isEqualTo("Ana Test");
         assertThat(identity.email()).isEqualTo("ana@oneleft.dev");
         assertThat(identity.roles()).containsExactly("user");
     }

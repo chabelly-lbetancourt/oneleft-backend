@@ -24,7 +24,7 @@ import java.util.UUID;
 
 import static es.upm.miw.oneleft.plans.PlanFixtures.CLOCK;
 import static es.upm.miw.oneleft.plans.PlanFixtures.NOW;
-import static es.upm.miw.oneleft.plans.PlanFixtures.PISTAS;
+import static es.upm.miw.oneleft.plans.PlanFixtures.COURTS;
 import static es.upm.miw.oneleft.plans.PlanFixtures.ana;
 import static es.upm.miw.oneleft.plans.PlanFixtures.padelPlan;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +53,7 @@ class PlanServiceTest {
                     .sorted(Comparator.comparing(Plan::startsAt)).toList();
         }
 
-        /** Filtra como PostGIS pero en memoria; la consulta real se prueba en JpaPlanRepositoryTest. */
+        /** Filters like PostGIS but in memory; the real query is tested in JpaPlanRepositoryTest. */
         @Override
         public List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit) {
             return data.values().stream()
@@ -73,8 +73,8 @@ class PlanServiceTest {
 
     @Test
     void publishingStoresThePlanAndEmitsTheEvent() {
-        var command = new PublishPlanCommand(ana(), Activity.PADEL, "Partido de pádel", null, PISTAS,
-                NOW.plus(Duration.ofHours(1)), 1, Level.INTERMEDIO);
+        var command = new PublishPlanCommand(ana(), Activity.PADEL, "Padel match", null, COURTS,
+                NOW.plus(Duration.ofHours(1)), 1, Level.INTERMEDIATE);
 
         var plan = service.publish(command);
 
@@ -87,7 +87,7 @@ class PlanServiceTest {
 
     @Test
     void invalidPlansAreNeitherStoredNorAnnounced() {
-        var command = new PublishPlanCommand(ana(), Activity.PADEL, "Partido de pádel", null, PISTAS,
+        var command = new PublishPlanCommand(ana(), Activity.PADEL, "Padel match", null, COURTS,
                 NOW.plus(Duration.ofDays(1)), 1, null);
         assertThatThrownBy(() -> service.publish(command)).isInstanceOf(IllegalArgumentException.class);
         assertThat(repository.data).isEmpty();
@@ -114,10 +114,10 @@ class PlanServiceTest {
     @Test
     void nearbyPlansComeWithTheirDistance() {
         var near = repository.save(padelPlan(ana(), Duration.ofHours(1), CLOCK));
-        var farPoint = new MeetingPoint("Parque", PISTAS.latitude() + 0.01, PISTAS.longitude());
-        var far = repository.save(Plan.publish(ana(), Activity.RUNNING, "Rodaje suave", null, farPoint,
+        var farPoint = new MeetingPoint("Park", COURTS.latitude() + 0.01, COURTS.longitude());
+        var far = repository.save(Plan.publish(ana(), Activity.RUNNING, "Easy run", null, farPoint,
                 NOW.plus(Duration.ofHours(1)), 2, null, CLOCK));
-        var search = new NearbySearch(PISTAS.latitude(), PISTAS.longitude(), 5_000, null, null, UUID.randomUUID());
+        var search = new NearbySearch(COURTS.latitude(), COURTS.longitude(), 5_000, null, null, UUID.randomUUID());
 
         var nearby = service.nearbyPlans(search);
 

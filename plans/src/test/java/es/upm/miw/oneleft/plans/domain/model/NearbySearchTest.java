@@ -22,7 +22,7 @@ class NearbySearchTest {
 
     private static PlanPublished event(Activity activity, UUID organizer, double lat, Duration startsIn, int free) {
         return new PlanPublished(UUID.randomUUID(), organizer, activity, lat, LON, NOW.plus(startsIn), free,
-                Level.INTERMEDIO, NOW);
+                Level.INTERMEDIATE, NOW);
     }
 
     @Test
@@ -30,7 +30,7 @@ class NearbySearchTest {
         var search = new NearbySearch(LAT, LON, NearbySearch.DEFAULT_RADIUS_METERS, null, null, null);
         assertThat(search.activities()).isEmpty();
         assertThat(search.startsWithin()).isEqualTo(Plan.MAX_HORIZON);
-        assertThat(search.includes(Activity.CINE)).isTrue();
+        assertThat(search.includes(Activity.CINEMA)).isTrue();
         assertThat(search.until(NOW)).isEqualTo(NOW.plus(Duration.ofHours(12)));
     }
 
@@ -41,11 +41,11 @@ class NearbySearchTest {
         assertThatThrownBy(() -> new NearbySearch(LAT, 181, 1_000, null, null, ME))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new NearbySearch(LAT, LON, 499, null, null, ME))
-                .hasMessage("El radio debe estar entre 500 m y 25 km");
+                .hasMessage("The radius must be between 500 m and 25 km");
         assertThatThrownBy(() -> new NearbySearch(LAT, LON, 25_001, null, null, ME))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new NearbySearch(LAT, LON, 1_000, null, Duration.ofMinutes(30), ME))
-                .hasMessage("Solo se pueden buscar planes que empiecen en las próximas 1 a 12 horas");
+                .hasMessage("Only plans starting in the next 1 to 12 hours can be searched");
         assertThatThrownBy(() -> new NearbySearch(LAT, LON, 1_000, null, Duration.ofHours(13), ME))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -54,9 +54,9 @@ class NearbySearchTest {
     void activitiesAreCopied() {
         var activities = new java.util.HashSet<>(Set.of(Activity.PADEL));
         var search = search(activities, null);
-        activities.add(Activity.CINE);
+        activities.add(Activity.CINEMA);
         assertThat(search.activities()).containsExactly(Activity.PADEL);
-        assertThat(search.includes(Activity.CINE)).isFalse();
+        assertThat(search.includes(Activity.CINEMA)).isFalse();
     }
 
     @Test
@@ -64,7 +64,7 @@ class NearbySearchTest {
         var search = search(Set.of(Activity.PADEL), Duration.ofHours(3));
         var other = UUID.randomUUID();
 
-        // ~1,1 km al norte
+        // ~1.1 km north
         assertThat(search.matches(event(Activity.PADEL, other, LAT + 0.01, Duration.ofHours(1), 1), NOW)).isTrue();
         assertThat(search.matches(event(Activity.PADEL, other, LAT + 0.01, Duration.ofHours(3), 1), NOW)).isTrue();
     }
@@ -74,17 +74,17 @@ class NearbySearchTest {
         var search = search(Set.of(Activity.PADEL), Duration.ofHours(3));
         var other = UUID.randomUUID();
 
-        assertThat(search.matches(event(Activity.CINE, other, LAT, Duration.ofHours(1), 1), NOW))
-                .as("otra actividad").isFalse();
+        assertThat(search.matches(event(Activity.CINEMA, other, LAT, Duration.ofHours(1), 1), NOW))
+                .as("another activity").isFalse();
         assertThat(search.matches(event(Activity.PADEL, ME, LAT, Duration.ofHours(1), 1), NOW))
-                .as("plan propio").isFalse();
+                .as("own plan").isFalse();
         assertThat(search.matches(event(Activity.PADEL, other, LAT, Duration.ofHours(1), 0), NOW))
-                .as("sin plazas").isFalse();
+                .as("no free spots").isFalse();
         assertThat(search.matches(event(Activity.PADEL, other, LAT, Duration.ofHours(4), 1), NOW))
-                .as("empieza tarde").isFalse();
+                .as("starts too late").isFalse();
         assertThat(search.matches(event(Activity.PADEL, other, LAT, Duration.ofMinutes(-1), 1), NOW))
-                .as("ya ha empezado").isFalse();
+                .as("already started").isFalse();
         assertThat(search.matches(event(Activity.PADEL, other, LAT + 0.02, Duration.ofHours(1), 1), NOW))
-                .as("a 2,2 km").isFalse();
+                .as("2.2 km away").isFalse();
     }
 }

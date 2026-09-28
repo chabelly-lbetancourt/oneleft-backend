@@ -9,15 +9,15 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Casos de uso del perfil: consultar y editar el propio, y ver el de otro participante.
+ * Profile use cases: read and edit your own, and view another participant's.
  */
 public interface ManageProfileUseCase {
 
-    /** Devuelve el perfil del usuario autenticado; si aún no existe, lo crea a partir de su identidad. */
+    /** Returns the authenticated user's profile; creates it from their identity if it does not exist yet. */
     Profile myProfile(Identity identity);
 
     Profile updateMyProfile(Identity identity, String displayName, ApproximateZone zone, List<Hobby> hobbies);
 
-    /** @throws es.upm.miw.oneleft.users.domain.model.ProfileNotFoundException si el usuario no tiene perfil */
+    /** @throws es.upm.miw.oneleft.users.domain.model.ProfileNotFoundException if the user has no profile */
     Profile profileOf(UUID userId);
 }

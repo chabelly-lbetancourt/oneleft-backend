@@ -4,7 +4,7 @@ import es.upm.miw.oneleft.users.domain.model.Identity;
 import es.upm.miw.oneleft.users.domain.model.User;
 
 /**
- * Caso de uso: obtener el usuario de OneLeft correspondiente a la identidad autenticada.
+ * Use case: get the OneLeft user matching the authenticated identity.
  */
 public interface GetCurrentUserUseCase {
 

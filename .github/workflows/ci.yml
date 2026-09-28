@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    # Las ramas issue#N y hotfix/* se validan en su pull request (evita ejecuciones duplicadas)
+    # issue#N and hotfix/* branches are validated in their pull request (avoids duplicate runs)
     branches: [main, dev]
   pull_request:
     branches: [dev, main]
@@ -16,14 +16,14 @@ permissions:
 
 jobs:
   build-test:
-    name: Build, tests y cobertura
+    name: Build, tests and coverage
     runs-on: ubuntu-24.04
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # SonarQube necesita el historial para calcular el código nuevo
+          fetch-depth: 0 # SonarQube needs the history to compute new code
 
       - uses: actions/setup-java@v6
         with:
@@ -31,24 +31,24 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Compilar, ejecutar tests y comprobar cobertura (≥ 80 %)
+      - name: Compile, run tests and check coverage (>= 80%)
         run: ./mvnw -B verify
 
-      - name: Resumen de cobertura
+      - name: Coverage summary
         if: always()
         run: |
-          echo "## Cobertura de líneas (JaCoCo)" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Módulo | Líneas cubiertas | Total | Cobertura |" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Line coverage (JaCoCo)" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Module | Covered lines | Total | Coverage |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
           for csv in */target/site/jacoco/jacoco.csv; do
             [ -f "$csv" ] || continue
             module="${csv%%/*}"
             awk -F, -v m="$module" 'NR>1 {missed+=$8; covered+=$9}
-              END {total=missed+covered; pct=(total>0)?sprintf("%.1f %%",100*covered/total):"sin código";
+              END {total=missed+covered; pct=(total>0)?sprintf("%.1f %%",100*covered/total):"no code";
                    printf "| %s | %d | %d | %s |\n", m, covered, total, pct}' "$csv" >> "$GITHUB_STEP_SUMMARY"
           done
 
-      - name: Guardar informes de cobertura
+      - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -56,16 +56,16 @@ jobs:
           path: '*/target/site/jacoco/'
           if-no-files-found: ignore
 
-      - name: Análisis en SonarQube Cloud
+      - name: SonarQube Cloud analysis
         if: env.SONAR_TOKEN != ''
         run: ./mvnw -B sonar:sonar
 
       - name: Aviso si falta SonarQube Cloud
         if: env.SONAR_TOKEN == ''
-        run: echo "::notice::SONAR_TOKEN no configurado; se omite el análisis de SonarQube Cloud."
+        run: echo "::notice::SONAR_TOKEN is not set; skipping the SonarQube Cloud analysis."
 
   docker:
-    name: Imagen Docker · ${{ matrix.service }}
+    name: Docker image · ${{ matrix.service }}
     needs: build-test
     runs-on: ubuntu-24.04
     permissions:
@@ -96,7 +96,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Etiquetas de la imagen
+      - name: Image tags
         id: meta
         uses: docker/metadata-action@v6
         with:

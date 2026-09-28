@@ -1,12 +1,12 @@
 package es.upm.miw.oneleft.plans.domain.model;
 
 /**
- * Estados del ciclo de vida de un plan (diagrama de estados del anteproyecto).
+ * Lifecycle states of a plan (state diagram of the project proposal).
  */
 public enum PlanStatus {
-    ABIERTO,
-    COMPLETO,
-    EN_CURSO,
-    FINALIZADO,
-    CANCELADO
+    OPEN,
+    FULL,
+    IN_PROGRESS,
+    FINISHED,
+    CANCELLED
 }

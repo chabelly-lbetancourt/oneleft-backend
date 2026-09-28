@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProfileServiceTest {
 
-    /** Repositorio en memoria: el servicio se prueba sin base de datos gracias al puerto de salida. */
+    /** In-memory repository: the service is tested without a database thanks to the output port. */
     static class InMemoryProfiles implements ProfileRepository {
         final Map<UUID, Profile> data = new HashMap<>();
 
@@ -41,12 +41,12 @@ class ProfileServiceTest {
     private final InMemoryProfiles repository = new InMemoryProfiles();
     private final ProfileService service = new ProfileService(new CurrentUserService(), repository);
     private final String subject = UUID.randomUUID().toString();
-    private final Identity ana = new Identity(subject, "Ana Pruebas", "ana@oneleft.dev", Set.of("user"));
+    private final Identity ana = new Identity(subject, "Ana Test", "ana@oneleft.dev", Set.of("user"));
 
     @Test
     void firstAccessCreatesTheInitialProfile() {
         var profile = service.myProfile(ana);
-        assertThat(profile.displayName()).isEqualTo("Ana Pruebas");
+        assertThat(profile.displayName()).isEqualTo("Ana Test");
         assertThat(repository.data).containsKey(UUID.fromString(subject));
     }
 
@@ -59,7 +59,7 @@ class ProfileServiceTest {
     @Test
     void updatesAreStored() {
         var zone = new ApproximateZone("Vallecas", 40.3912, -3.6287);
-        var hobbies = List.of(new Hobby(Activity.PADEL, Level.INTERMEDIO), new Hobby(Activity.CINE, Level.PRINCIPIANTE));
+        var hobbies = List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE), new Hobby(Activity.CINEMA, Level.BEGINNER));
 
         var updated = service.updateMyProfile(ana, "Ana", zone, hobbies);
 

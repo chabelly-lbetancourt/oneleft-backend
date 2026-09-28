@@ -6,8 +6,8 @@ public record Organizer(UUID id, String name) {
 
     public Organizer {
         if (id == null) {
-            throw new IllegalArgumentException("El plan necesita un organizador");
+            throw new ValidationException("plan.organizerRequired", "The plan needs an organizer");
         }
-        name = name == null || name.isBlank() ? "Organizador" : name.strip();
+        name = name == null || name.isBlank() ? "Organizer" : name.strip();
     }
 }
