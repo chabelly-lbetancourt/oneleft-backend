@@ -10,6 +10,10 @@ import java.util.UUID;
 
 public interface PlanRepository {
 
+    /**
+     * @throws es.upm.miw.oneleft.plans.domain.model.ConcurrentPlanUpdateException if the stored plan changed since
+     *     it was read (its version is different)
+     */
     Plan save(Plan plan);
 
     Optional<Plan> findById(UUID planId);

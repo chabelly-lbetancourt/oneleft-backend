@@ -3,6 +3,8 @@ package es.upm.miw.oneleft.plans.domain.model;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -31,11 +33,22 @@ public class Plan {
     private final Level level;
     private final PlanStatus status;
     private final Instant publishedAt;
+    private final List<Participant> participants;
+    /** Concurrency token of the persisted aggregate (optimistic locking). */
+    private final long version;
+
+    @SuppressWarnings("java:S107")
+    public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
+                MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt) {
+        this(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level, status,
+                publishedAt, List.of(), 0);
+    }
 
     @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
     public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
                 MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
-                PlanStatus status, Instant publishedAt) {
+                PlanStatus status, Instant publishedAt, List<Participant> participants, long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
                 || status == null || publishedAt == null) {
             throw new ValidationException("plan.missingData", "Required plan data is missing");
@@ -66,6 +79,8 @@ public class Plan {
         this.level = level;
         this.status = status;
         this.publishedAt = publishedAt;
+        this.participants = participants == null ? List.of() : List.copyOf(participants);
+        this.version = version;
     }
 
     /**
@@ -86,6 +101,53 @@ public class Plan {
         }
         return new Plan(UUID.randomUUID(), organizer, activity, title, description, meetingPoint, startsAt, spots,
                 0, level, PlanStatus.OPEN, now);
+    }
+
+    /**
+     * Takes a free spot (HU-005). The plan must be open and not started, and the person can be neither the organizer
+     * nor someone already in it. Taking the last spot closes the plan ({@link PlanStatus#FULL}).
+     */
+    public Plan join(UUID userId, String name, Clock clock) {
+        var now = clock.instant();
+        if (organizer.id().equals(userId)) {
+            throw new JoinRejectedException("plan.ownPlan", "The organizer cannot join their own plan");
+        }
+        if (participants.stream().anyMatch(participant -> participant.userId().equals(userId))) {
+            throw new JoinRejectedException("plan.alreadyJoined", "You have already joined this plan");
+        }
+        if (!startsAt.isAfter(now)) {
+            throw new JoinRejectedException("plan.started", "The plan has already started");
+        }
+        if (status == PlanStatus.FULL || freeSpots() == 0) {
+            throw new JoinRejectedException("plan.full", "The plan has no free spots left");
+        }
+        if (status != PlanStatus.OPEN) {
+            throw new JoinRejectedException("plan.notOpen", "The plan is no longer open");
+        }
+        var joined = new ArrayList<>(participants);
+        joined.add(new Participant(userId, name, now));
+        var newOccupied = occupied + 1;
+        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied, level,
+                newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, joined, version);
+    }
+
+    /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */
+    public PlanJoined joinedEvent() {
+        var last = participants.getLast();
+        return new PlanJoined(id, organizer.id(), title, last.userId(), last.name(), freeSpots(),
+                status == PlanStatus.FULL, last.joinedAt());
+    }
+
+    public boolean isParticipant(UUID userId) {
+        return participants.stream().anyMatch(participant -> participant.userId().equals(userId));
+    }
+
+    public List<Participant> participants() {
+        return participants;
+    }
+
+    public long version() {
+        return version;
     }
 
     public int freeSpots() {

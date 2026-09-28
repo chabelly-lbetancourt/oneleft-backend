@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
+import es.upm.miw.oneleft.plans.domain.model.Participant;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -17,6 +18,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public final class PlanDtos {
@@ -52,16 +54,25 @@ public final class PlanDtos {
             @Schema(example = "INTERMEDIATE") Level level) {
     }
 
+    @Schema(description = "Person who has taken a spot")
+    public record ParticipantDto(UUID userId, @Schema(example = "Lucía") String name, Instant joinedAt) {
+
+        static ParticipantDto of(Participant participant) {
+            return new ParticipantDto(participant.userId(), participant.name(), participant.joinedAt());
+        }
+    }
+
     @Schema(description = "Published plan")
     public record PlanResponse(UUID id, UUID organizerId, @Schema(example = "Ana") String organizerName,
                                Activity activity, String title, String description, MeetingPointDto meetingPoint,
                                Instant startsAt, int spots, int occupied, int freeSpots, Level level,
-                               PlanStatus status, Instant publishedAt) {
+                               PlanStatus status, Instant publishedAt, List<ParticipantDto> participants) {
 
         static PlanResponse of(Plan plan) {
             return new PlanResponse(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                     plan.title(), plan.description(), MeetingPointDto.of(plan.meetingPoint()), plan.startsAt(),
-                    plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt());
+                    plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt(),
+                    plan.participants().stream().map(ParticipantDto::of).toList());
         }
     }
 

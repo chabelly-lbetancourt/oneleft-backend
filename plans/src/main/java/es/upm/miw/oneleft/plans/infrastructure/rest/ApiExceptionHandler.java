@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
+import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.ValidationException;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(PlanNotFoundException.class)
     ProblemDetail notFound(PlanNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage(), PlanNotFoundException.CODE);
+    }
+
+    /** The request is valid but conflicts with the current state of the plan (full, started...). */
+    @ExceptionHandler(JoinRejectedException.class)
+    ProblemDetail conflict(JoinRejectedException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage(), exception.code());
     }
 
     @ExceptionHandler(ValidationException.class)
