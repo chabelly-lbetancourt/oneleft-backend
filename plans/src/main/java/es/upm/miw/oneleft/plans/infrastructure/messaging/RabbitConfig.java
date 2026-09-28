@@ -12,6 +12,7 @@ public class RabbitConfig {
     /** Topic exchange: each consumer subscribes to the events it is interested in. */
     public static final String PLANS_EXCHANGE = "oneleft.plans";
     public static final String PLAN_PUBLISHED = "plan.published";
+    public static final String PLAN_JOINED = "plan.joined";
 
     @Bean
     TopicExchange plansExchange() {
