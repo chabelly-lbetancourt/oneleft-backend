@@ -29,6 +29,7 @@
         <archunit.version>1.4.1</archunit.version>
         <jacoco.version>0.8.15</jacoco.version>
         <loki4j.version>2.1.0</loki4j.version>
+        <bucket4j.version>8.20.0</bucket4j.version>
         <springdoc.version>3.1.1</springdoc.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
         <!-- Minimum line coverage (definition of done) -->
