@@ -10,8 +10,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 
 - `gateway`: punto de entrada único (Spring Cloud Gateway).
 - `users`: usuarios, perfiles y reputación.
-- `plans`: publicación de planes, plazas y caducidad.
-- `geo`: búsqueda geoespacial de planes y personas cercanas.
+- `plans`: publicación de planes, plazas, caducidad y búsqueda de planes cercanos (PostGIS) en tiempo real (SSE).
 - `notifications`: avisos push y en tiempo real.
 - `ai`: creación de planes en lenguaje natural, moderación y ranking de notificaciones.
 
@@ -24,10 +23,28 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 | Módulo | Puerto | Estado |
 |---|---|---|
 | `gateway` | 8080 | Enruta `/api/v1/users/**` a `users` y `/api/v1/plans/**` a `plans` |
-| `users` | 8081 | Esqueleto hexagonal |
-| `plans` | 8082 | Esqueleto hexagonal |
+| `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones |
+| `plans` | 8082 | HU-003 publicar un plan (evento `plan.published` en RabbitMQ) · HU-004 planes cercanos y avisos en tiempo real (SSE) |
 
-El resto de servicios (`geo`, `notifications`, `chat`, `ai`) se añaden con sus historias de usuario.
+El resto de servicios (`notifications`, `chat`, `ai`) se añaden con sus historias de usuario.
+
+## Convenciones
+
+- **Código en inglés:** comentarios, nombres, enumerados (`OPEN`, `INTERMEDIATE`, `BOARD_GAMES`…), logs y CI.
+- **Errores de la API** en formato Problem Details (RFC 9457), con una propiedad `code` estable
+  (`plan.startsTooLate`, `search.radius`…) que la web traduce al idioma de la persona usuaria.
+- **Migraciones Flyway** por servicio (`V1__plans.sql`, `V2__nearby_search.sql`…); Hibernate solo valida el esquema.
+
+## Entornos
+
+| Rama | Entorno | Imágenes en GHCR |
+|---|---|---|
+| `dev` | dev: integración, Docker Compose en local | solo se construyen |
+| `pre` | pre (*staging*): validación completa antes de producción | `ghcr.io/chabelly-lbetancourt/oneleft-<servicio>:pre` y `:sha-…` |
+| `main` | pro (producción) | `ghcr.io/chabelly-lbetancourt/oneleft-<servicio>:latest` y `:sha-…` |
+
+La promoción es siempre `issue#N → dev → pre → main` (ver [CONTRIBUTING.md](CONTRIBUTING.md)); el workflow `lint`
+rechaza cualquier otro camino.
 
 ## Arquitectura hexagonal
 
