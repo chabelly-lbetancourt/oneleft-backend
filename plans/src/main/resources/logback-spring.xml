@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <springProperty scope="context" name="appName" source="spring.application.name"/>
+    <springProperty scope="context" name="lokiUrl" source="oneleft.loki.url"
+                    defaultValue="http://localhost:3100/loki/api/v1/push"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- Locally, with the "observability" profile, logs are also pushed to Loki.
+         In Kubernetes they are collected from the containers' standard output. -->
+    <springProfile name="observability">
+        <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+            <http>
+                <url>${lokiUrl}</url>
+            </http>
+            <labels>
+                app=${appName}
+                level=%level
+                host=${HOSTNAME}
+            </labels>
+            <structuredMetadata>
+                logger=%logger
+                thread=%thread
+            </structuredMetadata>
+            <message>
+                <pattern>[%thread] %logger{36} - %msg%n%ex</pattern>
+            </message>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+</configuration>

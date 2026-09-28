@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: plans
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/plans}
+    username: ${DB_USER:oneleft}
+    password: ${DB_PASSWORD:oneleft-dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    username: ${RABBITMQ_USER:oneleft}
+    password: ${RABBITMQ_PASSWORD:oneleft-dev}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}
+          jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
+
+server:
+  # Behind the gateway: generated URLs (Location header...) use the public host from X-Forwarded-*
+  forward-headers-strategy: framework
+  port: ${PORT:8082}
+
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # Histograms to compute latency percentiles (p95, p99) in Prometheus
+      percentiles-histogram:
+        http.server.requests: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: OneLeft · plans
