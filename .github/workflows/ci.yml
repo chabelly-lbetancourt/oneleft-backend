@@ -151,7 +151,7 @@ jobs:
             failure) status=":x: CI failed" ;;
             *) status=":warning: CI cancelled" ;;
           esac
-          if [ "$RESULT" = success ] && [ -n "$PUBLISHED" ] && [ "$BRANCH" != dev ]; then
+          if [ "$RESULT" = success ] && [ -n "$PUBLISHED" ] && [ -z "$PR_NUMBER" ] && [ "$BRANCH" != dev ]; then
             status="$status · $PUBLISHED :$([ "$BRANCH" = main ] && echo latest || echo pre)"
           fi
           if [ -n "$PR_NUMBER" ]; then
