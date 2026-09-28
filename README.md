@@ -45,6 +45,13 @@ es.upm.miw.oneleft.<servicio>
 Las reglas de dependencia se comprueban en cada build con **ArchUnit** (`HexagonalArchitectureTest`): el dominio
 no depende de las otras capas ni de Spring, y la aplicación no depende de la infraestructura.
 
+## Documentación de la API (OpenAPI)
+
+- **Swagger UI:** <http://localhost:8080/swagger-ui.html>, en el gateway, con la API de todos los servicios
+  (selector *Select a definition*).
+- **Probar endpoints protegidos:** botón *Authorize* → inicio de sesión en Keycloak (Authorization Code + PKCE).
+- **Especificación OpenAPI:** `/v3/api-docs` en cada servicio, o a través del gateway en `/api-docs/users` y `/api-docs/plans`.
+
 ## Cómo ejecutarlo
 
 Requisitos: Java 21 y el entorno de [oneleft-infra/docker](https://github.com/chabelly-lbetancourt/oneleft-infra/tree/dev/docker) levantado.
