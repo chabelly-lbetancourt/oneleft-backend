@@ -120,3 +120,39 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # Result of the CI in the project Slack channel. The webhook URL is a secret (SLACK_WEBHOOK_URL), never in the
+  # repository; without it the notification is skipped.
+  notify:
+    name: Slack notification
+    needs: [build-test, docker]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      RESULT: ${{ contains(needs.*.result, 'failure') && 'failure' || (contains(needs.*.result, 'cancelled') && 'cancelled' || 'success') }}
+    steps:
+      - name: Notify the project channel
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT: ${{ github.event.head_commit.message }}
+          ACTOR: ${{ github.actor }}
+          PUBLISHED: images
+        run: |
+          case "$RESULT" in
+            success) status=":white_check_mark: CI passed" ;;
+            failure) status=":x: CI failed" ;;
+            *) status=":warning: CI cancelled" ;;
+          esac
+          if [ "$RESULT" = success ] && [ -n "$PUBLISHED" ] && [ "$BRANCH" != dev ]; then
+            status="$status · $PUBLISHED :$([ "$BRANCH" = main ] && echo latest || echo pre)"
+          fi
+          text=$(printf '%s *%s* · `%s`\n%s (%s)\n<%s|View run>' "$status" "$REPO" "$BRANCH" "${COMMIT%%$'\n'*}" "$ACTOR" "$RUN_URL")
+          jq -n --arg text "$text" '{text: $text}' | curl -fsS -X POST -H 'Content-Type: application/json' --data @- "$SLACK_WEBHOOK_URL"
+
+      - name: Notice when Slack is not configured
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "::notice::SLACK_WEBHOOK_URL is not set; skipping the Slack notification."
