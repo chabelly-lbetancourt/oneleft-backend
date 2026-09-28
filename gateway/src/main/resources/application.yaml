@@ -25,6 +25,13 @@ server:
   port: ${PORT:8080}
 
 management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # Histogramas para calcular percentiles de latencia (p95, p99) en Prometheus
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:
