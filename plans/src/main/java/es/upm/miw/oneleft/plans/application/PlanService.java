@@ -1,5 +1,7 @@
 package es.upm.miw.oneleft.plans.application;
 
+import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
+import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
@@ -47,5 +49,14 @@ public class PlanService implements PublishPlanUseCase, QueryPlansUseCase {
     @Transactional(readOnly = true)
     public List<Plan> upcomingPlansOrganizedBy(UUID organizerId) {
         return plans.findByOrganizerStartingAfter(organizerId, clock.instant());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NearbyPlan> nearbyPlans(NearbySearch search) {
+        return plans.findOpenNearby(search, clock.instant(), NearbySearch.MAX_RESULTS).stream()
+                .map(plan -> new NearbyPlan(plan, search.distanceTo(plan.meetingPoint().latitude(),
+                        plan.meetingPoint().longitude())))
+                .toList();
     }
 }

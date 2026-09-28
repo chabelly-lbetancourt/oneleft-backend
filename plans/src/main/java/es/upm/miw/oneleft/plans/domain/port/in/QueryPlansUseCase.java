@@ -1,5 +1,7 @@
 package es.upm.miw.oneleft.plans.domain.port.in;
 
+import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
+import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 
 import java.util.List;
@@ -12,4 +14,10 @@ public interface QueryPlansUseCase {
 
     /** Planes del organizador que todavía no han empezado, del más próximo al más lejano. */
     List<Plan> upcomingPlansOrganizedBy(UUID organizerId);
+
+    /**
+     * Planes abiertos con plazas libres cerca de una posición (HU-004), del más cercano al más lejano. Como mucho
+     * {@link NearbySearch#MAX_RESULTS}.
+     */
+    List<NearbyPlan> nearbyPlans(NearbySearch search);
 }
