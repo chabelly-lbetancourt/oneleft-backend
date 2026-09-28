@@ -9,9 +9,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Aviso de un plan nuevo cerca. Lleva lo justo para avisar; el cliente recarga la lista o abre el detalle.
+ * Notice of a new plan nearby. It carries just enough to notify; the client reloads the list or opens the detail.
  */
-@Schema(description = "Plan recién publicado que encaja con la búsqueda")
+@Schema(description = "Newly published plan that matches the search")
 public record NearbyPlanEvent(UUID planId, Activity activity, Instant startsAt, int freeSpots,
                               @Schema(example = "850") long distanceMeters) {
 

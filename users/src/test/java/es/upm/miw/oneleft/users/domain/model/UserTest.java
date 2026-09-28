@@ -38,7 +38,7 @@ class UserTest {
 
     @Test
     void emailMustBeValid() {
-        assertThatThrownBy(() -> new User(ID, "Ana", "sin-arroba", Set.of()))
+        assertThatThrownBy(() -> new User(ID, "Ana", "no-at-sign", Set.of()))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new User(ID, "Ana", null, Set.of()))
                 .isInstanceOf(IllegalArgumentException.class);

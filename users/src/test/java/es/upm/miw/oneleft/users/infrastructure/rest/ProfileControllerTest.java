@@ -33,10 +33,10 @@ class ProfileControllerTest {
     @Test
     void myProfileIsCreatedOnFirstAccess() throws Exception {
         var subject = UUID.randomUUID().toString();
-        mockMvc.perform(get(BASE + ProfileController.MY_PROFILE).with(user(subject, "Ana Pruebas")))
+        mockMvc.perform(get(BASE + ProfileController.MY_PROFILE).with(user(subject, "Ana Test")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(subject))
-                .andExpect(jsonPath("$.displayName").value("Ana Pruebas"))
+                .andExpect(jsonPath("$.displayName").value("Ana Test"))
                 .andExpect(jsonPath("$.hobbies", hasSize(0)));
     }
 
@@ -53,8 +53,8 @@ class ProfileControllerTest {
                         .content("""
                                 {"displayName": "Anita",
                                  "zone": {"name": "Vallecas", "latitude": 40.391234, "longitude": -3.628765},
-                                 "hobbies": [{"activity": "PADEL", "level": "INTERMEDIO"},
-                                             {"activity": "CINE", "level": "PRINCIPIANTE"}]}
+                                 "hobbies": [{"activity": "PADEL", "level": "INTERMEDIATE"},
+                                             {"activity": "CINEMA", "level": "BEGINNER"}]}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("Anita"))
@@ -79,20 +79,31 @@ class ProfileControllerTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(put(BASE + ProfileController.MY_PROFILE).with(user(UUID.randomUUID().toString(), "Ana"))
                         .contentType(MediaType.APPLICATION_JSON).content("""
-                        {"displayName": "Ana", "zone": {"name": "Polo", "latitude": 95, "longitude": 0}, "hobbies": []}"""))
+                        {"displayName": "Ana", "zone": {"name": "Pole", "latitude": 95, "longitude": 0}, "hobbies": []}"""))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(put(BASE + ProfileController.MY_PROFILE).with(user(UUID.randomUUID().toString(), "Ana"))
                         .contentType(MediaType.APPLICATION_JSON).content("""
-                        {"displayName": "Ana", "hobbies": [{"activity": "PADEL", "level": "INTERMEDIO"},
-                                                           {"activity": "PADEL", "level": "AVANZADO"}]}"""))
+                        {"displayName": "Ana", "hobbies": [{"activity": "PADEL", "level": "INTERMEDIATE"},
+                                                           {"activity": "PADEL", "level": "ADVANCED"}]}"""))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Cada actividad solo puede aparecer una vez"));
+                .andExpect(jsonPath("$.detail").value("Each activity can only appear once"))
+                .andExpect(jsonPath("$.code").value("profile.duplicateActivity"));
     }
 
     @Test
     void unknownProfileIsNotFound() throws Exception {
         mockMvc.perform(get(BASE + "/" + UUID.randomUUID() + "/profile").with(user(UUID.randomUUID().toString(), "A")))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("profile.notFound"));
+    }
+
+    @Test
+    void invalidZoneCoordinatesHaveTheirOwnCode() throws Exception {
+        // Bean Validation lets 90 through; the domain rounds and checks the range
+        mockMvc.perform(put(BASE + ProfileController.MY_PROFILE).with(user(UUID.randomUUID().toString(), "Ana"))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"displayName": "Ana", "zone": {"name": " ", "latitude": 40, "longitude": -3}, "hobbies": []}"""))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -100,8 +111,7 @@ class ProfileControllerTest {
         mockMvc.perform(get(BASE + ProfileController.ACTIVITIES).with(user(UUID.randomUUID().toString(), "A")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activities", hasSize(10)))
-                .andExpect(jsonPath("$.activities[0].code").value("PADEL"))
-                .andExpect(jsonPath("$.activities[0].name").value("Pádel"))
+                .andExpect(jsonPath("$.activities[0]").value("PADEL"))
                 .andExpect(jsonPath("$.levels", hasSize(3)));
     }
 }

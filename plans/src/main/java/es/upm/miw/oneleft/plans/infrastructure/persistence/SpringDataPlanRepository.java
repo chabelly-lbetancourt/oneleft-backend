@@ -14,12 +14,12 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
     List<PlanEntity> findByOrganizerIdAndStartsAtAfterOrderByStartsAt(UUID organizerId, Instant from);
 
     /**
-     * Búsqueda por proximidad con PostGIS. {@code ST_DWithin} sobre {@code geography} mide en metros y usa el
-     * índice {@code plan_location_geography}; el operador {@code <->} ordena del más cercano al más lejano.
+     * Proximity search with PostGIS. {@code ST_DWithin} on {@code geography} measures in metres and uses the
+     * {@code plan_location_geography} index; the {@code <->} operator sorts from the nearest to the farthest.
      */
     @NativeQuery("""
             SELECT p.* FROM plan p
-            WHERE p.status = 'ABIERTO'
+            WHERE p.status = 'OPEN'
               AND p.occupied < p.spots
               AND p.starts_at > :now AND p.starts_at <= :until
               AND p.activity IN (:activities)

@@ -6,11 +6,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Búsqueda de planes abiertos cerca de una posición (HU-004): dentro de un radio, de ciertas actividades y que
- * empiecen pronto. Quien busca no ve sus propios planes.
+ * Search for open plans near a position (HU-004): within a radius, of some activities and starting soon. The
+ * requester does not see their own plans.
  *
- * @param activities actividades que interesan; vacío significa todas
- * @param requesterId quien busca, o {@code null} si no se conoce
+ * @param activities activities of interest; empty means all of them
+ * @param requesterId who is searching, or {@code null} if unknown
  */
 public record NearbySearch(double latitude, double longitude, int radiusMeters, Set<Activity> activities,
                            Duration startsWithin, UUID requesterId) {
@@ -19,23 +19,23 @@ public record NearbySearch(double latitude, double longitude, int radiusMeters, 
     public static final int MAX_RADIUS_METERS = 25_000;
     public static final int DEFAULT_RADIUS_METERS = 5_000;
     public static final Duration MIN_STARTS_WITHIN = Duration.ofHours(1);
-    /** Resultados como máximo: suficientes para una pantalla de móvil y un mapa legible. */
+    /** Maximum number of results: enough for a phone screen and a readable map. */
     public static final int MAX_RESULTS = 50;
 
     public NearbySearch {
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            throw new IllegalArgumentException("Coordenadas de búsqueda fuera de rango");
+            throw new ValidationException("coordinates.outOfRange", "Search coordinates out of range");
         }
         if (radiusMeters < MIN_RADIUS_METERS || radiusMeters > MAX_RADIUS_METERS) {
-            throw new IllegalArgumentException("El radio debe estar entre " + MIN_RADIUS_METERS + " m y "
-                    + MAX_RADIUS_METERS / 1000 + " km");
+            throw new ValidationException("search.radius", "The radius must be between " + MIN_RADIUS_METERS
+                    + " m and " + MAX_RADIUS_METERS / 1000 + " km");
         }
         if (startsWithin == null) {
             startsWithin = Plan.MAX_HORIZON;
         }
         if (startsWithin.compareTo(MIN_STARTS_WITHIN) < 0 || startsWithin.compareTo(Plan.MAX_HORIZON) > 0) {
-            throw new IllegalArgumentException("Solo se pueden buscar planes que empiecen en las próximas "
-                    + MIN_STARTS_WITHIN.toHours() + " a " + Plan.MAX_HORIZON.toHours() + " horas");
+            throw new ValidationException("search.startsWithin", "Only plans starting in the next "
+                    + MIN_STARTS_WITHIN.toHours() + " to " + Plan.MAX_HORIZON.toHours() + " hours can be searched");
         }
         activities = activities == null ? Set.of() : Set.copyOf(activities);
     }
@@ -48,14 +48,14 @@ public record NearbySearch(double latitude, double longitude, int radiusMeters, 
         return activities.isEmpty() || activities.contains(activity);
     }
 
-    /** Fin de la ventana de búsqueda: los planes deben empezar entre {@code now} y este instante. */
+    /** End of the search window: plans must start between {@code now} and this instant. */
     public Instant until(Instant now) {
         return now.plus(startsWithin);
     }
 
     /**
-     * Decide si un plan recién publicado aparece en esta búsqueda. Aplica los mismos criterios que la consulta a la
-     * base de datos, para que la lista en tiempo real y la recarga coincidan.
+     * Decides whether a newly published plan belongs to this search. It applies the same criteria as the database
+     * query, so that the real-time list and a reload agree.
      */
     public boolean matches(PlanPublished event, Instant now) {
         return includes(event.activity())

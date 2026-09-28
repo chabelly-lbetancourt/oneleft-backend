@@ -11,14 +11,14 @@ import java.util.UUID;
 
 import static es.upm.miw.oneleft.plans.PlanFixtures.CLOCK;
 import static es.upm.miw.oneleft.plans.PlanFixtures.NOW;
-import static es.upm.miw.oneleft.plans.PlanFixtures.PISTAS;
+import static es.upm.miw.oneleft.plans.PlanFixtures.COURTS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class NearbyPlanSubscriptionsTest {
 
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final NearbyPlanSubscriptions subscriptions = new NearbyPlanSubscriptions(CLOCK, meters);
-    private final NearbySearch search = new NearbySearch(PISTAS.latitude(), PISTAS.longitude(), 1_000, null, null,
+    private final NearbySearch search = new NearbySearch(COURTS.latitude(), COURTS.longitude(), 1_000, null, null,
             UUID.randomUUID());
 
     @Test
@@ -44,8 +44,8 @@ class NearbyPlanSubscriptionsTest {
     @Test
     void dispatchingToAClosedClientAlsoForgetsIt() {
         subscriptions.subscribe(search).complete();
-        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, PISTAS.latitude(),
-                PISTAS.longitude(), NOW.plus(Duration.ofHours(1)), 1, null, NOW);
+        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, COURTS.latitude(),
+                COURTS.longitude(), NOW.plus(Duration.ofHours(1)), 1, null, NOW);
 
         subscriptions.dispatch(event);
 
@@ -54,8 +54,8 @@ class NearbyPlanSubscriptionsTest {
 
     @Test
     void theEventCarriesTheRoundedDistance() {
-        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, PISTAS.latitude() + 0.005,
-                PISTAS.longitude(), NOW.plus(Duration.ofHours(1)), 1, null, NOW);
+        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, COURTS.latitude() + 0.005,
+                COURTS.longitude(), NOW.plus(Duration.ofHours(1)), 1, null, NOW);
 
         var nearby = NearbyPlanEvent.of(event, search);
 

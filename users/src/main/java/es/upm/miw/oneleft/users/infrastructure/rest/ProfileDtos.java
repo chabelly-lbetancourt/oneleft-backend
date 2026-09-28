@@ -13,19 +13,18 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * DTOs de la API de perfiles.
+ * DTOs of the profiles API.
  */
 public final class ProfileDtos {
 
     private ProfileDtos() {
     }
 
-    @Schema(description = "Zona habitual. Las coordenadas se redondean a 2 decimales (~1,1 km) al guardarse")
+    @Schema(description = "Usual zone. Coordinates are rounded to 2 decimals (~1.1 km) when stored")
     public record ZoneDto(
             @NotBlank @Size(max = ApproximateZone.MAX_NAME_LENGTH) @Schema(example = "Vallecas") String name,
             @NotNull @DecimalMin("-90") @DecimalMax("90") @Schema(example = "40.39") Double latitude,
@@ -40,9 +39,9 @@ public final class ProfileDtos {
         }
     }
 
-    @Schema(description = "Afición con su nivel")
+    @Schema(description = "Hobby with its level")
     public record HobbyDto(@NotNull @Schema(example = "PADEL") Activity activity,
-                           @NotNull @Schema(example = "INTERMEDIO") Level level) {
+                           @NotNull @Schema(example = "INTERMEDIATE") Level level) {
 
         static HobbyDto of(Hobby hobby) {
             return new HobbyDto(hobby.activity(), hobby.level());
@@ -53,7 +52,7 @@ public final class ProfileDtos {
         }
     }
 
-    @Schema(description = "Perfil propio, con la zona aproximada")
+    @Schema(description = "Own profile, with the approximate zone")
     public record ProfileResponse(UUID userId, @Schema(example = "Ana") String displayName, ZoneDto zone,
                                   List<HobbyDto> hobbies) {
 
@@ -63,7 +62,7 @@ public final class ProfileDtos {
         }
     }
 
-    @Schema(description = "Perfil visible para otros participantes: sin coordenadas")
+    @Schema(description = "Profile visible to other participants: no coordinates")
     public record PublicProfileResponse(UUID userId, @Schema(example = "Ana") String displayName,
                                         @Schema(example = "Vallecas") String zoneName, List<HobbyDto> hobbies) {
 
@@ -74,24 +73,18 @@ public final class ProfileDtos {
         }
     }
 
-    @Schema(description = "Cambios del perfil propio")
+    @Schema(description = "Changes to the own profile")
     public record UpdateProfileRequest(
             @NotBlank @Size(max = Profile.MAX_DISPLAY_NAME_LENGTH) @Schema(example = "Ana") String displayName,
             @Valid ZoneDto zone,
             @NotNull @Size(max = Profile.MAX_HOBBIES) List<@Valid @NotNull HobbyDto> hobbies) {
     }
 
-    @Schema(description = "Actividad del catálogo")
-    public record ActivityDto(@Schema(example = "PADEL") Activity code, @Schema(example = "Pádel") String name) {
-    }
-
-    @Schema(description = "Catálogo de actividades y niveles")
-    public record CatalogResponse(List<ActivityDto> activities, List<Level> levels) {
+    @Schema(description = "Catalog of activities and levels. Clients translate the codes")
+    public record CatalogResponse(List<Activity> activities, List<Level> levels) {
 
         static CatalogResponse create() {
-            return new CatalogResponse(
-                    Arrays.stream(Activity.values()).map(a -> new ActivityDto(a, a.displayName())).toList(),
-                    List.of(Level.values()));
+            return new CatalogResponse(List.of(Activity.values()), List.of(Level.values()));
         }
     }
 }

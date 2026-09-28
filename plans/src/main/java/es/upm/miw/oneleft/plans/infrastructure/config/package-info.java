@@ -1,4 +1,4 @@
 /**
- * Configuración de Spring.
+ * Spring configuration.
  */
 package es.upm.miw.oneleft.plans.infrastructure.config;

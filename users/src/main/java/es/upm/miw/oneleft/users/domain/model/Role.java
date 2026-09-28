@@ -8,8 +8,8 @@ public enum Role {
     ADMIN;
 
     /**
-     * Traduce el nombre de un rol del proveedor de identidad (por ejemplo, «admin») a un rol de OneLeft.
-     * Los roles que OneLeft no conoce se ignoran.
+     * Maps a role name from the identity provider (for example, "admin") to a OneLeft role.
+     * Roles that OneLeft does not know are ignored.
      */
     public static Optional<Role> fromName(String name) {
         if (name == null) {

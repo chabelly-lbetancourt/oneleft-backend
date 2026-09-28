@@ -4,7 +4,9 @@ import java.util.UUID;
 
 public class PlanNotFoundException extends RuntimeException {
 
+    public static final String CODE = "plan.notFound";
+
     public PlanNotFoundException(UUID planId) {
-        super("No existe el plan " + planId);
+        super("There is no plan " + planId);
     }
 }

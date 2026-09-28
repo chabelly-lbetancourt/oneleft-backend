@@ -7,7 +7,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * API sin estado protegida con tokens JWT emitidos por Keycloak.
+ * Stateless API protected with JWTs issued by Keycloak.
  */
 @Configuration
 public class SecurityConfig {

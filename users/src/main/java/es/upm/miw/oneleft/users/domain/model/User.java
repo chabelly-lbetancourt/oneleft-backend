@@ -8,10 +8,10 @@ public record User(UUID id, String name, String email, Set<Role> roles) {
 
     public User {
         if (id == null) {
-            throw new IllegalArgumentException("El usuario debe tener identificador");
+            throw new ValidationException("user.idRequired", "The user must have an identifier");
         }
         if (email == null || !email.contains("@")) {
-            throw new IllegalArgumentException("El usuario debe tener un email válido");
+            throw new ValidationException("user.invalidEmail", "The user must have a valid email");
         }
         roles = roles == null || roles.isEmpty() ? EnumSet.of(Role.USER) : Set.copyOf(roles);
     }

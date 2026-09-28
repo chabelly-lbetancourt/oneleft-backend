@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(UserController.USERS)
-@Tag(name = "Usuarios", description = "Usuarios de OneLeft")
+@Tag(name = "Users", description = "OneLeft users")
 public class UserController {
 
     public static final String USERS = "/api/v1/users";
@@ -28,10 +28,10 @@ public class UserController {
     }
 
     @GetMapping(ME)
-    @Operation(summary = "Usuario autenticado",
-            description = "Devuelve el usuario de OneLeft correspondiente al token de Keycloak de la petición.")
-    @ApiResponse(responseCode = "200", description = "Usuario autenticado")
-    @ApiResponse(responseCode = "401", description = "Falta el token o no es válido", content = @Content)
+    @Operation(summary = "Authenticated user",
+            description = "Returns the OneLeft user matching the Keycloak token of the request.")
+    @ApiResponse(responseCode = "200", description = "Authenticated user")
+    @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
     public UserResponse me(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return UserResponse.of(getCurrentUser.currentUser(KeycloakJwt.toIdentity(jwt)));
     }

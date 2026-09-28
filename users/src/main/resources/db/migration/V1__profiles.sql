@@ -1,9 +1,9 @@
--- HU-002 · Perfil con aficiones y nivel
+-- HU-002 · Profile with hobbies and level
 CREATE TABLE profile (
     user_id        UUID PRIMARY KEY,
     display_name   VARCHAR(50)  NOT NULL,
     zone_name      VARCHAR(60),
-    -- Coordenadas redondeadas a 2 decimales (~1,1 km): nunca la ubicación exacta
+    -- Coordinates rounded to 2 decimals (~1.1 km): never the exact location
     zone_latitude  NUMERIC(5, 2),
     zone_longitude NUMERIC(6, 2),
     updated_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),

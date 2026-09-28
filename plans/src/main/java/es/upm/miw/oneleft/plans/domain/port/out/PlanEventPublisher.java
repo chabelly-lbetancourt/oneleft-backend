@@ -3,7 +3,7 @@ package es.upm.miw.oneleft.plans.domain.port.out;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 
 /**
- * Puerto de salida hacia la mensajería: el dominio no sabe que detrás hay RabbitMQ.
+ * Output port to messaging: the domain does not know that RabbitMQ is behind it.
  */
 public interface PlanEventPublisher {
 

@@ -4,7 +4,9 @@ import java.util.UUID;
 
 public class ProfileNotFoundException extends RuntimeException {
 
+    public static final String CODE = "profile.notFound";
+
     public ProfileNotFoundException(UUID userId) {
-        super("No existe el perfil del usuario " + userId);
+        super("There is no profile for user " + userId);
     }
 }

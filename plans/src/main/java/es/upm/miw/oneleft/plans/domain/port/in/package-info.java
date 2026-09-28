@@ -1,4 +1,4 @@
 /**
- * Puertos de entrada: casos de uso que ofrece el dominio.
+ * Input ports: use cases offered by the domain.
  */
 package es.upm.miw.oneleft.plans.domain.port.in;
