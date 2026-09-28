@@ -5,6 +5,8 @@ target/
 # IntelliJ
 .idea/
 *.iml
-out/
+# Salida de compilación de IntelliJ (solo en la raíz y en cada módulo, no los paquetes «out» del código)
+/out/
+/*/out/
 # macOS
 .DS_Store
