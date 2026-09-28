@@ -7,6 +7,9 @@ spring:
         jwt:
           # Emisor de los tokens (realm de Keycloak). Las claves públicas se descargan de su JWKS.
           issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}
+          # Dentro de Docker las claves se descargan por la red interna (keycloak:8180),
+          # pero el emisor de los tokens sigue siendo la URL pública (localhost:8180)
+          jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
 
 server:
   port: ${PORT:8081}

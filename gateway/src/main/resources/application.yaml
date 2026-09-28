@@ -7,6 +7,9 @@ spring:
         jwt:
           # Emisor de los tokens (realm de Keycloak). Las claves públicas se descargan de su JWKS.
           issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}
+          # Dentro de Docker las claves se descargan por la red interna (keycloak:8180),
+          # pero el emisor de los tokens sigue siendo la URL pública (localhost:8180)
+          jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
   cloud:
     gateway:
       server:
@@ -20,9 +23,40 @@ spring:
               uri: ${PLANS_URL:http://localhost:8082}
               predicates:
                 - Path=/api/v1/plans/**
+            # Documentación OpenAPI de cada servicio, que agrupa Swagger UI
+            - id: users-docs
+              uri: ${USERS_URL:http://localhost:8081}
+              predicates:
+                - Path=/api-docs/users
+              filters:
+                - SetPath=/v3/api-docs
+            - id: plans-docs
+              uri: ${PLANS_URL:http://localhost:8082}
+              predicates:
+                - Path=/api-docs/plans
+              filters:
+                - SetPath=/v3/api-docs
 
 server:
   port: ${PORT:8080}
+
+# Swagger UI con la API de todos los microservicios: http://localhost:8080/swagger-ui.html
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    urls:
+      - name: users
+        url: /api-docs/users
+      - name: plans
+        url: /api-docs/plans
+    urls-primary-name: users
+    try-it-out-enabled: true
+    persist-authorization: true
+    oauth:
+      client-id: oneleft-web
+      use-pkce-with-authorization-code-grant: true
+      scopes: openid,profile,email
 
 management:
   metrics:
