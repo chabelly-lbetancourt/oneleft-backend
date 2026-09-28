@@ -3,11 +3,14 @@ package es.upm.miw.oneleft.plans.infrastructure.rest;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
+import es.upm.miw.oneleft.plans.domain.port.in.JoinPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.QueryPlansUseCase;
 import es.upm.miw.oneleft.plans.infrastructure.realtime.NearbyPlanEvent;
 import es.upm.miw.oneleft.plans.infrastructure.realtime.NearbyPlanSubscriptions;
+import es.upm.miw.oneleft.plans.infrastructure.realtime.PlanJoinedNotice;
+import es.upm.miw.oneleft.plans.infrastructure.realtime.UserEventSubscriptions;
 import es.upm.miw.oneleft.plans.infrastructure.rest.PlanDtos.NearbyPlanResponse;
 import es.upm.miw.oneleft.plans.infrastructure.rest.PlanDtos.PlanResponse;
 import es.upm.miw.oneleft.plans.infrastructure.rest.PlanDtos.PublishPlanRequest;
@@ -47,16 +50,22 @@ public class PlanController {
     public static final String MINE = "/mine";
     public static final String NEARBY = "/nearby";
     public static final String NEARBY_STREAM = NEARBY + "/stream";
+    public static final String PARTICIPANTS = PLAN + "/participants";
+    public static final String EVENTS_STREAM = "/events/stream";
 
     private final PublishPlanUseCase publishPlan;
     private final QueryPlansUseCase queryPlans;
+    private final JoinPlanUseCase joinPlan;
     private final NearbyPlanSubscriptions nearbySubscriptions;
+    private final UserEventSubscriptions userEvents;
 
-    public PlanController(PublishPlanUseCase publishPlan, QueryPlansUseCase queryPlans,
-                          NearbyPlanSubscriptions nearbySubscriptions) {
+    public PlanController(PublishPlanUseCase publishPlan, QueryPlansUseCase queryPlans, JoinPlanUseCase joinPlan,
+                          NearbyPlanSubscriptions nearbySubscriptions, UserEventSubscriptions userEvents) {
         this.publishPlan = publishPlan;
         this.queryPlans = queryPlans;
+        this.joinPlan = joinPlan;
         this.nearbySubscriptions = nearbySubscriptions;
+        this.userEvents = userEvents;
     }
 
     @PostMapping
@@ -82,6 +91,29 @@ public class PlanController {
     @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
     public PlanResponse plan(@PathVariable UUID planId) {
         return PlanResponse.of(queryPlans.plan(planId));
+    }
+
+    @PostMapping(PARTICIPANTS)
+    @Operation(summary = "Join a plan (HU-005)",
+            description = "Takes a free spot. If two people ask for the last spot at the same time, only one gets it; "
+                    + "the plan becomes FULL when the last spot is taken and the organizer is notified.")
+    @ApiResponse(responseCode = "200", description = "Spot taken; the plan with its participants")
+    @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
+    @ApiResponse(responseCode = "409", description = "No spot can be taken: plan.full, plan.started, "
+            + "plan.alreadyJoined, plan.ownPlan, plan.notOpen or plan.busy", content = @Content)
+    public PlanResponse join(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
+        return PlanResponse.of(joinPlan.join(planId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name")));
+    }
+
+    @GetMapping(path = EVENTS_STREAM, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "My events in real time (HU-005)",
+            description = "Server-Sent Events for the signed-in user. Emits `ready` on connection and `plan-joined` "
+                    + "with a PlanJoinedNotice when someone joins one of their plans.")
+    @ApiResponse(responseCode = "200", description = "Event stream",
+            content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
+                    schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PlanJoinedNotice.class)))
+    public SseEmitter events(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
+        return userEvents.subscribe(UUID.fromString(jwt.getSubject()));
     }
 
     @GetMapping(MINE)

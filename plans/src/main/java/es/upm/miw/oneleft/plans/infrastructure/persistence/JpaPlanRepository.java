@@ -1,14 +1,17 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.ConcurrentPlanUpdateException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
+import es.upm.miw.oneleft.plans.domain.model.Participant;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -39,10 +42,17 @@ public class JpaPlanRepository implements PlanRepository {
     public Plan save(Plan plan) {
         var point = plan.meetingPoint();
         var location = GEOMETRY.createPoint(new Coordinate(point.longitude(), point.latitude()));
+        var participants = plan.participants().stream()
+                .map(p -> new ParticipantEmbeddable(p.userId(), p.name(), p.joinedAt())).toList();
         var entity = new PlanEntity(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                 plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
-                plan.occupied(), plan.level(), plan.status(), plan.publishedAt());
-        return toDomain(jpa.save(entity));
+                plan.occupied(), plan.level(), plan.status(), plan.publishedAt(), participants, plan.version());
+        try {
+            // Flushing here makes a stale version fail inside the adapter, where it becomes a domain exception
+            return toDomain(jpa.saveAndFlush(entity));
+        } catch (OptimisticLockingFailureException stale) {
+            throw new ConcurrentPlanUpdateException(plan.id());
+        }
     }
 
     @Override
@@ -69,8 +79,10 @@ public class JpaPlanRepository implements PlanRepository {
 
     private static Plan toDomain(PlanEntity e) {
         var meetingPoint = new MeetingPoint(e.getMeetingPoint(), e.getLocation().getY(), e.getLocation().getX());
+        var participants = e.getParticipants().stream()
+                .map(p -> new Participant(p.getUserId(), p.getName(), p.getJoinedAt())).toList();
         return new Plan(e.getId(), new Organizer(e.getOrganizerId(), e.getOrganizerName()), e.getActivity(),
                 e.getTitle(), e.getDescription(), meetingPoint, e.getStartsAt(), e.getSpots(), e.getOccupied(),
-                e.getLevel(), e.getStatus(), e.getPublishedAt());
+                e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, e.getVersion());
     }
 }
