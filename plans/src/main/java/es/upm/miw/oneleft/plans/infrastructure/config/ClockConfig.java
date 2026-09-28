@@ -1,0 +1,16 @@
+package es.upm.miw.oneleft.plans.infrastructure.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.time.Clock;
+
+/** Injectable clock: lets the time rules of plans be tested with a fixed clock. */
+@Configuration
+public class ClockConfig {
+
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
+}

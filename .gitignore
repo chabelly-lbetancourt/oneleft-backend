@@ -1,0 +1,12 @@
+target/
+*.class
+*.log
+.env
+# IntelliJ
+.idea/
+*.iml
+# IntelliJ build output (only at the root and in each module, not the "out" packages of the code)
+/out/
+/*/out/
+# macOS
+.DS_Store
