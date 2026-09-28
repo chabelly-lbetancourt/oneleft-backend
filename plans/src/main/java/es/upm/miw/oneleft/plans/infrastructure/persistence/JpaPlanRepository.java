@@ -1,0 +1,60 @@
+package es.upm.miw.oneleft.plans.infrastructure.persistence;
+
+import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
+import es.upm.miw.oneleft.plans.domain.model.Organizer;
+import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.PrecisionModel;
+import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Adaptador de salida con Spring Data JPA, Hibernate Spatial y PostGIS.
+ */
+@Repository
+public class JpaPlanRepository implements PlanRepository {
+
+    /** WGS84, el sistema de referencia del GPS. En PostGIS el orden es (longitud, latitud). */
+    static final int WGS84 = 4326;
+    private static final GeometryFactory GEOMETRY = new GeometryFactory(new PrecisionModel(), WGS84);
+
+    private final SpringDataPlanRepository jpa;
+
+    public JpaPlanRepository(SpringDataPlanRepository jpa) {
+        this.jpa = jpa;
+    }
+
+    @Override
+    public Plan save(Plan plan) {
+        var point = plan.meetingPoint();
+        var location = GEOMETRY.createPoint(new Coordinate(point.longitude(), point.latitude()));
+        var entity = new PlanEntity(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
+                plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
+                plan.occupied(), plan.level(), plan.status(), plan.publishedAt());
+        return toDomain(jpa.save(entity));
+    }
+
+    @Override
+    public Optional<Plan> findById(UUID planId) {
+        return jpa.findById(planId).map(JpaPlanRepository::toDomain);
+    }
+
+    @Override
+    public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {
+        return jpa.findByOrganizerIdAndStartsAtAfterOrderByStartsAt(organizerId, from).stream()
+                .map(JpaPlanRepository::toDomain).toList();
+    }
+
+    private static Plan toDomain(PlanEntity e) {
+        var meetingPoint = new MeetingPoint(e.getMeetingPoint(), e.getLocation().getY(), e.getLocation().getX());
+        return new Plan(e.getId(), new Organizer(e.getOrganizerId(), e.getOrganizerName()), e.getActivity(),
+                e.getTitle(), e.getDescription(), meetingPoint, e.getStartsAt(), e.getSpots(), e.getOccupied(),
+                e.getLevel(), e.getStatus(), e.getPublishedAt());
+    }
+}
