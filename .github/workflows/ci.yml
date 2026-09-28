@@ -16,7 +16,7 @@ permissions:
 jobs:
   build-test:
     name: Build, tests y cobertura
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
@@ -66,7 +66,7 @@ jobs:
   docker:
     name: Imagen Docker · ${{ matrix.service }}
     needs: build-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -106,6 +106,8 @@ jobs:
 
       - name: Construir (y publicar desde main)
         uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: ${{ matrix.service }}
           push: ${{ github.ref == 'refs/heads/main' }}
