@@ -3,6 +3,7 @@ package es.upm.miw.oneleft.plans.infrastructure.rest;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
+import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -61,6 +62,14 @@ public final class PlanDtos {
             return new PlanResponse(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                     plan.title(), plan.description(), MeetingPointDto.of(plan.meetingPoint()), plan.startsAt(),
                     plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt());
+        }
+    }
+
+    @Schema(description = "Plan cercano con la distancia desde la posición de búsqueda")
+    public record NearbyPlanResponse(PlanResponse plan, @Schema(example = "850") long distanceMeters) {
+
+        static NearbyPlanResponse of(NearbyPlan nearby) {
+            return new NearbyPlanResponse(PlanResponse.of(nearby.plan()), Math.round(nearby.distanceMeters()));
         }
     }
 }

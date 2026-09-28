@@ -2,6 +2,8 @@ package es.upm.miw.oneleft.plans.application;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Level;
+import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
+import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
@@ -50,6 +52,18 @@ class PlanServiceTest {
                     .filter(p -> p.organizer().id().equals(organizerId) && p.startsAt().isAfter(from))
                     .sorted(Comparator.comparing(Plan::startsAt)).toList();
         }
+
+        /** Filtra como PostGIS pero en memoria; la consulta real se prueba en JpaPlanRepositoryTest. */
+        @Override
+        public List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit) {
+            return data.values().stream()
+                    .filter(p -> search.includes(p.activity()))
+                    .filter(p -> search.distanceTo(p.meetingPoint().latitude(), p.meetingPoint().longitude())
+                            <= search.radiusMeters())
+                    .sorted(Comparator.comparingDouble(p -> search.distanceTo(p.meetingPoint().latitude(),
+                            p.meetingPoint().longitude())))
+                    .limit(limit).toList();
+        }
     }
 
     private final InMemoryPlans repository = new InMemoryPlans();
@@ -95,5 +109,20 @@ class PlanServiceTest {
         repository.save(padelPlan(ana(), Duration.ofHours(2), CLOCK));
 
         assertThat(service.upcomingPlansOrganizedBy(organizer.id())).containsExactly(sooner, later);
+    }
+
+    @Test
+    void nearbyPlansComeWithTheirDistance() {
+        var near = repository.save(padelPlan(ana(), Duration.ofHours(1), CLOCK));
+        var farPoint = new MeetingPoint("Parque", PISTAS.latitude() + 0.01, PISTAS.longitude());
+        var far = repository.save(Plan.publish(ana(), Activity.RUNNING, "Rodaje suave", null, farPoint,
+                NOW.plus(Duration.ofHours(1)), 2, null, CLOCK));
+        var search = new NearbySearch(PISTAS.latitude(), PISTAS.longitude(), 5_000, null, null, UUID.randomUUID());
+
+        var nearby = service.nearbyPlans(search);
+
+        assertThat(nearby).extracting(n -> n.plan()).containsExactly(near, far);
+        assertThat(nearby.get(0).distanceMeters()).isZero();
+        assertThat(nearby.get(1).distanceMeters()).isBetween(1_100.0, 1_120.0);
     }
 }
