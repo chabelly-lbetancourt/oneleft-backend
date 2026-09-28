@@ -15,8 +15,8 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * El gateway es la primera barrera: rechaza las peticiones a la API sin un token válido de Keycloak
- * y resuelve CORS para la app web y la app Android. Cada microservicio vuelve a validar el token.
+ * The gateway is the first barrier: it rejects API requests without a valid Keycloak token
+ * and handles CORS for the web app and the Android app. Each microservice validates the token again.
  */
 @Configuration
 public class SecurityConfig {
@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
-                        // Documentación: Swagger UI y la descripción OpenAPI de cada servicio
+                        // Documentation: Swagger UI and the OpenAPI description of each service
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**")
                         .permitAll()
                         .requestMatchers("/api/**").authenticated()

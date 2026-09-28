@@ -31,9 +31,9 @@ class OpenApiDocsTest {
     @Test
     void currentUserEndpointIsDocumented() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
-                .andExpect(jsonPath("$.paths['/api/v1/users/me'].get.summary").value("Usuario autenticado"))
+                .andExpect(jsonPath("$.paths['/api/v1/users/me'].get.summary").value("Authenticated user"))
                 .andExpect(jsonPath("$.paths['/api/v1/users/me'].get.responses['401'].description")
-                        .value("Falta el token o no es válido"))
+                        .value("Missing or invalid token"))
                 .andExpect(jsonPath("$.paths['/api/v1/users/me'].get.responses['401'].content").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.email.example")
                         .value("ana@oneleft.dev"));

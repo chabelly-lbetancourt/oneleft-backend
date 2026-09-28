@@ -9,14 +9,14 @@ import java.util.UUID;
 
 public interface QueryPlansUseCase {
 
-    /** @throws es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException si no existe */
+    /** @throws es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException if it does not exist */
     Plan plan(UUID planId);
 
-    /** Planes del organizador que todavía no han empezado, del más próximo al más lejano. */
+    /** Organizer's plans that have not started yet, from the soonest to the latest. */
     List<Plan> upcomingPlansOrganizedBy(UUID organizerId);
 
     /**
-     * Planes abiertos con plazas libres cerca de una posición (HU-004), del más cercano al más lejano. Como mucho
+     * Open plans with free spots near a position (HU-004), from the nearest to the farthest. At most
      * {@link NearbySearch#MAX_RESULTS}.
      */
     List<NearbyPlan> nearbyPlans(NearbySearch search);

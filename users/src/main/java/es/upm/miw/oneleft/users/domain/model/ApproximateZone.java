@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * Zona habitual del usuario. Por privacidad, OneLeft nunca guarda la ubicación exacta:
- * las coordenadas se redondean a dos decimales (una cuadrícula de aproximadamente 1,1 km).
+ * The user's usual area. For privacy, OneLeft never stores the exact location:
+ * coordinates are rounded to two decimals (a grid of roughly 1.1 km).
  */
 public record ApproximateZone(String name, double latitude, double longitude) {
 
@@ -14,10 +14,11 @@ public record ApproximateZone(String name, double latitude, double longitude) {
 
     public ApproximateZone {
         if (name == null || name.isBlank() || name.strip().length() > MAX_NAME_LENGTH) {
-            throw new IllegalArgumentException("La zona necesita un nombre de hasta " + MAX_NAME_LENGTH + " caracteres");
+            throw new ValidationException("zone.name",
+                    "The zone needs a name of up to " + MAX_NAME_LENGTH + " characters");
         }
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            throw new IllegalArgumentException("Coordenadas fuera de rango");
+            throw new ValidationException("coordinates.outOfRange", "Coordinates out of range");
         }
         name = name.strip();
         latitude = round(latitude);

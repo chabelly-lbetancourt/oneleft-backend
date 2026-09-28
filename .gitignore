@@ -5,7 +5,7 @@ target/
 # IntelliJ
 .idea/
 *.iml
-# Salida de compilación de IntelliJ (solo en la raíz y en cada módulo, no los paquetes «out» del código)
+# IntelliJ build output (only at the root and in each module, not the "out" packages of the code)
 /out/
 /*/out/
 # macOS

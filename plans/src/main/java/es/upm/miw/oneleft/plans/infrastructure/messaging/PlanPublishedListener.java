@@ -10,11 +10,11 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Adaptador de entrada: recibe los planes publicados y los reenvía a los clientes que miran planes cercanos.
+ * Input adapter: receives published plans and forwards them to the clients watching nearby plans.
  *
- * <p>La cola es anónima (exclusiva y temporal), así que <b>cada réplica tiene la suya</b> y recibe todos los
- * eventos: es un reparto en abanico, no un reparto de trabajo. Así, un plan publicado en una réplica llega también a
- * los clientes conectados a las demás.
+ * <p>The queue is anonymous (exclusive and temporary), so <b>each replica has its own</b> and receives every event:
+ * it is a fan-out, not a work queue. This way a plan published through one replica also reaches the clients
+ * connected to the others.
  */
 @Component
 public class PlanPublishedListener {

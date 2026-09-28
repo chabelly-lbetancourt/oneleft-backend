@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * HU-004 de extremo a extremo con PostGIS y RabbitMQ reales.
+ * HU-004 end to end with a real PostGIS and RabbitMQ.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -40,13 +40,13 @@ class NearbyPlansControllerTest {
     private final double longitude = ThreadLocalRandom.current().nextDouble(-20, -10);
 
     private static RequestPostProcessor user(String subject) {
-        return jwt().jwt(token -> token.subject(subject).claim("name", "Ana Pruebas"));
+        return jwt().jwt(token -> token.subject(subject).claim("name", "Ana Test"));
     }
 
     private void publish(String organizer, String activity, double northDegrees, Duration startsIn) throws Exception {
         var body = """
-                {"activity": "%s", "title": "Plan de prueba", "startsAt": "%s", "spots": 2,
-                 "meetingPoint": {"name": "Punto de prueba", "latitude": %s, "longitude": %s}}"""
+                {"activity": "%s", "title": "Test plan", "startsAt": "%s", "spots": 2,
+                 "meetingPoint": {"name": "Test point", "latitude": %s, "longitude": %s}}"""
                 .formatted(activity, Instant.now().plus(startsIn), latitude + northDegrees, longitude);
         mockMvc.perform(post(PlanController.PLANS).with(user(organizer))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
@@ -62,19 +62,19 @@ class NearbyPlansControllerTest {
     void listsNearbyPlansWithTheirDistanceFromTheNearest() throws Exception {
         var organizer = UUID.randomUUID().toString();
         publish(organizer, "PADEL", 0.009, Duration.ofHours(1));
-        publish(organizer, "CINE", 0, Duration.ofHours(2));
+        publish(organizer, "CINEMA", 0, Duration.ofHours(2));
         publish(organizer, "PADEL", 0.1, Duration.ofHours(1));
 
         mockMvc.perform(get(nearbyUrl("&radius=2000")).with(user(UUID.randomUUID().toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].plan.activity").value("CINE"))
+                .andExpect(jsonPath("$[0].plan.activity").value("CINEMA"))
                 .andExpect(jsonPath("$[0].distanceMeters").value(0))
                 .andExpect(jsonPath("$[1].plan.activity").value("PADEL"))
                 .andExpect(jsonPath("$[1].distanceMeters").value(1001))
                 .andExpect(jsonPath("$[1].plan.freeSpots").value(2));
 
-        mockMvc.perform(get(nearbyUrl("&radius=2000&activity=PADEL&activity=TENIS&withinHours=1"))
+        mockMvc.perform(get(nearbyUrl("&radius=2000&activity=PADEL&activity=TENNIS&withinHours=1"))
                         .with(user(UUID.randomUUID().toString())))
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].plan.activity").value("PADEL"));
@@ -89,7 +89,8 @@ class NearbyPlansControllerTest {
         var subject = UUID.randomUUID().toString();
         mockMvc.perform(get(nearbyUrl("&radius=100")).with(user(subject)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("El radio debe estar entre 500 m y 25 km"));
+                .andExpect(jsonPath("$.detail").value("The radius must be between 500 m and 25 km"))
+                .andExpect(jsonPath("$.code").value("search.radius"));
         mockMvc.perform(get(nearbyUrl("&withinHours=24")).with(user(subject)))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get(nearbyUrl("&activity=AJEDREZ")).with(user(subject)))
@@ -112,9 +113,9 @@ class NearbyPlansControllerTest {
         assertThat(response.getContentAsString()).contains("event:ready");
 
         var organizer = UUID.randomUUID().toString();
-        publish(organizer, "CINE", 0, Duration.ofHours(1));          // otra actividad
-        publish(organizer, "PADEL", 0.05, Duration.ofHours(1));      // a 5,5 km
-        publish(organizer, "PADEL", 0.005, Duration.ofHours(1));     // a 556 m: este sí
+        publish(organizer, "CINEMA", 0, Duration.ofHours(1));          // another activity
+        publish(organizer, "PADEL", 0.05, Duration.ofHours(1));      // 5.5 km away
+        publish(organizer, "PADEL", 0.005, Duration.ofHours(1));     // 556 m away: this one matches
 
         await().atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(response.getContentAsString()).contains("event:plan-published"));

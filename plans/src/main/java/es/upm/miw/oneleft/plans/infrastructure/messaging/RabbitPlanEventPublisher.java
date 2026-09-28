@@ -6,7 +6,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Adaptador de salida: publica los eventos de planes en el exchange {@code oneleft.plans} de RabbitMQ.
+ * Output adapter: publishes plan events to the {@code oneleft.plans} RabbitMQ exchange.
  */
 @Component
 public class RabbitPlanEventPublisher implements PlanEventPublisher {

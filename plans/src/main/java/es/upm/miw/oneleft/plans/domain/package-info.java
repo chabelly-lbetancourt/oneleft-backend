@@ -1,4 +1,4 @@
 /**
- * Dominio: entidades, objetos de valor y reglas de negocio. No depende de Spring ni de ninguna otra capa.
+ * Domain: entities, value objects and business rules. It depends neither on Spring nor on any other layer.
  */
 package es.upm.miw.oneleft.plans.domain;

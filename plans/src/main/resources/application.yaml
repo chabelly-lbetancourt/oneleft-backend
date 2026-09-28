@@ -21,7 +21,7 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
 
 server:
-  # Detrás del gateway: las URL generadas (cabecera Location...) usan el host público de X-Forwarded-*
+  # Behind the gateway: generated URLs (Location header...) use the public host from X-Forwarded-*
   forward-headers-strategy: framework
   port: ${PORT:8082}
 
@@ -30,7 +30,7 @@ management:
     tags:
       application: ${spring.application.name}
     distribution:
-      # Histogramas para calcular percentiles de latencia (p95, p99) en Prometheus
+      # Histograms to compute latency percentiles (p95, p99) in Prometheus
       percentiles-histogram:
         http.server.requests: true
   endpoints:

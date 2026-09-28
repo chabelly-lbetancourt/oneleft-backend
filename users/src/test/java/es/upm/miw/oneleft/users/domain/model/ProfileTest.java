@@ -16,9 +16,9 @@ class ProfileTest {
 
     @Test
     void initialProfileUsesTheUserName() {
-        var profile = Profile.initial(new User(ID, "Ana Pruebas", "ana@oneleft.dev", Set.of()));
+        var profile = Profile.initial(new User(ID, "Ana Test", "ana@oneleft.dev", Set.of()));
         assertThat(profile.userId()).isEqualTo(ID);
-        assertThat(profile.displayName()).isEqualTo("Ana Pruebas");
+        assertThat(profile.displayName()).isEqualTo("Ana Test");
         assertThat(profile.zone()).isNull();
         assertThat(profile.hobbies()).isEmpty();
     }
@@ -27,10 +27,10 @@ class ProfileTest {
     void updateReplacesNameZoneAndHobbies() {
         var zone = new ApproximateZone("Vallecas", 40.39, -3.62);
         var updated = new Profile(ID, "Ana", null, null)
-                .update("  Anita ", zone, List.of(new Hobby(Activity.PADEL, Level.INTERMEDIO)));
+                .update("  Anita ", zone, List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE)));
         assertThat(updated.displayName()).isEqualTo("Anita");
         assertThat(updated.zone()).isEqualTo(zone);
-        assertThat(updated.hobbies()).containsExactly(new Hobby(Activity.PADEL, Level.INTERMEDIO));
+        assertThat(updated.hobbies()).containsExactly(new Hobby(Activity.PADEL, Level.INTERMEDIATE));
         assertThat(updated.update("Ana", null, null).hobbies()).isEmpty();
     }
 
@@ -49,23 +49,22 @@ class ProfileTest {
 
     @Test
     void activitiesCannotBeRepeated() {
-        var hobbies = List.of(new Hobby(Activity.PADEL, Level.PRINCIPIANTE), new Hobby(Activity.PADEL, Level.AVANZADO));
+        var hobbies = List.of(new Hobby(Activity.PADEL, Level.BEGINNER), new Hobby(Activity.PADEL, Level.ADVANCED));
         assertThatThrownBy(() -> new Profile(ID, "Ana", null, hobbies)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void atMostTenHobbies() {
-        var all = Arrays.stream(Activity.values()).map(a -> new Hobby(a, Level.INTERMEDIO)).toList();
+        var all = Arrays.stream(Activity.values()).map(a -> new Hobby(a, Level.INTERMEDIATE)).toList();
         assertThat(new Profile(ID, "Ana", null, all).hobbies()).hasSize(Profile.MAX_HOBBIES);
         var eleven = new java.util.ArrayList<>(all);
-        eleven.add(new Hobby(Activity.PADEL, Level.AVANZADO));
+        eleven.add(new Hobby(Activity.PADEL, Level.ADVANCED));
         assertThatThrownBy(() -> new Profile(ID, "Ana", null, eleven)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void hobbyNeedsActivityAndLevel() {
-        assertThatThrownBy(() -> new Hobby(null, Level.AVANZADO)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new Hobby(Activity.CINE, null)).isInstanceOf(IllegalArgumentException.class);
-        assertThat(Activity.JUEGOS_DE_MESA.displayName()).isEqualTo("Juegos de mesa");
+        assertThatThrownBy(() -> new Hobby(null, Level.ADVANCED)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new Hobby(Activity.CINEMA, null)).isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -26,7 +26,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping(UserController.USERS)
-@Tag(name = "Perfiles", description = "Nombre visible, zona aproximada y aficiones (HU-002)")
+@Tag(name = "Profiles", description = "Display name, approximate zone and hobbies (HU-002)")
 public class ProfileController {
 
     public static final String MY_PROFILE = "/me/profile";
@@ -40,19 +40,19 @@ public class ProfileController {
     }
 
     @GetMapping(MY_PROFILE)
-    @Operation(summary = "Mi perfil", description = "Si es la primera vez, se crea con el nombre de Keycloak.")
-    @ApiResponse(responseCode = "200", description = "Perfil propio")
-    @ApiResponse(responseCode = "401", description = "Falta el token o no es válido", content = @Content)
+    @Operation(summary = "My profile", description = "Created with the Keycloak name on first access.")
+    @ApiResponse(responseCode = "200", description = "Own profile")
+    @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
     public ProfileResponse myProfile(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return ProfileResponse.of(profiles.myProfile(KeycloakJwt.toIdentity(jwt)));
     }
 
     @PutMapping(MY_PROFILE)
-    @Operation(summary = "Editar mi perfil",
-            description = "Sustituye el nombre visible, la zona y las aficiones. La zona se guarda aproximada.")
-    @ApiResponse(responseCode = "200", description = "Perfil actualizado")
-    @ApiResponse(responseCode = "400", description = "Datos no válidos", content = @Content)
-    @ApiResponse(responseCode = "401", description = "Falta el token o no es válido", content = @Content)
+    @Operation(summary = "Edit my profile",
+            description = "Replaces the display name, zone and hobbies. The zone is stored approximated.")
+    @ApiResponse(responseCode = "200", description = "Profile updated")
+    @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
     public ProfileResponse updateMyProfile(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                            @Valid @RequestBody UpdateProfileRequest request) {
         var zone = request.zone() == null ? null : request.zone().toDomain();
@@ -62,15 +62,15 @@ public class ProfileController {
     }
 
     @GetMapping(PROFILE)
-    @Operation(summary = "Perfil de otro participante", description = "Sin coordenadas: solo el nombre de la zona.")
-    @ApiResponse(responseCode = "200", description = "Perfil público")
-    @ApiResponse(responseCode = "404", description = "El usuario no tiene perfil", content = @Content)
+    @Operation(summary = "Another participant's profile", description = "No coordinates: only the zone name.")
+    @ApiResponse(responseCode = "200", description = "Public profile")
+    @ApiResponse(responseCode = "404", description = "The user has no profile", content = @Content)
     public PublicProfileResponse profileOf(@PathVariable UUID userId) {
         return PublicProfileResponse.of(profiles.profileOf(userId));
     }
 
     @GetMapping(ACTIVITIES)
-    @Operation(summary = "Catálogo de actividades y niveles")
+    @Operation(summary = "Catalog of activities and levels")
     public CatalogResponse catalog() {
         return CatalogResponse.create();
     }

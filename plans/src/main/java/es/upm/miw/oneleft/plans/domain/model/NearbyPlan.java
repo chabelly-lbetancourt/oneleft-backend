@@ -1,5 +1,5 @@
 package es.upm.miw.oneleft.plans.domain.model;
 
-/** Plan encontrado en una búsqueda cercana, con la distancia desde la posición de quien busca. */
+/** Plan found by a nearby search, with the distance from the requester's position. */
 public record NearbyPlan(Plan plan, double distanceMeters) {
 }
