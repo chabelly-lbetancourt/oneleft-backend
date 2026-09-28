@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
+import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
+import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
@@ -10,6 +12,7 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +26,8 @@ public class JpaPlanRepository implements PlanRepository {
     /** WGS84, el sistema de referencia del GPS. En PostGIS el orden es (longitud, latitud). */
     static final int WGS84 = 4326;
     private static final GeometryFactory GEOMETRY = new GeometryFactory(new PrecisionModel(), WGS84);
+
+    private static final UUID NOBODY = new UUID(0, 0);
 
     private final SpringDataPlanRepository jpa;
 
@@ -48,6 +53,17 @@ public class JpaPlanRepository implements PlanRepository {
     @Override
     public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {
         return jpa.findByOrganizerIdAndStartsAtAfterOrderByStartsAt(organizerId, from).stream()
+                .map(JpaPlanRepository::toDomain).toList();
+    }
+
+    @Override
+    public List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit) {
+        var activities = (search.activities().isEmpty() ? Arrays.stream(Activity.values())
+                : search.activities().stream()).map(Enum::name).toList();
+        // Sin quien busca, no se excluye a ningún organizador (ningún usuario tiene el UUID nulo)
+        var requester = search.requesterId() == null ? NOBODY : search.requesterId();
+        return jpa.findOpenNearby(search.latitude(), search.longitude(), search.radiusMeters(), activities, requester,
+                        now, search.until(now), limit).stream()
                 .map(JpaPlanRepository::toDomain).toList();
     }
 
