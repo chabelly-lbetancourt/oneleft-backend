@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.gateway.ratelimit;
 
+import com.sun.net.httpserver.HttpServer;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,10 +12,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.containers.GenericContainer;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,8 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Rate limiting with a real Redis. The routed services are not running, so allowed requests end in a proxy error;
- * what matters here is whether the gateway answers 429 before proxying.
+ * Rate limiting with a real Redis. The routed services are replaced by a stub that answers 200 to everything, so
+ * allowed requests reach it and rejected ones get a 429 from the gateway before proxying.
  */
 @SpringBootTest(properties = {
         "oneleft.rate-limit.enabled=true",
@@ -52,6 +58,34 @@ class RateLimitTest {
         }
     }
 
+    private static final HttpServer SERVICES = startServices();
+
+    private static HttpServer startServices() {
+        try {
+            var server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            server.createContext("/", exchange -> {
+                exchange.sendResponseHeaders(200, -1);
+                exchange.close();
+            });
+            server.start();
+            return server;
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @DynamicPropertySource
+    static void services(DynamicPropertyRegistry registry) {
+        var url = "http://localhost:" + SERVICES.getAddress().getPort();
+        registry.add("USERS_URL", () -> url);
+        registry.add("PLANS_URL", () -> url);
+    }
+
+    @AfterAll
+    static void stopServices() {
+        SERVICES.stop(0);
+    }
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -67,7 +101,7 @@ class RateLimitTest {
         var ana = UUID.randomUUID().toString();
         for (var i = 0; i < 2; i++) {
             var status = mockMvc.perform(post("/api/v1/plans").with(user(ana))).andReturn().getResponse().getStatus();
-            assertThat(status).isNotEqualTo(429);
+            assertThat(status).isEqualTo(200);
         }
 
         mockMvc.perform(post("/api/v1/plans").with(user(ana)))
