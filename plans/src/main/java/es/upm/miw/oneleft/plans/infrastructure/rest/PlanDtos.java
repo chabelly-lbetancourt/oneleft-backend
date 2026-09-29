@@ -79,6 +79,27 @@ public final class PlanDtos {
         }
     }
 
+    /**
+     * Public view of a plan (HU-024), for anyone with the link: no people (neither organizer nor participants) and the
+     * meeting point rounded to about 100 m, like in the nearby search.
+     */
+    @Schema(description = "Plan as seen without a session, from a shared link")
+    public record PublicPlanResponse(UUID id, Activity activity, String title, String description,
+                                     MeetingPointDto meetingPoint, Instant startsAt, int spots, int occupied,
+                                     int freeSpots, Level level, PlanStatus status) {
+
+        /** 3 decimals: about 100 m */
+        private static final double PRECISION = 1000;
+
+        static PublicPlanResponse of(Plan plan) {
+            var point = plan.meetingPoint();
+            return new PublicPlanResponse(plan.id(), plan.activity(), plan.title(), plan.description(),
+                    new MeetingPointDto(point.name(), Math.round(point.latitude() * PRECISION) / PRECISION,
+                            Math.round(point.longitude() * PRECISION) / PRECISION),
+                    plan.startsAt(), plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status());
+        }
+    }
+
     @Schema(description = "Nearby plan with the distance from the search position")
     public record NearbyPlanResponse(PlanResponse plan, @Schema(example = "850") long distanceMeters) {
 
