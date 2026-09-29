@@ -7,6 +7,7 @@ import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
+import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
@@ -74,9 +75,15 @@ class JoinPlanServiceTest {
         public void publish(PlanJoined event) {
             events.add(event);
         }
+
+        @Override
+        public void publish(PlanLeftEvent event) {
+            throw new UnsupportedOperationException();
+        }
     };
     private final JoinPlanService service =
-            new JoinPlanService(plans, publisher, CLOCK, TransactionOperations.withoutTransaction());
+            new JoinPlanService(new OptimisticPlanUpdates(plans, TransactionOperations.withoutTransaction()), publisher,
+                    CLOCK);
     private final Plan plan = plans.save(Plan.publish(ana(), Activity.PADEL, "Padel match", null,
             new MeetingPoint("Courts", 40.39, -3.62), NOW.plus(Duration.ofHours(1)), 1, null, CLOCK));
 
@@ -106,7 +113,7 @@ class JoinPlanServiceTest {
 
     @Test
     void givesUpAfterTooManyConflictsWithoutAnnouncingAnything() {
-        plans.conflictsLeft = JoinPlanService.MAX_ATTEMPTS;
+        plans.conflictsLeft = OptimisticPlanUpdates.MAX_ATTEMPTS;
 
         assertThatThrownBy(() -> service.join(plan.id(), UUID.randomUUID(), "Lucía"))
                 .isInstanceOfSatisfying(JoinRejectedException.class,

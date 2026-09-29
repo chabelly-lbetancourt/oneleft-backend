@@ -79,6 +79,21 @@ java -jar plans/target/plans-0.1.0-SNAPSHOT.jar # o desde IntelliJ con la clase 
 curl localhost:8080/actuator/health             # salud del gateway
 ```
 
+### Datos de demostración (seed)
+
+Arrancados en local sin elegir perfil (IntelliJ, `./mvnw spring-boot:run` o `java -jar`), `users` y `plans` cargan
+el seed nada más arrancar: los perfiles de las usuarias de prueba y 8 planes alrededor de Vallecas. Es el perfil por
+defecto (`spring.profiles.default: seed`) y es idempotente: reiniciar no duplica nada, y los planes solo se vuelven a
+publicar cuando los anteriores ya han empezado.
+
+| Cómo se arranca | ¿Seed? |
+|---|---|
+| Local sin perfil | Sí (perfil por defecto) |
+| Local con otro perfil, p. ej. `--spring.profiles.active=observability` | No: añade `seed` si lo quieres (`observability,seed`) |
+| Imágenes Docker | Solo si se pide: la imagen fija `SPRING_PROFILES_DEFAULT=default`. El compose de desarrollo activa `observability,seed` |
+| Tests | No, salvo los tests del seed (`@ActiveProfiles("seed")`) |
+| **pro** | Nunca: los *seeders* exigen `seed & !pro` |
+
 Imágenes Docker:
 
 ```bash

@@ -1,6 +1,10 @@
 spring:
   application:
     name: users
+  profiles:
+    # Run locally (IntelliJ, ./mvnw spring-boot:run) without choosing a profile, the demo data is loaded on startup.
+    # Only applies when no profile is active: the Docker images reset it and the seeders never run with pro (seed & !pro)
+    default: seed
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/users}
     username: ${DB_USER:oneleft}

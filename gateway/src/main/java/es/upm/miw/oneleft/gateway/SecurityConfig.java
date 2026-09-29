@@ -40,6 +40,8 @@ public class SecurityConfig {
                         // Documentation: Swagger UI and the OpenAPI description of each service
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**")
                         .permitAll()
+                        // Shared plan links (HU-024): anyone with the link (the rate limit still applies per IP)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/public/**", "/share/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {

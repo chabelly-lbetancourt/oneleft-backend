@@ -17,6 +17,12 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway-server-webmvc</artifactId>
         </dependency>
+        <!-- HTTP client of the proxy (the gateway picks it over the JDK one). The JDK client streams even an empty
+             request body and fails (NullPointerException) when the service answers before it has sent it (#90) -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
