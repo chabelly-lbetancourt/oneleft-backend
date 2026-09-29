@@ -42,11 +42,12 @@ public class JpaPlanRepository implements PlanRepository {
     public Plan save(Plan plan) {
         var point = plan.meetingPoint();
         var location = GEOMETRY.createPoint(new Coordinate(point.longitude(), point.latitude()));
-        var participants = plan.participants().stream()
-                .map(p -> new ParticipantEmbeddable(p.userId(), p.name(), p.joinedAt())).toList();
+        var participants = plan.participants().stream().map(JpaPlanRepository::toEmbeddable).toList();
+        var waitlist = plan.waitlist().stream().map(JpaPlanRepository::toEmbeddable).toList();
         var entity = new PlanEntity(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                 plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
-                plan.occupied(), plan.level(), plan.status(), plan.publishedAt(), participants, plan.version());
+                plan.occupied(), plan.level(), plan.status(), plan.publishedAt(), participants, waitlist,
+                plan.version());
         try {
             // Flushing here makes a stale version fail inside the adapter, where it becomes a domain exception
             return toDomain(jpa.saveAndFlush(entity));
@@ -79,10 +80,18 @@ public class JpaPlanRepository implements PlanRepository {
 
     private static Plan toDomain(PlanEntity e) {
         var meetingPoint = new MeetingPoint(e.getMeetingPoint(), e.getLocation().getY(), e.getLocation().getX());
-        var participants = e.getParticipants().stream()
-                .map(p -> new Participant(p.getUserId(), p.getName(), p.getJoinedAt())).toList();
+        var participants = e.getParticipants().stream().map(JpaPlanRepository::toParticipant).toList();
+        var waitlist = e.getWaitlist().stream().map(JpaPlanRepository::toParticipant).toList();
         return new Plan(e.getId(), new Organizer(e.getOrganizerId(), e.getOrganizerName()), e.getActivity(),
                 e.getTitle(), e.getDescription(), meetingPoint, e.getStartsAt(), e.getSpots(), e.getOccupied(),
-                e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, e.getVersion());
+                e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, waitlist, e.getVersion());
+    }
+
+    private static ParticipantEmbeddable toEmbeddable(Participant person) {
+        return new ParticipantEmbeddable(person.userId(), person.name(), person.joinedAt());
+    }
+
+    private static Participant toParticipant(ParticipantEmbeddable person) {
+        return new Participant(person.getUserId(), person.getName(), person.getJoinedAt());
     }
 }

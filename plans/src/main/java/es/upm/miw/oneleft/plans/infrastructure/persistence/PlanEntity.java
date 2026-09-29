@@ -16,6 +16,8 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
@@ -75,12 +77,24 @@ public class PlanEntity {
     @Version
     private long version;
 
-    /** Loaded in batches, so that listing 50 nearby plans does not run 50 extra queries. */
+    /**
+     * Loaded in batches, so that listing 50 nearby plans does not run 50 extra queries. With a separate select
+     * (not a join), because Hibernate cannot fetch two lists of the same entity in one join.
+     */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "plan_participant", joinColumns = @JoinColumn(name = "plan_id"))
     @OrderBy("joinedAt")
     @BatchSize(size = 50)
+    @Fetch(FetchMode.SELECT)
     private List<ParticipantEmbeddable> participants = new ArrayList<>();
+
+    /** Waiting list, in order of arrival (HU-023). */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "plan_waitlist", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderBy("joinedAt")
+    @BatchSize(size = 50)
+    @Fetch(FetchMode.SELECT)
+    private List<ParticipantEmbeddable> waitlist = new ArrayList<>();
 
     protected PlanEntity() {
     }
@@ -88,7 +102,8 @@ public class PlanEntity {
     @SuppressWarnings("java:S107")
     PlanEntity(UUID id, UUID organizerId, String organizerName, Activity activity, String title, String description,
                String meetingPoint, Point location, Instant startsAt, int spots, int occupied, Level level,
-               PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants, long version) {
+               PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants,
+               List<ParticipantEmbeddable> waitlist, long version) {
         this.id = id;
         this.organizerId = organizerId;
         this.organizerName = organizerName;
@@ -104,6 +119,7 @@ public class PlanEntity {
         this.status = status;
         this.publishedAt = publishedAt;
         this.participants = new ArrayList<>(participants);
+        this.waitlist = new ArrayList<>(waitlist);
         this.version = version;
     }
 
@@ -122,5 +138,6 @@ public class PlanEntity {
     PlanStatus getStatus() { return status; }
     Instant getPublishedAt() { return publishedAt; }
     List<ParticipantEmbeddable> getParticipants() { return participants; }
+    List<ParticipantEmbeddable> getWaitlist() { return waitlist; }
     long getVersion() { return version; }
 }
