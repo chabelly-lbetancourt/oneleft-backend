@@ -3,16 +3,24 @@ package es.upm.miw.oneleft.plans.infrastructure.persistence;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.BatchSize;
 import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -67,13 +75,20 @@ public class PlanEntity {
     @Version
     private long version;
 
+    /** Loaded in batches, so that listing 50 nearby plans does not run 50 extra queries. */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "plan_participant", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderBy("joinedAt")
+    @BatchSize(size = 50)
+    private List<ParticipantEmbeddable> participants = new ArrayList<>();
+
     protected PlanEntity() {
     }
 
     @SuppressWarnings("java:S107")
     PlanEntity(UUID id, UUID organizerId, String organizerName, Activity activity, String title, String description,
                String meetingPoint, Point location, Instant startsAt, int spots, int occupied, Level level,
-               PlanStatus status, Instant publishedAt) {
+               PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants, long version) {
         this.id = id;
         this.organizerId = organizerId;
         this.organizerName = organizerName;
@@ -88,6 +103,8 @@ public class PlanEntity {
         this.level = level;
         this.status = status;
         this.publishedAt = publishedAt;
+        this.participants = new ArrayList<>(participants);
+        this.version = version;
     }
 
     UUID getId() { return id; }
@@ -104,4 +121,6 @@ public class PlanEntity {
     Level getLevel() { return level; }
     PlanStatus getStatus() { return status; }
     Instant getPublishedAt() { return publishedAt; }
+    List<ParticipantEmbeddable> getParticipants() { return participants; }
+    long getVersion() { return version; }
 }

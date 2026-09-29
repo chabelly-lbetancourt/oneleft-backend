@@ -1,11 +1,14 @@
 package es.upm.miw.oneleft.gateway;
 
+import es.upm.miw.oneleft.gateway.ratelimit.RateLimitFilter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -22,7 +25,10 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectProvider<RateLimitFilter> rateLimit)
+            throws Exception {
+        // Rate limiting after authentication: each user has their own buckets
+        rateLimit.ifAvailable(filter -> http.addFilterAfter(filter, BearerTokenAuthenticationFilter.class));
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {

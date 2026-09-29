@@ -68,7 +68,17 @@ class PlanServiceTest {
 
     private final InMemoryPlans repository = new InMemoryPlans();
     private final List<PlanPublished> events = new ArrayList<>();
-    private final PlanEventPublisher publisher = events::add;
+    private final PlanEventPublisher publisher = new PlanEventPublisher() {
+        @Override
+        public void publish(PlanPublished event) {
+            events.add(event);
+        }
+
+        @Override
+        public void publish(es.upm.miw.oneleft.plans.domain.model.PlanJoined event) {
+            throw new UnsupportedOperationException("Not used by PlanService");
+        }
+    };
     private final PlanService service = new PlanService(repository, publisher, CLOCK);
 
     @Test

@@ -1,6 +1,10 @@
 spring:
   application:
     name: gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   security:
     oauth2:
       resourceserver:
@@ -78,8 +82,25 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    redis:
+      # Redis only backs rate limiting, which fails open: it must not make the gateway unhealthy
+      enabled: false
 
 oneleft:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    # The first matching rule applies; buckets are per user (per IP without a session)
+    rules:
+      - name: publish-plans
+        method: POST
+        path: /api/v1/plans
+        capacity: ${RATE_LIMIT_PUBLISH_PER_HOUR:5}
+        period: PT1H
+      - name: api
+        path: /api/**
+        capacity: ${RATE_LIMIT_API_PER_MINUTE:120}
+        period: PT1M
   cors:
     # Web app in development and Android app with Capacitor (https://localhost and capacitor://localhost)
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,https://localhost,capacitor://localhost}
