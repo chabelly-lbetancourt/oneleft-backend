@@ -20,6 +20,8 @@ public class Plan {
     public static final int MAX_TITLE_LENGTH = 80;
     public static final int MAX_DESCRIPTION_LENGTH = 280;
     public static final int MAX_SPOTS = 20;
+    /** People who can wait for a spot of a full plan (HU-023). */
+    public static final int MAX_WAITLIST = 10;
 
     private final UUID id;
     private final Organizer organizer;
@@ -34,6 +36,8 @@ public class Plan {
     private final PlanStatus status;
     private final Instant publishedAt;
     private final List<Participant> participants;
+    /** People waiting for a spot, in order of arrival (HU-023). */
+    private final List<Participant> waitlist;
     /** Concurrency token of the persisted aggregate (optimistic locking). */
     private final long version;
 
@@ -45,10 +49,19 @@ public class Plan {
                 publishedAt, List.of(), 0);
     }
 
-    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    @SuppressWarnings("java:S107")
     public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
                 MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
                 PlanStatus status, Instant publishedAt, List<Participant> participants, long version) {
+        this(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level, status,
+                publishedAt, participants, List.of(), version);
+    }
+
+    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
+                MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
+                long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
                 || status == null || publishedAt == null) {
             throw new ValidationException("plan.missingData", "Required plan data is missing");
@@ -80,6 +93,7 @@ public class Plan {
         this.status = status;
         this.publishedAt = publishedAt;
         this.participants = participants == null ? List.of() : List.copyOf(participants);
+        this.waitlist = waitlist == null ? List.of() : List.copyOf(waitlist);
         this.version = version;
     }
 
@@ -128,7 +142,78 @@ public class Plan {
         joined.add(new Participant(userId, name, now));
         var newOccupied = occupied + 1;
         return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied, level,
-                newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, joined, version);
+                newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, joined, waitlist, version);
+    }
+
+    /**
+     * Joins the waiting list of a full plan (HU-023): when someone leaves, the first person of the list takes the
+     * spot. A plan with free spots is joined directly, so its list stays empty.
+     */
+    public Plan joinWaitlist(UUID userId, String name, Clock clock) {
+        var now = clock.instant();
+        if (organizer.id().equals(userId)) {
+            throw new JoinRejectedException("plan.ownPlan", "The organizer cannot join their own plan");
+        }
+        if (isParticipant(userId)) {
+            throw new JoinRejectedException("plan.alreadyJoined", "You have already joined this plan");
+        }
+        if (isWaiting(userId)) {
+            throw new JoinRejectedException("plan.alreadyWaiting", "You are already on the waiting list");
+        }
+        if (!startsAt.isAfter(now)) {
+            throw new JoinRejectedException("plan.started", "The plan has already started");
+        }
+        if (status == PlanStatus.OPEN && freeSpots() > 0) {
+            throw new JoinRejectedException("plan.notFull", "The plan has free spots: join it directly");
+        }
+        if (status != PlanStatus.FULL) {
+            throw new JoinRejectedException("plan.notOpen", "The plan is no longer open");
+        }
+        if (waitlist.size() == MAX_WAITLIST) {
+            throw new JoinRejectedException("plan.waitlistFull", "The waiting list is full");
+        }
+        var waiting = new ArrayList<>(waitlist);
+        waiting.add(new Participant(userId, name, now));
+        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
+                status, publishedAt, participants, waiting, version);
+    }
+
+    /**
+     * Leaves the plan before it starts (HU-023). The spot goes to the first person of the waiting list; if nobody is
+     * waiting, it becomes free again and a full plan reopens.
+     */
+    public PlanLeft leave(UUID userId, Clock clock) {
+        var now = clock.instant();
+        var leaving = participants.stream().filter(participant -> participant.userId().equals(userId)).findFirst()
+                .orElseThrow(() -> new JoinRejectedException("plan.notParticipant", "You have not joined this plan"));
+        if (!startsAt.isAfter(now)) {
+            throw new JoinRejectedException("plan.started", "The plan has already started");
+        }
+        var remaining = new ArrayList<>(participants);
+        remaining.remove(leaving);
+        Participant promoted = null;
+        var waiting = new ArrayList<>(waitlist);
+        var newOccupied = occupied - 1;
+        if (!waiting.isEmpty()) {
+            var first = waiting.removeFirst();
+            promoted = new Participant(first.userId(), first.name(), now);
+            remaining.add(promoted);
+            newOccupied = occupied;
+        }
+        var plan = new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied,
+                level, newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, remaining, waiting,
+                version);
+        return new PlanLeft(plan, leaving, promoted, now);
+    }
+
+    /** Leaves the waiting list (HU-023). */
+    public Plan leaveWaitlist(UUID userId) {
+        if (!isWaiting(userId)) {
+            throw new JoinRejectedException("plan.notWaiting", "You are not on the waiting list");
+        }
+        var waiting = waitlist.stream().filter(person -> !person.userId().equals(userId)).toList();
+        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
+                status, publishedAt, participants, waiting, version);
     }
 
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */
@@ -142,8 +227,16 @@ public class Plan {
         return participants.stream().anyMatch(participant -> participant.userId().equals(userId));
     }
 
+    public boolean isWaiting(UUID userId) {
+        return waitlist.stream().anyMatch(person -> person.userId().equals(userId));
+    }
+
     public List<Participant> participants() {
         return participants;
+    }
+
+    public List<Participant> waitlist() {
+        return waitlist;
     }
 
     public long version() {
