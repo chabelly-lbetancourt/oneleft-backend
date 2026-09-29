@@ -31,6 +31,11 @@ spring:
               uri: ${PLANS_URL:http://localhost:8082}
               predicates:
                 - Path=/api/v1/plans/**
+            # Shared plan links (HU-024): public view and link preview page, without a session
+            - id: plans-shared
+              uri: ${PLANS_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/public/plans/**,/share/plans/**
             # OpenAPI description of each service, aggregated by Swagger UI
             - id: users-docs
               uri: ${USERS_URL:http://localhost:8081}
@@ -100,6 +105,11 @@ oneleft:
       - name: api
         path: /api/**
         capacity: ${RATE_LIMIT_API_PER_MINUTE:120}
+        period: PT1M
+      # Shared plan links (HU-024): public, so always per IP
+      - name: share
+        path: /share/**
+        capacity: ${RATE_LIMIT_SHARE_PER_MINUTE:60}
         period: PT1M
   cors:
     # Web app in development and Android app with Capacitor (https://localhost and capacitor://localhost)

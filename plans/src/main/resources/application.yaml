@@ -1,6 +1,10 @@
 spring:
   application:
     name: plans
+  profiles:
+    # Run locally (IntelliJ, ./mvnw spring-boot:run) without choosing a profile, the demo data is loaded on startup.
+    # Only applies when no profile is active: the Docker images reset it and the seeders never run with pro (seed & !pro)
+    default: seed
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/plans}
     username: ${DB_USER:oneleft}
@@ -48,3 +52,9 @@ management:
 info:
   app:
     name: OneLeft · plans
+
+oneleft:
+  share:
+    # Where a shared link finally opens the plan (the web app) and the time zone of the preview (HU-024)
+    web-url: ${WEB_URL:http://localhost:4200}
+    zone: ${SHARE_ZONE:Europe/Madrid}
