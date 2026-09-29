@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.port.in.JoinPlanUseCase;
+import es.upm.miw.oneleft.plans.domain.port.in.ParticipationUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.QueryPlansUseCase;
@@ -24,6 +25,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,19 +53,24 @@ public class PlanController {
     public static final String NEARBY = "/nearby";
     public static final String NEARBY_STREAM = NEARBY + "/stream";
     public static final String PARTICIPANTS = PLAN + "/participants";
+    public static final String ME = "/me";
+    public static final String WAITLIST = PLAN + "/waitlist";
     public static final String EVENTS_STREAM = "/events/stream";
 
     private final PublishPlanUseCase publishPlan;
     private final QueryPlansUseCase queryPlans;
     private final JoinPlanUseCase joinPlan;
+    private final ParticipationUseCase participation;
     private final NearbyPlanSubscriptions nearbySubscriptions;
     private final UserEventSubscriptions userEvents;
 
     public PlanController(PublishPlanUseCase publishPlan, QueryPlansUseCase queryPlans, JoinPlanUseCase joinPlan,
-                          NearbyPlanSubscriptions nearbySubscriptions, UserEventSubscriptions userEvents) {
+                          ParticipationUseCase participation, NearbyPlanSubscriptions nearbySubscriptions,
+                          UserEventSubscriptions userEvents) {
         this.publishPlan = publishPlan;
         this.queryPlans = queryPlans;
         this.joinPlan = joinPlan;
+        this.participation = participation;
         this.nearbySubscriptions = nearbySubscriptions;
         this.userEvents = userEvents;
     }
@@ -105,10 +112,47 @@ public class PlanController {
         return PlanResponse.of(joinPlan.join(planId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name")));
     }
 
+    @DeleteMapping(PARTICIPANTS + ME)
+    @Operation(summary = "Leave a plan (HU-023)",
+            description = "Gives the spot back before the plan starts. The first person of the waiting list takes it; "
+                    + "if nobody is waiting, the spot becomes free and a full plan reopens. The organizer (and whoever "
+                    + "came in) are notified.")
+    @ApiResponse(responseCode = "200", description = "Spot given back; the plan as it is now")
+    @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
+    @ApiResponse(responseCode = "409", description = "plan.notParticipant, plan.started or plan.busy",
+            content = @Content)
+    public PlanResponse leave(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
+        return PlanResponse.of(participation.leave(planId, UUID.fromString(jwt.getSubject())));
+    }
+
+    @PostMapping(WAITLIST)
+    @Operation(summary = "Join the waiting list of a full plan (HU-023)",
+            description = "When someone leaves, the first person of the list takes the spot automatically.")
+    @ApiResponse(responseCode = "200", description = "On the waiting list; the plan with its list")
+    @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
+    @ApiResponse(responseCode = "409", description = "plan.notFull, plan.alreadyWaiting, plan.alreadyJoined, "
+            + "plan.ownPlan, plan.started, plan.notOpen, plan.waitlistFull or plan.busy", content = @Content)
+    public PlanResponse joinWaitlist(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
+                                     @PathVariable UUID planId) {
+        return PlanResponse.of(participation.joinWaitlist(planId, UUID.fromString(jwt.getSubject()),
+                jwt.getClaimAsString("name")));
+    }
+
+    @DeleteMapping(WAITLIST + ME)
+    @Operation(summary = "Leave the waiting list (HU-023)")
+    @ApiResponse(responseCode = "200", description = "Off the waiting list; the plan as it is now")
+    @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
+    @ApiResponse(responseCode = "409", description = "plan.notWaiting or plan.busy", content = @Content)
+    public PlanResponse leaveWaitlist(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
+                                      @PathVariable UUID planId) {
+        return PlanResponse.of(participation.leaveWaitlist(planId, UUID.fromString(jwt.getSubject())));
+    }
+
     @GetMapping(path = EVENTS_STREAM, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "My events in real time (HU-005)",
-            description = "Server-Sent Events for the signed-in user. Emits `ready` on connection and `plan-joined` "
-                    + "with a PlanJoinedNotice when someone joins one of their plans.")
+    @Operation(summary = "My events in real time (HU-005, HU-023)",
+            description = "Server-Sent Events for the signed-in user. Emits `ready` on connection; `plan-joined` "
+                    + "(PlanJoinedNotice) and `plan-left` (PlanLeftNotice) when someone joins or leaves one of their "
+                    + "plans; and `plan-spot` (SpotFreedNotice) when a spot is freed for them from a waiting list.")
     @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PlanJoinedNotice.class)))

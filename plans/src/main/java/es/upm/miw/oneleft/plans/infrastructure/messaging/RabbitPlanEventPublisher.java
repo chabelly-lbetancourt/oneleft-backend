@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.messaging;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
+import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -26,5 +27,10 @@ public class RabbitPlanEventPublisher implements PlanEventPublisher {
     @Override
     public void publish(PlanJoined event) {
         rabbit.convertAndSend(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_JOINED, event);
+    }
+
+    @Override
+    public void publish(PlanLeftEvent event) {
+        rabbit.convertAndSend(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_LEFT, event);
     }
 }
