@@ -93,6 +93,9 @@ management:
       enabled: false
 
 oneleft:
+  proxy:
+    # Connections from the gateway to the services: each open app keeps up to two real-time streams (SSE)
+    max-connections: ${PROXY_MAX_CONNECTIONS:1000}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     # The first matching rule applies; buckets are per user (per IP without a session)
