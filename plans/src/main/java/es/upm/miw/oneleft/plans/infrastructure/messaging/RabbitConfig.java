@@ -13,6 +13,7 @@ public class RabbitConfig {
     public static final String PLANS_EXCHANGE = "oneleft.plans";
     public static final String PLAN_PUBLISHED = "plan.published";
     public static final String PLAN_JOINED = "plan.joined";
+    public static final String PLAN_LEFT = "plan.left";
 
     @Bean
     TopicExchange plansExchange() {

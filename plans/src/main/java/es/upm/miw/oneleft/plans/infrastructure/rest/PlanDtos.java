@@ -66,13 +66,16 @@ public final class PlanDtos {
     public record PlanResponse(UUID id, UUID organizerId, @Schema(example = "Ana") String organizerName,
                                Activity activity, String title, String description, MeetingPointDto meetingPoint,
                                Instant startsAt, int spots, int occupied, int freeSpots, Level level,
-                               PlanStatus status, Instant publishedAt, List<ParticipantDto> participants) {
+                               PlanStatus status, Instant publishedAt, List<ParticipantDto> participants,
+                               @Schema(description = "People waiting for a spot, first to last (HU-023)")
+                               List<ParticipantDto> waitlist) {
 
         static PlanResponse of(Plan plan) {
             return new PlanResponse(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                     plan.title(), plan.description(), MeetingPointDto.of(plan.meetingPoint()), plan.startsAt(),
                     plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt(),
-                    plan.participants().stream().map(ParticipantDto::of).toList());
+                    plan.participants().stream().map(ParticipantDto::of).toList(),
+                    plan.waitlist().stream().map(ParticipantDto::of).toList());
         }
     }
 

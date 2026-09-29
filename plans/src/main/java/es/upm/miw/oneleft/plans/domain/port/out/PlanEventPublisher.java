@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.domain.port.out;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
+import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 
 /**
@@ -11,4 +12,6 @@ public interface PlanEventPublisher {
     void publish(PlanPublished event);
 
     void publish(PlanJoined event);
+
+    void publish(PlanLeftEvent event);
 }
