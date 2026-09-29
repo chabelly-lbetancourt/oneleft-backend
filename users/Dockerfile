@@ -4,4 +4,6 @@ USER oneleft
 WORKDIR /app
 COPY target/users-*.jar app.jar
 EXPOSE 8081
+# Containers never seed unless a profile asks for it (compose: observability,seed)
+ENV SPRING_PROFILES_DEFAULT=default
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
