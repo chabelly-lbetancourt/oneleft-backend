@@ -48,3 +48,9 @@ management:
 info:
   app:
     name: OneLeft · plans
+
+oneleft:
+  share:
+    # Where a shared link finally opens the plan (the web app) and the time zone of the preview (HU-024)
+    web-url: ${WEB_URL:http://localhost:4200}
+    zone: ${SHARE_ZONE:Europe/Madrid}
