@@ -44,7 +44,8 @@ class NearbyPlanSubscriptionsTest {
     @Test
     void dispatchingToAClosedClientAlsoForgetsIt() {
         subscriptions.subscribe(search).complete();
-        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, COURTS.latitude(),
+        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, "Pádel", "Pistas",
+                COURTS.latitude(),
                 COURTS.longitude(), NOW.plus(Duration.ofHours(1)), 1, null, NOW);
 
         subscriptions.dispatch(event);
@@ -54,7 +55,8 @@ class NearbyPlanSubscriptionsTest {
 
     @Test
     void theEventCarriesTheRoundedDistance() {
-        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, COURTS.latitude() + 0.005,
+        var event = new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, "Pádel", "Pistas",
+                COURTS.latitude() + 0.005,
                 COURTS.longitude(), NOW.plus(Duration.ofHours(1)), 1, null, NOW);
 
         var nearby = NearbyPlanEvent.of(event, search);
