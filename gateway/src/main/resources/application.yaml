@@ -36,6 +36,11 @@ spring:
               uri: ${PLANS_URL:http://localhost:8082}
               predicates:
                 - Path=/api/v1/public/plans/**,/share/plans/**
+            # Notices of nearby plans (HU-006)
+            - id: notifications
+              uri: ${NOTIFICATIONS_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/notifications/**
             # OpenAPI description of each service, aggregated by Swagger UI
             - id: users-docs
               uri: ${USERS_URL:http://localhost:8081}
@@ -47,6 +52,12 @@ spring:
               uri: ${PLANS_URL:http://localhost:8082}
               predicates:
                 - Path=/api-docs/plans
+              filters:
+                - SetPath=/v3/api-docs
+            - id: notifications-docs
+              uri: ${NOTIFICATIONS_URL:http://localhost:8083}
+              predicates:
+                - Path=/api-docs/notifications
               filters:
                 - SetPath=/v3/api-docs
 
@@ -63,6 +74,8 @@ springdoc:
         url: /api-docs/users
       - name: plans
         url: /api-docs/plans
+      - name: notifications
+        url: /api-docs/notifications
     urls-primary-name: users
     try-it-out-enabled: true
     persist-authorization: true

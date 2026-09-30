@@ -75,7 +75,7 @@ jobs:
       PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/pre') }}
     strategy:
       matrix:
-        service: [gateway, users, plans]
+        service: [gateway, users, plans, notifications]
     steps:
       - uses: actions/checkout@v7
 
