@@ -248,7 +248,8 @@ public class Plan {
     }
 
     public PlanPublished publishedEvent() {
-        return new PlanPublished(id, organizer.id(), activity, meetingPoint.latitude(), meetingPoint.longitude(),
+        return new PlanPublished(id, organizer.id(), activity, title, meetingPoint.name(), meetingPoint.latitude(),
+                meetingPoint.longitude(),
                 startsAt, freeSpots(), level, publishedAt);
     }
 
