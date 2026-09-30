@@ -15,9 +15,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Demo preferences for the dev and pre environments: Lucía and Diego want to hear about any plan around Vallecas,
- * at any time, so a plan published there in a demo (or an end-to-end test) reaches them. Existing preferences are
- * never overwritten.
+ * Demo preferences for the dev and pre environments: Lucía and Admin, test users of the realm, want to hear about any
+ * plan around Vallecas at any time, so a plan Ana publishes there in a demo (or an end-to-end test) reaches them.
+ * Existing preferences are never overwritten.
  */
 @Component
 @Profile(DemoPreferencesSeeder.PROFILE)
@@ -26,9 +26,9 @@ public class DemoPreferencesSeeder implements ApplicationRunner {
     /** Explicit opt-in, and never together with production. */
     public static final String PROFILE = "seed & !pro";
 
-    /** Test users of the development realm (fixed ids in oneleft-realm.json). */
-    public static final UUID LUCIA = UUID.fromString("5d1c7c2e-2f0b-4d6e-9a43-0c1e7a9b0001");
-    public static final UUID DIEGO = UUID.fromString("5d1c7c2e-2f0b-4d6e-9a43-0c1e7a9b0002");
+    /** Test users of the development realm who sign in (fixed ids in oneleft-realm.json). */
+    public static final UUID LUCIA = UUID.fromString("5b0f7c2e-8d4a-4f3b-9c61-2e7a9d4b8f10");
+    public static final UUID ADMIN = UUID.fromString("9e51a057-ce42-4177-b020-ac2fc7ec6ffa");
     static final double VALLECAS_LATITUDE = 40.39;
     static final double VALLECAS_LONGITUDE = -3.63;
 
@@ -45,7 +45,7 @@ public class DemoPreferencesSeeder implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         var created = 0;
-        for (var userId : List.of(LUCIA, DIEGO)) {
+        for (var userId : List.of(LUCIA, ADMIN)) {
             if (repository.findByUser(userId).isEmpty()) {
                 preferences.update(new NotificationPreferences(userId, true, VALLECAS_LATITUDE, VALLECAS_LONGITUDE,
                         5_000, Set.of(), null, NotificationPreferences.MAX_PER_DAY));
