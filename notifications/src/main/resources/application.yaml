@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: notifications
+  profiles:
+    # Run locally (IntelliJ, ./mvnw spring-boot:run) without choosing a profile, the demo data is loaded on startup.
+    # Only applies when no profile is active: the Docker images reset it and the seeders never run with pro (seed & !pro)
+    default: seed
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/notifications}
+    username: ${DB_USER:oneleft}
+    password: ${DB_PASSWORD:oneleft-dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks that it matches
+      ddl-auto: validate
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    username: ${RABBITMQ_USER:oneleft}
+    password: ${RABBITMQ_PASSWORD:oneleft-dev}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Token issuer (Keycloak realm). The public keys are downloaded from its JWKS.
+          issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}
+          # Inside Docker the keys are downloaded through the internal network (keycloak:8180),
+          # but the token issuer is still the public URL (localhost:8180)
+          jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
+
+server:
+  # Behind the gateway: generated URLs (Location header...) use the public host from X-Forwarded-*
+  forward-headers-strategy: framework
+  port: ${PORT:8083}
+
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # Histograms to compute latency percentiles (p95, p99) in Prometheus
+      percentiles-histogram:
+        http.server.requests: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: OneLeft · notifications
+
+oneleft:
+  notifications:
+    # Quiet hours and the daily limit of notices follow the local day
+    zone: ${NOTIFICATIONS_ZONE:Europe/Madrid}
+  webpush:
+    # VAPID keys (tools: oneleft-infra/docker/generate-vapid-keys.sh). Without them Web Push is off
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject: ${VAPID_SUBJECT:mailto:oneleft@alumnos.upm.es}
