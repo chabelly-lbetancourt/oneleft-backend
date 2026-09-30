@@ -15,7 +15,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The seed runs on startup with the {@code seed} profile: Lucía and Diego hear about plans around Vallecas.
+ * The seed runs on startup with the {@code seed} profile: Lucía and Admin hear about plans around Vallecas.
  */
 @SpringBootTest
 @ActiveProfiles("seed")
@@ -28,21 +28,21 @@ class DemoPreferencesSeederTest {
     private DemoPreferencesSeeder seeder;
 
     @Test
-    void luciaAndDiegoHearAboutPlansAroundVallecas() {
+    void luciaAndAdminHearAboutPlansAroundVallecas() {
         var lucia = preferences.preferencesOf(DemoPreferencesSeeder.LUCIA);
         assertThat(lucia.enabled()).isTrue();
         assertThat(lucia.latitude()).isEqualTo(40.39);
         assertThat(lucia.quietHours()).isNull();
-        assertThat(preferences.preferencesOf(DemoPreferencesSeeder.DIEGO).latitude()).isEqualTo(40.39);
+        assertThat(preferences.preferencesOf(DemoPreferencesSeeder.ADMIN).latitude()).isEqualTo(40.39);
     }
 
     @Test
     void neverOverwritesWhatThePersonChose() {
-        preferences.update(new NotificationPreferences(DemoPreferencesSeeder.DIEGO, false, 40.39, -3.63, 1_000,
+        preferences.update(new NotificationPreferences(DemoPreferencesSeeder.ADMIN, false, 40.39, -3.63, 1_000,
                 Set.of(), null, 3));
 
         seeder.run(new DefaultApplicationArguments());
 
-        assertThat(preferences.preferencesOf(DemoPreferencesSeeder.DIEGO).enabled()).isFalse();
+        assertThat(preferences.preferencesOf(DemoPreferencesSeeder.ADMIN).enabled()).isFalse();
     }
 }
