@@ -59,4 +59,26 @@ class UserEventSubscriptionsTest {
                 .isEqualTo(new PlanLeftNotice(event.planId(), "Padel", "Lucía", "Diego", 0, true));
         assertThat(SpotFreedNotice.of(event)).isEqualTo(new SpotFreedNotice(event.planId(), "Padel"));
     }
+
+    @Test
+    void aNearbyPlanIsToldOnlyToThePersonItIsFor() {
+        var lucia = UUID.randomUUID();
+        var other = UUID.randomUUID();
+        subscriptions.subscribe(other);
+        // Lucía closed the app: writing to her stream fails and it is forgotten; the other stream is untouched
+        subscriptions.subscribe(lucia).complete();
+
+        subscriptions.dispatch(new PlanNearbyNotice.Message(lucia, UUID.randomUUID(), "PADEL", "Pádel", "Pistas",
+                Instant.now(), 1, 700));
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+    }
+
+    @Test
+    void theNearbyNoticeCarriesWhatTheAppShows() {
+        var message = new PlanNearbyNotice.Message(UUID.randomUUID(), UUID.randomUUID(), "PADEL", "Pádel", "Pistas",
+                Instant.parse("2026-11-16T17:20:00Z"), 1, 700);
+        assertThat(PlanNearbyNotice.of(message)).isEqualTo(new PlanNearbyNotice(message.planId(), "PADEL", "Pádel",
+                "Pistas", message.startsAt(), 1, 700));
+    }
 }

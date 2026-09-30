@@ -11,6 +11,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 - `gateway`: punto de entrada único (Spring Cloud Gateway).
 - `users`: usuarios, perfiles y reputación.
 - `plans`: publicación de planes, plazas, caducidad y búsqueda de planes cercanos (PostGIS) en tiempo real (SSE).
+- `notifications`: avisos de planes cercanos (HU-006): preferencias de cada persona, a quién avisar y Web Push.
 - `notifications`: avisos push y en tiempo real.
 - `ai`: creación de planes en lenguaje natural, moderación y ranking de notificaciones.
 
@@ -22,9 +23,10 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 
 | Módulo | Puerto | Estado |
 |---|---|---|
-| `gateway` | 8080 | Enruta `/api/v1/users/**` a `users` y `/api/v1/plans/**` a `plans` |
+| `gateway` | 8080 | Enruta `/api/v1/users/**` a `users`, `/api/v1/plans/**` a `plans` y `/api/v1/notifications/**` a `notifications` |
 | `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones |
 | `plans` | 8082 | HU-003 publicar un plan (evento `plan.published` en RabbitMQ) · HU-004 planes cercanos y avisos en tiempo real (SSE) |
+| `notifications` | 8083 | HU-006 avisos de planes cercanos: escucha `plan.published`, elige a quién avisar (zona, radio, actividades, horario sin avisos y máximo diario) y avisa en la app y por Web Push |
 
 El resto de servicios (`notifications`, `chat`, `ai`) se añaden con sus historias de usuario.
 
@@ -67,7 +69,7 @@ no depende de las otras capas ni de Spring, y la aplicación no depende de la in
 - **Swagger UI:** <http://localhost:8080/swagger-ui.html>, en el gateway, con la API de todos los servicios
   (selector *Select a definition*).
 - **Probar endpoints protegidos:** botón *Authorize* → inicio de sesión en Keycloak (Authorization Code + PKCE).
-- **Especificación OpenAPI:** `/v3/api-docs` en cada servicio, o a través del gateway en `/api-docs/users` y `/api-docs/plans`.
+- **Especificación OpenAPI:** `/v3/api-docs` en cada servicio, o a través del gateway en `/api-docs/users`, `/api-docs/plans` y `/api-docs/notifications`.
 
 ## Cómo ejecutarlo
 
@@ -93,6 +95,13 @@ publicar cuando los anteriores ya han empezado.
 | Imágenes Docker | Solo si se pide: la imagen fija `SPRING_PROFILES_DEFAULT=default`. El compose de desarrollo activa `observability,seed` |
 | Tests | No, salvo los tests del seed (`@ActiveProfiles("seed")`) |
 | **pro** | Nunca: los *seeders* exigen `seed & !pro` |
+
+### Web Push (HU-006)
+
+`notifications` envía los avisos como notificaciones del sistema con **Web Push**, implementado con el JDK: cifrado del
+mensaje (RFC 8291, comprobado con el ejemplo de la RFC) y firma VAPID (RFC 8292). Necesita un par de claves VAPID en
+`VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` (se generan con `oneleft-infra/docker/generate-vapid-keys.sh`). Sin ellas el
+servicio funciona igual, pero los avisos solo llegan dentro de la app.
 
 Imágenes Docker:
 
