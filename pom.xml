@@ -21,6 +21,7 @@
         <module>gateway</module>
         <module>users</module>
         <module>plans</module>
+        <module>notifications</module>
     </modules>
 
     <properties>

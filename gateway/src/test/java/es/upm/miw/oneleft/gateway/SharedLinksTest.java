@@ -79,5 +79,7 @@ class SharedLinksTest {
     void onlyReadingIsPublic() throws Exception {
         mockMvc.perform(post("/api/v1/public/plans/" + UUID.randomUUID())).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/plans/" + UUID.randomUUID())).andExpect(status().isUnauthorized());
+        // Notices of nearby plans (HU-006) are personal: always with a session
+        mockMvc.perform(get("/api/v1/notifications/preferences")).andExpect(status().isUnauthorized());
     }
 }
