@@ -21,7 +21,8 @@ class NearbySearchTest {
     }
 
     private static PlanPublished event(Activity activity, UUID organizer, double lat, Duration startsIn, int free) {
-        return new PlanPublished(UUID.randomUUID(), organizer, activity, lat, LON, NOW.plus(startsIn), free,
+        return new PlanPublished(UUID.randomUUID(), organizer, activity, "Plan", "Place", lat, LON,
+                NOW.plus(startsIn), free,
                 Level.INTERMEDIATE, NOW);
     }
 
