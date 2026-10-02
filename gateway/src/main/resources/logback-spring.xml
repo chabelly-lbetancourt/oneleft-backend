@@ -11,7 +11,7 @@
     </root>
 
     <!-- Locally, with the "observability" profile, logs are also pushed to Loki.
-         In Kubernetes they are collected from the containers' standard output. -->
+         In production they are collected from the containers' standard output. -->
     <springProfile name="observability">
         <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
             <http>
