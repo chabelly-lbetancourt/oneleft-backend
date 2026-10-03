@@ -3,6 +3,7 @@ package es.upm.miw.oneleft.notifications.application;
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
 import es.upm.miw.oneleft.notifications.domain.model.NotificationPreferences;
+import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PublishedPlan;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
 import es.upm.miw.oneleft.notifications.domain.model.QuietHours;
@@ -203,8 +204,9 @@ class NearbyPlanNotifierTest {
         }
     }
 
-    private static final class Subscriptions implements PushSubscriptionRepository {
-        private final Map<String, PushSubscription> all = new java.util.LinkedHashMap<>();
+    /** Also used by {@link PlanReminderNotifierTest}. */
+    static final class Subscriptions implements PushSubscriptionRepository {
+        final Map<String, PushSubscription> all = new java.util.LinkedHashMap<>();
 
         @Override
         public void save(PushSubscription subscription) {
@@ -230,10 +232,11 @@ class NearbyPlanNotifierTest {
         }
     }
 
-    private static final class Push implements PushSender {
-        private boolean enabled = true;
-        private final List<String> sent = new ArrayList<>();
-        private final Set<String> gone = new java.util.HashSet<>();
+    /** Also used by {@link PlanReminderNotifierTest}. */
+    static final class Push implements PushSender {
+        boolean enabled = true;
+        final List<String> sent = new ArrayList<>();
+        final Set<String> gone = new java.util.HashSet<>();
 
         @Override
         public boolean enabled() {
@@ -246,6 +249,15 @@ class NearbyPlanNotifierTest {
                 return Result.GONE;
             }
             sent.add(subscription.endpoint());
+            return Result.SENT;
+        }
+
+        @Override
+        public Result send(PushSubscription subscription, PlanReminder reminder) {
+            if (gone.contains(subscription.endpoint())) {
+                return Result.GONE;
+            }
+            sent.add("reminder:" + subscription.endpoint());
             return Result.SENT;
         }
     }

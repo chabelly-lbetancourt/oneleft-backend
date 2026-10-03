@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.notifications.infrastructure.webpush;
 
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
+import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
 import es.upm.miw.oneleft.notifications.domain.port.out.PushSender;
 import org.slf4j.Logger;
@@ -17,7 +18,10 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Output adapter: sends the notice to the browser's push service (RFC 8030), encrypted (RFC 8291) and signed (VAPID,
@@ -54,12 +58,40 @@ class WebPushSender implements PushSender {
 
     @Override
     public Result send(PushSubscription subscription, NearbyPlanNotice notice) {
+        var language = subscription.language();
+        return deliver(subscription, message(NoticeTexts.title(notice, language),
+                NoticeTexts.body(notice, language, clock.getZone()), notice.planId(), "plan-" + notice.planId()),
+                notice.startsAt());
+    }
+
+    @Override
+    public Result send(PushSubscription subscription, PlanReminder reminder) {
+        var language = subscription.language();
+        // Its own tag: the reminder does not replace the notice of the same plan if it is still shown
+        return deliver(subscription, message(NoticeTexts.title(reminder, language),
+                NoticeTexts.body(reminder, language, clock.getZone()), reminder.planId(),
+                "plan-" + reminder.planId() + "-reminder"), reminder.startsAt());
+    }
+
+    /** What the service worker shows: title, text, the plan to open and a tag so that a message is shown once. */
+    private static Map<String, Object> message(String title, String body, UUID planId, String tag) {
+        var message = new LinkedHashMap<String, Object>();
+        message.put("title", title);
+        message.put("body", body);
+        message.put("url", "/plans/" + planId);
+        message.put("tag", tag);
+        return message;
+    }
+
+    /** The message is useless once the plan has started: it expires then, within the limits of the push services. */
+    private Result deliver(PushSubscription subscription, Map<String, Object> message, Instant startsAt) {
         if (vapid == null) {
             return Result.FAILED;
         }
         var endpoint = URI.create(subscription.endpoint());
-        var body = WebPushEncryption.encrypt(payload(subscription, notice), subscription.p256dh(), subscription.auth());
-        var ttl = Duration.between(clock.instant(), notice.startsAt());
+        var payload = json.writeValueAsString(message).getBytes(StandardCharsets.UTF_8);
+        var body = WebPushEncryption.encrypt(payload, subscription.p256dh(), subscription.auth());
+        var ttl = Duration.between(clock.instant(), startsAt);
         ttl = ttl.compareTo(MIN_TTL) < 0 ? MIN_TTL : ttl.compareTo(MAX_TTL) > 0 ? MAX_TTL : ttl;
         try {
             http.post().uri(endpoint)
@@ -82,15 +114,5 @@ class WebPushSender implements PushSender {
             log.warn("Web Push to {} failed: {}", endpoint.getHost(), e.getMessage());
             return Result.FAILED;
         }
-    }
-
-    /** What the service worker shows: title, text, the plan to open and a tag so that a plan is shown once. */
-    private byte[] payload(PushSubscription subscription, NearbyPlanNotice notice) {
-        var message = new LinkedHashMap<String, Object>();
-        message.put("title", NoticeTexts.title(notice, subscription.language()));
-        message.put("body", NoticeTexts.body(notice, subscription.language(), clock.getZone()));
-        message.put("url", "/plans/" + notice.planId());
-        message.put("tag", "plan-" + notice.planId());
-        return json.writeValueAsString(message).getBytes(StandardCharsets.UTF_8);
     }
 }

@@ -22,6 +22,10 @@ public class Plan {
     public static final int MAX_SPOTS = 20;
     /** People who can wait for a spot of a full plan (HU-023). */
     public static final int MAX_WAITLIST = 10;
+    /** Plans have no end time: they are over this long after they start (HU-007, «in progress» → «finished»). */
+    public static final Duration DURATION = Duration.ofHours(3);
+    /** Whoever is in the plan is reminded this long before it starts (HU-007). */
+    public static final Duration REMINDER_LEAD = Duration.ofMinutes(30);
 
     private final UUID id;
     private final Organizer organizer;
@@ -38,6 +42,8 @@ public class Plan {
     private final List<Participant> participants;
     /** People waiting for a spot, in order of arrival (HU-023). */
     private final List<Participant> waitlist;
+    /** When the reminder was sent (HU-007); null while it is pending. */
+    private final Instant remindedAt;
     /** Concurrency token of the persisted aggregate (optimistic locking). */
     private final long version;
 
@@ -57,11 +63,20 @@ public class Plan {
                 publishedAt, participants, List.of(), version);
     }
 
-    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    @SuppressWarnings("java:S107")
     public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
                 MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
                 PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
                 long version) {
+        this(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level, status,
+                publishedAt, participants, waitlist, null, version);
+    }
+
+    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
+                MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
+                Instant remindedAt, long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
                 || status == null || publishedAt == null) {
             throw new ValidationException("plan.missingData", "Required plan data is missing");
@@ -94,6 +109,7 @@ public class Plan {
         this.publishedAt = publishedAt;
         this.participants = participants == null ? List.of() : List.copyOf(participants);
         this.waitlist = waitlist == null ? List.of() : List.copyOf(waitlist);
+        this.remindedAt = remindedAt;
         this.version = version;
     }
 
@@ -113,8 +129,10 @@ public class Plan {
             throw new ValidationException("plan.startsTooLate", "The plan must start within the next "
                     + MAX_HORIZON.toHours() + " hours");
         }
+        // A plan published with less than the reminder lead needs no reminder: everyone is just finding out about it
+        var remindedAt = startsAt.minus(REMINDER_LEAD).isAfter(now) ? null : now;
         return new Plan(UUID.randomUUID(), organizer, activity, title, description, meetingPoint, startsAt, spots,
-                0, level, PlanStatus.OPEN, now);
+                0, level, PlanStatus.OPEN, now, List.of(), List.of(), remindedAt, 0);
     }
 
     /**
@@ -142,7 +160,8 @@ public class Plan {
         joined.add(new Participant(userId, name, now));
         var newOccupied = occupied + 1;
         return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied, level,
-                newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, joined, waitlist, version);
+                newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, joined, waitlist, remindedAt,
+                version);
     }
 
     /**
@@ -175,7 +194,7 @@ public class Plan {
         var waiting = new ArrayList<>(waitlist);
         waiting.add(new Participant(userId, name, now));
         return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
-                status, publishedAt, participants, waiting, version);
+                status, publishedAt, participants, waiting, remindedAt, version);
     }
 
     /**
@@ -202,7 +221,7 @@ public class Plan {
         }
         var plan = new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied,
                 level, newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, remaining, waiting,
-                version);
+                remindedAt, version);
         return new PlanLeft(plan, leaving, promoted, now);
     }
 
@@ -213,7 +232,53 @@ public class Plan {
         }
         var waiting = waitlist.stream().filter(person -> !person.userId().equals(userId)).toList();
         return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
-                status, publishedAt, participants, waiting, version);
+                status, publishedAt, participants, waiting, remindedAt, version);
+    }
+
+    /**
+     * Moves the plan along its lifecycle at {@code now} (HU-007, state diagram of the proposal): an open or full plan
+     * is «in progress» from its start time, and «finished» {@link #DURATION} later. A plan that starts no longer
+     * takes anyone, so its waiting list is emptied. Returns this same plan when nothing changes.
+     */
+    public Plan advance(Instant now) {
+        var next = status;
+        if ((next == PlanStatus.OPEN || next == PlanStatus.FULL) && !startsAt.isAfter(now)) {
+            next = PlanStatus.IN_PROGRESS;
+        }
+        if (next == PlanStatus.IN_PROGRESS && !startsAt.plus(DURATION).isAfter(now)) {
+            next = PlanStatus.FINISHED;
+        }
+        if (next == status) {
+            return this;
+        }
+        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
+                next, publishedAt, participants, List.of(), remindedAt, version);
+    }
+
+    /** Whether the plan is about to start and its reminder has not been sent (HU-007). */
+    public boolean needsReminder(Instant now) {
+        return (status == PlanStatus.OPEN || status == PlanStatus.FULL) && remindedAt == null
+                && startsAt.isAfter(now) && !startsAt.minus(REMINDER_LEAD).isAfter(now);
+    }
+
+    /**
+     * Sends the reminder (HU-007): the organizer and everyone in the plan are told it is about to start. The plan
+     * records it, so it is sent once.
+     */
+    public PlanReminded remind(Instant now) {
+        if (!needsReminder(now)) {
+            throw new IllegalStateException("The plan " + id + " does not need a reminder");
+        }
+        var recipients = new ArrayList<UUID>();
+        recipients.add(organizer.id());
+        participants.forEach(participant -> recipients.add(participant.userId()));
+        var plan = new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied,
+                level, status, publishedAt, participants, waitlist, now, version);
+        return new PlanReminded(plan, new PlanReminder(id, title, meetingPoint.name(), startsAt, recipients, now));
+    }
+
+    public Instant remindedAt() {
+        return remindedAt;
     }
 
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */

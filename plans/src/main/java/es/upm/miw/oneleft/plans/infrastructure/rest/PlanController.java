@@ -149,10 +149,12 @@ public class PlanController {
     }
 
     @GetMapping(path = EVENTS_STREAM, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "My events in real time (HU-005, HU-023)",
+    @Operation(summary = "My events in real time (HU-005, HU-006, HU-007, HU-023)",
             description = "Server-Sent Events for the signed-in user. Emits `ready` on connection; `plan-joined` "
                     + "(PlanJoinedNotice) and `plan-left` (PlanLeftNotice) when someone joins or leaves one of their "
-                    + "plans; and `plan-spot` (SpotFreedNotice) when a spot is freed for them from a waiting list.")
+                    + "plans; `plan-spot` (SpotFreedNotice) when a spot is freed for them from a waiting list; "
+                    + "`plan-nearby` (PlanNearbyNotice) when a plan they asked for is published nearby; and "
+                    + "`plan-reminder` (PlanReminderNotice) when a plan they are in is about to start.")
     @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PlanJoinedNotice.class)))

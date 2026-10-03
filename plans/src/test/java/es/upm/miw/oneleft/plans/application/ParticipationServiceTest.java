@@ -8,6 +8,7 @@ import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
+import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionOperations;
@@ -44,6 +45,11 @@ class ParticipationServiceTest {
         @Override
         public void publish(PlanLeftEvent event) {
             events.add(event);
+        }
+
+        @Override
+        public void publish(PlanReminder event) {
+            throw new UnsupportedOperationException();
         }
     };
     private final ParticipationService service = new ParticipationService(

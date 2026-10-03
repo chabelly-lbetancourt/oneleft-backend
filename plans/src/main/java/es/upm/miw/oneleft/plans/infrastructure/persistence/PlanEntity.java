@@ -74,6 +74,10 @@ public class PlanEntity {
     @Column(name = "published_at", nullable = false)
     private Instant publishedAt;
 
+    /** When the reminder was sent (HU-007); null while it is pending. */
+    @Column(name = "reminded_at")
+    private Instant remindedAt;
+
     @Version
     private long version;
 
@@ -103,7 +107,7 @@ public class PlanEntity {
     PlanEntity(UUID id, UUID organizerId, String organizerName, Activity activity, String title, String description,
                String meetingPoint, Point location, Instant startsAt, int spots, int occupied, Level level,
                PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants,
-               List<ParticipantEmbeddable> waitlist, long version) {
+               List<ParticipantEmbeddable> waitlist, Instant remindedAt, long version) {
         this.id = id;
         this.organizerId = organizerId;
         this.organizerName = organizerName;
@@ -120,6 +124,7 @@ public class PlanEntity {
         this.publishedAt = publishedAt;
         this.participants = new ArrayList<>(participants);
         this.waitlist = new ArrayList<>(waitlist);
+        this.remindedAt = remindedAt;
         this.version = version;
     }
 
@@ -139,5 +144,6 @@ public class PlanEntity {
     Instant getPublishedAt() { return publishedAt; }
     List<ParticipantEmbeddable> getParticipants() { return participants; }
     List<ParticipantEmbeddable> getWaitlist() { return waitlist; }
+    Instant getRemindedAt() { return remindedAt; }
     long getVersion() { return version; }
 }

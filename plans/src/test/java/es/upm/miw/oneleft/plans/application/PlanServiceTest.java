@@ -64,6 +64,11 @@ class PlanServiceTest {
                             p.meetingPoint().longitude())))
                     .limit(limit).toList();
         }
+
+        @Override
+        public List<UUID> findDueForLifecycle(Instant now) {
+            return List.of();
+        }
     }
 
     private final InMemoryPlans repository = new InMemoryPlans();
@@ -81,6 +86,11 @@ class PlanServiceTest {
 
         @Override
         public void publish(es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent event) {
+            throw new UnsupportedOperationException("Not used by PlanService");
+        }
+
+        @Override
+        public void publish(es.upm.miw.oneleft.plans.domain.model.PlanReminder event) {
             throw new UnsupportedOperationException("Not used by PlanService");
         }
     };
