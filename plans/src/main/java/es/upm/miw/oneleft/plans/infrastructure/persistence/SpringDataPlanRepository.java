@@ -14,6 +14,18 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
     List<PlanEntity> findByOrganizerIdAndStartsAtAfterOrderByStartsAt(UUID organizerId, Instant from);
 
     /**
+     * Plans with a lifecycle step due (HU-007): open or full ones that start (or are about to, without a reminder yet),
+     * and those in progress that have ended. The {@code plan_lifecycle} index keeps it cheap every minute.
+     */
+    @NativeQuery("""
+            SELECT p.id FROM plan p
+            WHERE (p.status IN ('OPEN', 'FULL')
+                   AND (p.starts_at <= :now OR (p.reminded_at IS NULL AND p.starts_at <= :remindUntil)))
+               OR (p.status = 'IN_PROGRESS' AND p.starts_at <= :endedBefore)""")
+    List<UUID> findDueForLifecycle(@Param("now") Instant now, @Param("remindUntil") Instant remindUntil,
+                                   @Param("endedBefore") Instant endedBefore);
+
+    /**
      * Proximity search with PostGIS. {@code ST_DWithin} on {@code geography} measures in metres and uses the
      * {@code plan_location_geography} index; the {@code <->} operator sorts from the nearest to the farthest.
      */

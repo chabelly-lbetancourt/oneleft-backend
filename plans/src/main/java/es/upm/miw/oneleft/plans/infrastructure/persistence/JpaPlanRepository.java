@@ -47,7 +47,7 @@ public class JpaPlanRepository implements PlanRepository {
         var entity = new PlanEntity(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                 plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
                 plan.occupied(), plan.level(), plan.status(), plan.publishedAt(), participants, waitlist,
-                plan.version());
+                plan.remindedAt(), plan.version());
         try {
             // Flushing here makes a stale version fail inside the adapter, where it becomes a domain exception
             return toDomain(jpa.saveAndFlush(entity));
@@ -78,13 +78,19 @@ public class JpaPlanRepository implements PlanRepository {
                 .map(JpaPlanRepository::toDomain).toList();
     }
 
+    @Override
+    public List<UUID> findDueForLifecycle(Instant now) {
+        return jpa.findDueForLifecycle(now, now.plus(Plan.REMINDER_LEAD), now.minus(Plan.DURATION));
+    }
+
     private static Plan toDomain(PlanEntity e) {
         var meetingPoint = new MeetingPoint(e.getMeetingPoint(), e.getLocation().getY(), e.getLocation().getX());
         var participants = e.getParticipants().stream().map(JpaPlanRepository::toParticipant).toList();
         var waitlist = e.getWaitlist().stream().map(JpaPlanRepository::toParticipant).toList();
         return new Plan(e.getId(), new Organizer(e.getOrganizerId(), e.getOrganizerName()), e.getActivity(),
                 e.getTitle(), e.getDescription(), meetingPoint, e.getStartsAt(), e.getSpots(), e.getOccupied(),
-                e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, waitlist, e.getVersion());
+                e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, waitlist, e.getRemindedAt(),
+                e.getVersion());
     }
 
     private static ParticipantEmbeddable toEmbeddable(Participant person) {

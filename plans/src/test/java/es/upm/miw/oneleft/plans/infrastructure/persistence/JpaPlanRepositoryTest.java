@@ -114,6 +114,29 @@ class JpaPlanRepositoryTest {
     }
 
     @Test
+    void findsThePlansWithALifecycleStepDueAndKeepsTheReminder() {
+        var now = clock.instant();
+        var soon = repository.save(padelPlan(ana(), Duration.ofMinutes(40), clock));
+        var later = repository.save(padelPlan(ana(), Duration.ofHours(3), clock));
+        var reminded = repository.save(repository.findById(soon.id()).orElseThrow()
+                .remind(soon.startsAt().minus(Plan.REMINDER_LEAD)).plan());
+        assertThat(repository.findById(soon.id()).orElseThrow().remindedAt()).isEqualTo(reminded.remindedAt());
+
+        // In 15 minutes «later» is still far, and «soon» has its reminder already
+        assertThat(repository.findDueForLifecycle(now.plus(Duration.ofMinutes(15))))
+                .doesNotContain(soon.id(), later.id());
+        // At its start, «soon» starts; «later» is within its reminder time
+        assertThat(repository.findDueForLifecycle(soon.startsAt()))
+                .contains(soon.id()).doesNotContain(later.id());
+        assertThat(repository.findDueForLifecycle(later.startsAt().minus(Plan.REMINDER_LEAD))).contains(later.id());
+
+        var started = repository.save(repository.findById(soon.id()).orElseThrow().advance(soon.startsAt()));
+        assertThat(started.status()).isEqualTo(PlanStatus.IN_PROGRESS);
+        assertThat(repository.findDueForLifecycle(soon.startsAt().plusSeconds(60))).doesNotContain(soon.id());
+        assertThat(repository.findDueForLifecycle(soon.startsAt().plus(Plan.DURATION))).contains(soon.id());
+    }
+
+    @Test
     void theNearbySearchUsesTheGeographyIndex() {
         var plan = jdbc.execute((ConnectionCallback<String>) connection -> {
             try (var statement = connection.createStatement()) {
