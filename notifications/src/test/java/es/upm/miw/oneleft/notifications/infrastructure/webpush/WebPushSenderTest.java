@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.notifications.infrastructure.webpush;
 
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
+import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
 import es.upm.miw.oneleft.notifications.domain.port.out.PushSender;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -90,6 +92,31 @@ class WebPushSenderTest {
         var message = JsonMapper.builder().build().readValue(new String(browser.read(body.get()), StandardCharsets.UTF_8), Map.class);
         assertThat(message).containsEntry("title", "Plan nearby: Catan")
                 .containsEntry("body", "Board games at 19:00 · Café La Partida · 1.2 km away · 2 spots left");
+    }
+
+    @Test
+    void theReminderOfAPlanHasItsOwnTextAndTag() throws Exception {
+        var sender = new WebPushSender(keys(), http, CLOCK);
+        var bodies = new java.util.ArrayList<byte[]>();
+        pushService.expect(org.springframework.test.web.client.ExpectedCount.twice(), requestTo(ENDPOINT))
+                .andExpect(header("TTL", "1800"))
+                .andExpect(request -> bodies.add(((MockClientHttpRequest) request).getBodyAsBytes()))
+                .andRespond(withStatus(HttpStatus.CREATED));
+        var reminder = new PlanReminder(NOTICE.planId(), "Pádel 2 contra 2, falta uno", "Pistas de la Albufera",
+                NOW.plus(Duration.ofMinutes(30)), List.of(LUCIA));
+
+        assertThat(sender.send(subscription("es"), reminder)).isEqualTo(PushSender.Result.SENT);
+        sender.send(subscription("en"), reminder);
+
+        var json = JsonMapper.builder().build();
+        var spanish = json.readValue(new String(browser.read(bodies.get(0)), StandardCharsets.UTF_8), Map.class);
+        assertThat(spanish).containsEntry("title", "Empieza pronto: Pádel 2 contra 2, falta uno")
+                .containsEntry("body", "A las 17:30 · Pistas de la Albufera. Toca para ver quién va.")
+                .containsEntry("url", "/plans/" + NOTICE.planId())
+                .containsEntry("tag", "plan-" + NOTICE.planId() + "-reminder");
+        var english = json.readValue(new String(browser.read(bodies.get(1)), StandardCharsets.UTF_8), Map.class);
+        assertThat(english).containsEntry("title", "Starting soon: Pádel 2 contra 2, falta uno")
+                .containsEntry("body", "At 17:30 · Pistas de la Albufera. Tap to see who is going.");
     }
 
     @Test

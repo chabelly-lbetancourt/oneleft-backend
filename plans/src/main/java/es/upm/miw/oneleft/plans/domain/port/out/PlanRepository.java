@@ -24,4 +24,9 @@ public interface PlanRepository {
      * Open plans with free spots that start within the search window, sorted by distance.
      */
     List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit);
+
+    /**
+     * Plans whose lifecycle has something due at {@code now} (HU-007): a reminder to send, a start or an end.
+     */
+    List<UUID> findDueForLifecycle(Instant now);
 }
