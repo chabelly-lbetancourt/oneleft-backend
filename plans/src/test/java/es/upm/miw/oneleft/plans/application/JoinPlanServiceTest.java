@@ -10,6 +10,7 @@ import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
+import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,17 @@ class JoinPlanServiceTest {
         public List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit) {
             return List.of();
         }
+
+        /** Same conditions as the SQL query (tested in JpaPlanRepositoryTest), in memory. */
+        @Override
+        public List<UUID> findDueForLifecycle(Instant now) {
+            return data.values().stream().filter(plan -> switch (plan.status()) {
+                case OPEN, FULL -> !plan.startsAt().isAfter(now) || plan.remindedAt() == null
+                        && !plan.startsAt().isAfter(now.plus(Plan.REMINDER_LEAD));
+                case IN_PROGRESS -> !plan.startsAt().isAfter(now.minus(Plan.DURATION));
+                default -> false;
+            }).map(Plan::id).toList();
+        }
     }
 
     private final Plans plans = new Plans();
@@ -78,6 +90,11 @@ class JoinPlanServiceTest {
 
         @Override
         public void publish(PlanLeftEvent event) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void publish(PlanReminder event) {
             throw new UnsupportedOperationException();
         }
     };

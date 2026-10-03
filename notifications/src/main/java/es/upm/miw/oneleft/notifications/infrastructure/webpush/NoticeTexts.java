@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.notifications.infrastructure.webpush;
 
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
+import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -43,6 +44,17 @@ final class NoticeTexts {
                 notice.placeName(), km, spots, spots == 1 ? "spot" : "spots")
                 : "%s a las %s · %s · a %s km · %s %d".formatted(SPANISH.get(notice.activity()), time,
                 notice.placeName(), km, spots == 1 ? "Falta" : "Faltan", spots);
+    }
+
+    static String title(PlanReminder reminder, String language) {
+        return (english(language) ? "Starting soon: " : "Empieza pronto: ") + reminder.title();
+    }
+
+    static String body(PlanReminder reminder, String language, ZoneId zone) {
+        var time = TIME.format(reminder.startsAt().atZone(zone));
+        return english(language)
+                ? "At %s · %s. Tap to see who is going.".formatted(time, reminder.placeName())
+                : "A las %s · %s. Toca para ver quién va.".formatted(time, reminder.placeName());
     }
 
     private static boolean english(String language) {
