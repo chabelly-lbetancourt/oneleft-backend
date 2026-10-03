@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -120,7 +121,9 @@ class JpaPlanRepositoryTest {
         var later = repository.save(padelPlan(ana(), Duration.ofHours(3), clock));
         var reminded = repository.save(repository.findById(soon.id()).orElseThrow()
                 .remind(soon.startsAt().minus(Plan.REMINDER_LEAD)).plan());
-        assertThat(repository.findById(soon.id()).orElseThrow().remindedAt()).isEqualTo(reminded.remindedAt());
+        // PostgreSQL keeps microseconds; the clock of some systems has nanoseconds
+        assertThat(repository.findById(soon.id()).orElseThrow().remindedAt())
+                .isEqualTo(reminded.remindedAt().truncatedTo(ChronoUnit.MICROS));
 
         // In 15 minutes «later» is still far, and «soon» has its reminder already
         assertThat(repository.findDueForLifecycle(now.plus(Duration.ofMinutes(15))))
