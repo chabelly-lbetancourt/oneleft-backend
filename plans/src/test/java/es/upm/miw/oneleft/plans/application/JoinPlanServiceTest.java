@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.application;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.Availability;
 import es.upm.miw.oneleft.plans.domain.model.ConcurrentPlanUpdateException;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static es.upm.miw.oneleft.plans.PlanFixtures.CLOCK;
@@ -106,19 +108,23 @@ class JoinPlanServiceTest {
             throw new UnsupportedOperationException();
         }
     };
+    private final Availabilities availabilities = new Availabilities();
     private final JoinPlanService service =
             new JoinPlanService(new OptimisticPlanUpdates(plans, TransactionOperations.withoutTransaction()), publisher,
-                    CLOCK);
+                    availabilities, CLOCK);
     private final Plan plan = plans.save(Plan.publish(ana(), Activity.PADEL, "Padel match", null,
             new MeetingPoint("Courts", 40.39, -3.62), NOW.plus(Duration.ofHours(1)), 1, null, CLOCK));
 
     @Test
     void takesTheSpotAndNotifiesTheOrganizer() {
         var lucia = UUID.randomUUID();
+        availabilities.save(Availability.start(lucia, 40.39, -3.62, 2, Set.of(), CLOCK));
 
         var joined = service.join(plan.id(), lucia, "Lucía");
 
         assertThat(joined.isParticipant(lucia)).isTrue();
+        // Whoever joins a plan is no longer free (HU-035)
+        assertThat(availabilities.data).doesNotContainKey(lucia);
         assertThat(plans.data.get(plan.id()).freeSpots()).isZero();
         assertThat(events).singleElement().satisfies(event -> {
             assertThat(event.organizerId()).isEqualTo(plan.organizer().id());

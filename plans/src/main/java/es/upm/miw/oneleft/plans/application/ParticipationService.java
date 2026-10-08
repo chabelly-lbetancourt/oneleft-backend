@@ -3,6 +3,7 @@ package es.upm.miw.oneleft.plans.application;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeft;
 import es.upm.miw.oneleft.plans.domain.port.in.ParticipationUseCase;
+import es.upm.miw.oneleft.plans.domain.port.out.AvailabilityRepository;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -18,17 +19,24 @@ public class ParticipationService implements ParticipationUseCase {
 
     private final OptimisticPlanUpdates updates;
     private final PlanEventPublisher events;
+    private final AvailabilityRepository availabilities;
     private final Clock clock;
 
-    public ParticipationService(OptimisticPlanUpdates updates, PlanEventPublisher events, Clock clock) {
+    public ParticipationService(OptimisticPlanUpdates updates, PlanEventPublisher events,
+                                AvailabilityRepository availabilities, Clock clock) {
         this.updates = updates;
         this.events = events;
+        this.availabilities = availabilities;
         this.clock = clock;
     }
 
     @Override
     public Plan leave(UUID planId, UUID userId) {
         var left = updates.update(planId, plan -> plan.leave(userId, clock), PlanLeft::plan);
+        // Whoever takes the spot from the waiting list has joined a plan: no longer free (HU-035)
+        if (left.promoted() != null) {
+            availabilities.delete(left.promoted().userId());
+        }
         events.publish(left.event());
         return left.plan();
     }
