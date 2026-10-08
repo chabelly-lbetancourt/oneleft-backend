@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.notifications;
 
+import es.upm.miw.oneleft.notifications.domain.port.in.ManageAlertsUseCase;
 import es.upm.miw.oneleft.notifications.infrastructure.messaging.RabbitConfig;
+import es.upm.miw.oneleft.notifications.infrastructure.rest.AlertController;
 import es.upm.miw.oneleft.notifications.infrastructure.rest.NotificationController;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -156,6 +159,79 @@ class NotificationsIntegrationTest {
                 assertThat(received).containsEntry("planId", planId.toString())
                         .containsEntry("title", "Partido de pádel, falta uno").containsEntry("distanceMeters", 200)
                         .containsEntry("startsAt", startsAt.toString()));
+    }
+
+    private static final String ALERT = """
+            {"name":"%s","activities":["PADEL"],"level":"INTERMEDIATE","latitude":40.3912,"longitude":-3.6287,
+             "radiusMeters":2000,"days":[],"from":null,"to":null}""";
+
+    @Test
+    void eachPersonManagesTheirSavedAlerts() throws Exception {
+        var lucia = UUID.randomUUID();
+        var created = mockMvc.perform(post(AlertController.ALERTS).with(user(lucia))
+                        .contentType(MediaType.APPLICATION_JSON).content(ALERT.formatted("Pádel al salir")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Pádel al salir"))
+                .andExpect(jsonPath("$.latitude").value(40.39))
+                .andExpect(jsonPath("$.activities[0]").value("PADEL"))
+                .andReturn().getResponse().getHeader("Location");
+
+        mockMvc.perform(get(AlertController.ALERTS).with(user(lucia)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mockMvc.perform(put(created).with(user(lucia)).contentType(MediaType.APPLICATION_JSON)
+                        .content(ALERT.formatted("Pádel de tarde").replace("\"from\":null,\"to\":null",
+                                "\"from\":\"17:00:00\",\"to\":\"21:00:00\"")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Pádel de tarde"))
+                .andExpect(jsonPath("$.from").value("17:00:00"));
+        // Someone else neither sees nor touches it
+        var diego = UUID.randomUUID();
+        mockMvc.perform(get(AlertController.ALERTS).with(user(diego)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(delete(created).with(user(diego)))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("alerts.notFound"));
+
+        mockMvc.perform(delete(created).with(user(lucia))).andExpect(status().isNoContent());
+        mockMvc.perform(get(AlertController.ALERTS).with(user(lucia)))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void alertsAreValidatedAndLimited() throws Exception {
+        var lucia = UUID.randomUUID();
+        mockMvc.perform(post(AlertController.ALERTS).with(user(lucia)).contentType(MediaType.APPLICATION_JSON)
+                        .content(ALERT.formatted("Pádel").replace("2000", "100")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("alerts.radius"));
+        for (var index = 0; index < ManageAlertsUseCase.MAX_ALERTS; index++) {
+            mockMvc.perform(post(AlertController.ALERTS).with(user(lucia)).contentType(MediaType.APPLICATION_JSON)
+                    .content(ALERT.formatted("Alerta " + index))).andExpect(status().isCreated());
+        }
+        mockMvc.perform(post(AlertController.ALERTS).with(user(lucia)).contentType(MediaType.APPLICATION_JSON)
+                        .content(ALERT.formatted("Una más")))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("alerts.limit"));
+    }
+
+    @Test
+    void aPlanThatMatchesASavedAlertReachesItsOwner() throws Exception {
+        // Diego has no notices of HU-006, only an alert for intermediate padel around Vallecas
+        var diego = UUID.randomUUID();
+        mockMvc.perform(post(AlertController.ALERTS).with(user(diego)).contentType(MediaType.APPLICATION_JSON)
+                .content(ALERT.formatted("Pádel en Vallecas"))).andExpect(status().isCreated());
+        var planId = UUID.randomUUID();
+
+        publishPlan(planId, Instant.now().plus(90, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS), "PADEL");
+
+        Map<String, Object> notice;
+        var forDiego = new java.util.ArrayList<Map<String, Object>>();
+        while ((notice = rabbit.receiveAndConvert(notices.getName(), forDiego.isEmpty() ? 20_000 : 3_000,
+                new ParameterizedTypeReference<>() {
+                })) != null) {
+            if (diego.toString().equals(notice.get("userId"))) {
+                forDiego.add(notice);
+            }
+        }
+        assertThat(forDiego).singleElement().satisfies(received ->
+                assertThat(received).containsEntry("planId", planId.toString()));
     }
 
     /** As the plans service sends it: JSON with the type header of its own class, which this service does not have. */
