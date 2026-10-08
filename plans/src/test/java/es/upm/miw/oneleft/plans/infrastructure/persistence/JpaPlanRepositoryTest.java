@@ -167,12 +167,13 @@ class JpaPlanRepositoryTest {
     @Test
     void savesTheMinimumAndFindsThePlanAtItsDeadline() {
         var lucia = UUID.randomUUID();
-        var start = clock.instant().plus(Duration.ofHours(1));
+        // Whole seconds: PostgreSQL rounds the nanoseconds of the runner's clock to microseconds
+        var start = clock.instant().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofHours(1));
         var deadline = start.minus(Duration.ofMinutes(40));
         var plan = stored(repository.save(Plan.publish(ana(), Activity.PADEL, "Padel 2 vs 2", null,
                 PlanFixtures.COURTS, start, 3, null, 1, deadline, clock).join(lucia, "Lucía", clock)));
         assertThat(plan.minimum().participants()).isEqualTo(1);
-        assertThat(plan.minimum().deadline()).isEqualTo(deadline.truncatedTo(ChronoUnit.MICROS));
+        assertThat(plan.minimum().deadline()).isEqualTo(deadline);
         assertThat(plan.minimum().pending()).isTrue();
 
         assertThat(repository.findDueForLifecycle(plan.minimum().deadline().minusSeconds(1)))
