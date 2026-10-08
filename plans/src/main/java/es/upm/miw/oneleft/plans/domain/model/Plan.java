@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -44,6 +45,8 @@ public class Plan {
     private final List<Participant> waitlist;
     /** When the reminder was sent (HU-007); null while it is pending. */
     private final Instant remindedAt;
+    /** Minimum of participants and its deadline (HU-039); null when the plan goes ahead with anyone. */
+    private final Minimum minimum;
     /** Concurrency token of the persisted aggregate (optimistic locking). */
     private final long version;
 
@@ -72,11 +75,20 @@ public class Plan {
                 publishedAt, participants, waitlist, null, version);
     }
 
-    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    @SuppressWarnings("java:S107")
     public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
                 MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
                 PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
                 Instant remindedAt, long version) {
+        this(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level, status,
+                publishedAt, participants, waitlist, remindedAt, null, version);
+    }
+
+    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
+                MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
+                Instant remindedAt, Minimum minimum, long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
                 || status == null || publishedAt == null) {
             throw new ValidationException("plan.missingData", "Required plan data is missing");
@@ -95,6 +107,14 @@ public class Plan {
         if (occupied < 0 || occupied > spots) {
             throw new ValidationException("plan.occupied", "Occupied spots cannot exceed the plan's spots");
         }
+        if (minimum != null && (minimum.participants() < 1 || minimum.participants() > spots)) {
+            throw new ValidationException("plan.minimum", "The minimum of participants must be between 1 and the "
+                    + "plan's spots");
+        }
+        if (minimum != null && minimum.deadline().isAfter(startsAt)) {
+            throw new ValidationException("plan.minimumDeadline", "The deadline of the minimum cannot be after the "
+                    + "start of the plan");
+        }
         this.id = id;
         this.organizer = organizer;
         this.activity = activity;
@@ -110,6 +130,7 @@ public class Plan {
         this.participants = participants == null ? List.of() : List.copyOf(participants);
         this.waitlist = waitlist == null ? List.of() : List.copyOf(waitlist);
         this.remindedAt = remindedAt;
+        this.minimum = minimum;
         this.version = version;
     }
 
@@ -120,6 +141,19 @@ public class Plan {
     @SuppressWarnings("java:S107")
     public static Plan publish(Organizer organizer, Activity activity, String title, String description,
                                MeetingPoint meetingPoint, Instant startsAt, int spots, Level level, Clock clock) {
+        return publish(organizer, activity, title, description, meetingPoint, startsAt, spots, level, null, null,
+                clock);
+    }
+
+    /**
+     * Publishes a new plan with an optional minimum of participants (HU-039): {@code minParticipants} people must
+     * have joined by {@code minimumDeadline}, which is at least {@link #MIN_LEAD_TIME} from now and not after the
+     * start. Both or neither.
+     */
+    @SuppressWarnings("java:S107")
+    public static Plan publish(Organizer organizer, Activity activity, String title, String description,
+                               MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
+                               Integer minParticipants, Instant minimumDeadline, Clock clock) {
         var now = clock.instant();
         if (startsAt == null || startsAt.isBefore(now.plus(MIN_LEAD_TIME))) {
             throw new ValidationException("plan.startsTooSoon", "The plan must start in at least "
@@ -132,7 +166,23 @@ public class Plan {
         // A plan published with less than the reminder lead needs no reminder: everyone is just finding out about it
         var remindedAt = startsAt.minus(REMINDER_LEAD).isAfter(now) ? null : now;
         return new Plan(UUID.randomUUID(), organizer, activity, title, description, meetingPoint, startsAt, spots,
-                0, level, PlanStatus.OPEN, now, List.of(), List.of(), remindedAt, 0);
+                0, level, PlanStatus.OPEN, now, List.of(), List.of(), remindedAt,
+                minimum(minParticipants, minimumDeadline, now), 0);
+    }
+
+    private static Minimum minimum(Integer participants, Instant deadline, Instant now) {
+        if (participants == null && deadline == null) {
+            return null;
+        }
+        if (participants == null || deadline == null) {
+            throw new ValidationException("plan.minimumDeadline", "The minimum of participants and its deadline go "
+                    + "together");
+        }
+        if (deadline.isBefore(now.plus(MIN_LEAD_TIME))) {
+            throw new ValidationException("plan.minimumDeadlineTooSoon", "The deadline of the minimum must be at "
+                    + "least " + MIN_LEAD_TIME.toMinutes() + " minutes from now");
+        }
+        return new Minimum(participants, deadline, null);
     }
 
     /**
@@ -159,9 +209,8 @@ public class Plan {
         var joined = new ArrayList<>(participants);
         joined.add(new Participant(userId, name, now));
         var newOccupied = occupied + 1;
-        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied, level,
-                newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, joined, waitlist, remindedAt,
-                version);
+        return with(newOccupied, newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, joined, waitlist,
+                remindedAt, minimum);
     }
 
     /**
@@ -193,8 +242,7 @@ public class Plan {
         }
         var waiting = new ArrayList<>(waitlist);
         waiting.add(new Participant(userId, name, now));
-        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
-                status, publishedAt, participants, waiting, remindedAt, version);
+        return with(occupied, status, participants, waiting, remindedAt, minimum);
     }
 
     /**
@@ -219,9 +267,8 @@ public class Plan {
             remaining.add(promoted);
             newOccupied = occupied;
         }
-        var plan = new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied,
-                level, newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, publishedAt, remaining, waiting,
-                remindedAt, version);
+        var plan = with(newOccupied, newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, remaining, waiting,
+                remindedAt, minimum);
         return new PlanLeft(plan, leaving, promoted, now);
     }
 
@@ -231,8 +278,7 @@ public class Plan {
             throw new JoinRejectedException("plan.notWaiting", "You are not on the waiting list");
         }
         var waiting = waitlist.stream().filter(person -> !person.userId().equals(userId)).toList();
-        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
-                status, publishedAt, participants, waiting, remindedAt, version);
+        return with(occupied, status, participants, waiting, remindedAt, minimum);
     }
 
     /**
@@ -251,14 +297,45 @@ public class Plan {
         if (next == status) {
             return this;
         }
-        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level,
-                next, publishedAt, participants, List.of(), remindedAt, version);
+        return with(occupied, next, participants, List.of(), remindedAt, minimum);
     }
 
-    /** Whether the plan is about to start and its reminder has not been sent (HU-007). */
+    /**
+     * Whether the plan is about to start and its reminder has not been sent (HU-007). A plan with a minimum is only
+     * reminded once confirmed (HU-039): nobody is reminded of a plan that may still be cancelled.
+     */
     public boolean needsReminder(Instant now) {
         return (status == PlanStatus.OPEN || status == PlanStatus.FULL) && remindedAt == null
+                && (minimum == null || !minimum.pending())
                 && startsAt.isAfter(now) && !startsAt.minus(REMINDER_LEAD).isAfter(now);
+    }
+
+    /** Whether the deadline of the minimum has come and the plan is still waiting for it (HU-039). */
+    public boolean needsMinimumCheck(Instant now) {
+        return (status == PlanStatus.OPEN || status == PlanStatus.FULL) && minimum != null && minimum.pending()
+                && !minimum.deadline().isAfter(now);
+    }
+
+    /**
+     * Checks the minimum at its deadline (HU-039). With enough participants the plan is confirmed and goes ahead even
+     * if someone leaves later. Otherwise it is cancelled, its waiting list is emptied and everyone in it (organizer,
+     * participants and waiting list) is told.
+     */
+    public MinimumChecked checkMinimum(Instant now) {
+        if (!needsMinimumCheck(now)) {
+            throw new IllegalStateException("The plan " + id + " has no minimum to check");
+        }
+        if (occupied >= minimum.participants()) {
+            return new MinimumChecked(with(occupied, status, participants, waitlist, remindedAt,
+                    minimum.confirm(now)), Optional.empty());
+        }
+        var recipients = new ArrayList<UUID>();
+        recipients.add(organizer.id());
+        participants.forEach(participant -> recipients.add(participant.userId()));
+        waitlist.forEach(person -> recipients.add(person.userId()));
+        var cancelled = with(occupied, PlanStatus.CANCELLED, participants, List.of(), remindedAt, minimum);
+        return new MinimumChecked(cancelled, Optional.of(new PlanCancelled(id, title, meetingPoint.name(), startsAt,
+                PlanCancelled.Reason.MINIMUM_NOT_REACHED, recipients, now)));
     }
 
     /**
@@ -272,13 +349,24 @@ public class Plan {
         var recipients = new ArrayList<UUID>();
         recipients.add(organizer.id());
         participants.forEach(participant -> recipients.add(participant.userId()));
-        var plan = new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied,
-                level, status, publishedAt, participants, waitlist, now, version);
+        var plan = with(occupied, status, participants, waitlist, now, minimum);
         return new PlanReminded(plan, new PlanReminder(id, title, meetingPoint.name(), startsAt, recipients, now));
     }
 
     public Instant remindedAt() {
         return remindedAt;
+    }
+
+    public Minimum minimum() {
+        return minimum;
+    }
+
+    /** Copy of this plan with what an operation changes; the rest, including the version, stays. */
+    @SuppressWarnings("java:S107")
+    private Plan with(int newOccupied, PlanStatus newStatus, List<Participant> newParticipants,
+                      List<Participant> newWaitlist, Instant newRemindedAt, Minimum newMinimum) {
+        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied, level,
+                newStatus, publishedAt, newParticipants, newWaitlist, newRemindedAt, newMinimum, version);
     }
 
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */

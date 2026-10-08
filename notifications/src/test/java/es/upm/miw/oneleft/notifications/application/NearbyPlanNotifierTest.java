@@ -3,6 +3,7 @@ package es.upm.miw.oneleft.notifications.application;
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
 import es.upm.miw.oneleft.notifications.domain.model.NotificationPreferences;
+import es.upm.miw.oneleft.notifications.domain.model.PlanCancellation;
 import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PublishedPlan;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
@@ -204,7 +205,7 @@ class NearbyPlanNotifierTest {
         }
     }
 
-    /** Also used by {@link PlanReminderNotifierTest}. */
+    /** Also used by {@link PlanReminderNotifierTest} and {@link PlanCancellationNotifierTest}. */
     static final class Subscriptions implements PushSubscriptionRepository {
         final Map<String, PushSubscription> all = new java.util.LinkedHashMap<>();
 
@@ -258,6 +259,15 @@ class NearbyPlanNotifierTest {
                 return Result.GONE;
             }
             sent.add("reminder:" + subscription.endpoint());
+            return Result.SENT;
+        }
+
+        @Override
+        public Result send(PushSubscription subscription, PlanCancellation cancellation) {
+            if (gone.contains(subscription.endpoint())) {
+                return Result.GONE;
+            }
+            sent.add("cancelled:" + subscription.endpoint());
             return Result.SENT;
         }
     }

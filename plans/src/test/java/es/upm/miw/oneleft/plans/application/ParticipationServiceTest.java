@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
@@ -49,6 +50,11 @@ class ParticipationServiceTest {
 
         @Override
         public void publish(PlanReminder event) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void publish(PlanCancelled event) {
             throw new UnsupportedOperationException();
         }
     };

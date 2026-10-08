@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
+import es.upm.miw.oneleft.plans.PlanFixtures;
 import es.upm.miw.oneleft.plans.TestcontainersConfiguration;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
@@ -161,5 +162,39 @@ class JpaPlanRepositoryTest {
             }
         });
         assertThat(plan).contains("plan_location_geography");
+    }
+
+    @Test
+    void savesTheMinimumAndFindsThePlanAtItsDeadline() {
+        var lucia = UUID.randomUUID();
+        var start = clock.instant().plus(Duration.ofHours(1));
+        var deadline = start.minus(Duration.ofMinutes(40));
+        var plan = stored(repository.save(Plan.publish(ana(), Activity.PADEL, "Padel 2 vs 2", null,
+                PlanFixtures.COURTS, start, 3, null, 1, deadline, clock).join(lucia, "Lucía", clock)));
+        assertThat(plan.minimum().participants()).isEqualTo(1);
+        assertThat(plan.minimum().deadline()).isEqualTo(deadline.truncatedTo(ChronoUnit.MICROS));
+        assertThat(plan.minimum().pending()).isTrue();
+
+        assertThat(repository.findDueForLifecycle(plan.minimum().deadline().minusSeconds(1)))
+                .doesNotContain(plan.id());
+        assertThat(repository.findDueForLifecycle(plan.minimum().deadline())).contains(plan.id());
+
+        var confirmed = repository.save(plan.checkMinimum(plan.minimum().deadline()).plan());
+        assertThat(stored(confirmed).minimum().pending()).isFalse();
+        assertThat(repository.findDueForLifecycle(plan.minimum().deadline().plusSeconds(60)))
+                .doesNotContain(plan.id());
+    }
+
+    @Test
+    void aCancelledPlanIsNotDueAnyMore() {
+        var start = clock.instant().plus(Duration.ofHours(1));
+        var plan = stored(repository.save(Plan.publish(ana(), Activity.PADEL, "Padel 2 vs 2", null,
+                PlanFixtures.COURTS, start, 3, null, 2, start.minus(Duration.ofMinutes(40)), clock)));
+
+        var cancelled = repository.save(plan.checkMinimum(plan.minimum().deadline()).plan());
+
+        assertThat(stored(cancelled).status()).isEqualTo(PlanStatus.CANCELLED);
+        assertThat(repository.findDueForLifecycle(start)).doesNotContain(plan.id());
+        assertThat(repository.findDueForLifecycle(start.plus(Plan.DURATION))).doesNotContain(plan.id());
     }
 }
