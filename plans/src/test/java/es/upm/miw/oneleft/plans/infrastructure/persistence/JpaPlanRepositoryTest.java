@@ -195,6 +195,7 @@ class JpaPlanRepositoryTest {
         var cancelled = repository.save(plan.checkMinimum(plan.minimum().deadline()).plan());
 
         assertThat(stored(cancelled).status()).isEqualTo(PlanStatus.CANCELLED);
+        assertThat(repository.findByOrganizerStartingAfter(plan.organizer().id(), clock.instant())).isEmpty();
         assertThat(repository.findDueForLifecycle(start)).doesNotContain(plan.id());
         assertThat(repository.findDueForLifecycle(start.plus(Plan.DURATION))).doesNotContain(plan.id());
     }

@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
+import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.NativeQuery;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,8 @@ import java.util.UUID;
 
 interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
 
-    List<PlanEntity> findByOrganizerIdAndStartsAtAfterOrderByStartsAt(UUID organizerId, Instant from);
+    List<PlanEntity> findByOrganizerIdAndStartsAtAfterAndStatusNotOrderByStartsAt(UUID organizerId, Instant from,
+                                                                               PlanStatus excluded);
 
     /**
      * Plans with a lifecycle step due (HU-007): open or full ones that start (or are about to, without a reminder yet)

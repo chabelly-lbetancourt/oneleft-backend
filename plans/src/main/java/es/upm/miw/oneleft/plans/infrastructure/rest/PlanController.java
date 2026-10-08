@@ -166,7 +166,8 @@ public class PlanController {
     }
 
     @GetMapping(MINE)
-    @Operation(summary = "My upcoming plans", description = "Plans I organize that have not started yet.")
+    @Operation(summary = "My upcoming plans",
+            description = "Plans I organize that have not started yet and have not been cancelled.")
     public List<PlanResponse> mine(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return queryPlans.upcomingPlansOrganizedBy(UUID.fromString(jwt.getSubject())).stream()
                 .map(PlanResponse::of).toList();
