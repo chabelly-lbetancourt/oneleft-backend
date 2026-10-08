@@ -17,8 +17,13 @@ public class OpenMeteoForecasts implements WeatherForecasts {
         this.client = client;
     }
 
+    /** Two decimals: about 1 km, the same forecast for the plans around. */
+    private static double rounded(double coordinate) {
+        return Math.round(coordinate * 100) / 100.0;
+    }
+
     @Override
     public Optional<Forecast> forecast(double latitude, double longitude, Instant at) {
-        return Optional.ofNullable(client.forecast(latitude, longitude, at));
+        return Optional.ofNullable(client.forecast(rounded(latitude), rounded(longitude), OpenMeteoClient.hourOf(at)));
     }
 }

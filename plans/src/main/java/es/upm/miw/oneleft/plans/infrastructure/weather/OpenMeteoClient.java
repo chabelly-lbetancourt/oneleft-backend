@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * Client of Open-Meteo (free, no key). Each forecast is cached in Redis for a while ({@link WeatherConfig}) by place
- * (about 1 km) and hour, so that a popular plan does not ask again on every visit. The circuit breaker stops calling
+ * and hour, so that a popular plan does not ask again on every visit. The circuit breaker stops calling
  * the service while it keeps failing; then, and on any error, there is no forecast ({@code null}, not cached).
  */
 @Component
@@ -41,11 +41,10 @@ class OpenMeteoClient {
         return at.plus(30, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.HOURS);
     }
 
-    @Cacheable(cacheNames = WeatherConfig.CACHE, unless = "#result == null",
-            key = "T(java.lang.String).format('%.2f:%.2f:%s', #latitude, #longitude, "
-                    + "T(es.upm.miw.oneleft.plans.infrastructure.weather.OpenMeteoClient).hourOf(#at))")
-    public Forecast forecast(double latitude, double longitude, Instant at) {
-        return breaker.run(() -> request(latitude, longitude, hourOf(at)), error -> {
+    /** The place, rounded to about 1 km, and the hour are the key of the cache. */
+    @Cacheable(cacheNames = WeatherConfig.CACHE, unless = "#result == null")
+    public Forecast forecast(double latitude, double longitude, Instant hour) {
+        return breaker.run(() -> request(latitude, longitude, hour), error -> {
             log.warn("No weather forecast: {}", error.toString());
             return null;
         });
