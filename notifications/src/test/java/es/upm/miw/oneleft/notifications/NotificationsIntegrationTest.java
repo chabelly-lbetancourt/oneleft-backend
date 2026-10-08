@@ -213,8 +213,13 @@ class NotificationsIntegrationTest {
 
     @Test
     void aPlanThatMatchesASavedAlertReachesItsOwner() throws Exception {
-        // Diego has no notices of HU-006, only an alert for intermediate padel around Vallecas
+        // Diego has no notices of HU-006, only an alert for intermediate padel around Vallecas. Without quiet hours:
+        // the default ones (23:00 to 08:00) would make the test depend on the time it runs
         var diego = UUID.randomUUID();
+        mockMvc.perform(put(BASE + "/preferences").with(user(diego)).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"enabled":false,"latitude":null,"longitude":null,"radiusMeters":3000,"activities":[],
+                         "quietHours":null,"maxPerDay":5}""")).andExpect(status().isOk());
         mockMvc.perform(post(AlertController.ALERTS).with(user(diego)).contentType(MediaType.APPLICATION_JSON)
                 .content(ALERT.formatted("Pádel en Vallecas"))).andExpect(status().isCreated());
         var planId = UUID.randomUUID();
