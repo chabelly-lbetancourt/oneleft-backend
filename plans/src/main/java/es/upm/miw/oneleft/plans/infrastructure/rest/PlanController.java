@@ -78,7 +78,8 @@ public class PlanController {
     @PostMapping
     @Operation(summary = "Publish a plan (HU-003)",
             description = "Publishes a plan that starts between 5 minutes and 12 hours from now, with the free spots "
-                    + "still to fill. Emits the PlanPublished event.")
+                    + "still to fill and, optionally, a minimum of participants with its deadline (HU-039): if fewer "
+                    + "people have joined by then, the plan is cancelled. Emits the PlanPublished event.")
     @ApiResponse(responseCode = "201", description = "Plan published")
     @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
     @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
@@ -87,7 +88,7 @@ public class PlanController {
         var organizer = new Organizer(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name"));
         var plan = publishPlan.publish(new PublishPlanCommand(organizer, request.activity(), request.title(),
                 request.description(), request.meetingPoint().toDomain(), request.startsAt(), request.spots(),
-                request.level()));
+                request.level(), request.minParticipants(), request.minimumDeadline()));
         var location = ServletUriComponentsBuilder.fromCurrentRequest().path(PLAN).buildAndExpand(plan.id()).toUri();
         return ResponseEntity.created(location).body(PlanResponse.of(plan));
     }
@@ -149,12 +150,14 @@ public class PlanController {
     }
 
     @GetMapping(path = EVENTS_STREAM, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "My events in real time (HU-005, HU-006, HU-007, HU-023)",
+    @Operation(summary = "My events in real time (HU-005, HU-006, HU-007, HU-023, HU-039)",
             description = "Server-Sent Events for the signed-in user. Emits `ready` on connection; `plan-joined` "
                     + "(PlanJoinedNotice) and `plan-left` (PlanLeftNotice) when someone joins or leaves one of their "
                     + "plans; `plan-spot` (SpotFreedNotice) when a spot is freed for them from a waiting list; "
                     + "`plan-nearby` (PlanNearbyNotice) when a plan they asked for is published nearby; and "
-                    + "`plan-reminder` (PlanReminderNotice) when a plan they are in is about to start.")
+                    + "`plan-reminder` (PlanReminderNotice) when a plan they are in is about to start; and "
+                    + "`plan-cancelled` (PlanCancelledNotice) when a plan they are in or waiting for is cancelled "
+                    + "because it did not reach its minimum of participants.")
     @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PlanJoinedNotice.class)))

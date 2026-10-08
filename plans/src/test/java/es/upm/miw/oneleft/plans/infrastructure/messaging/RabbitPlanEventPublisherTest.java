@@ -13,6 +13,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import es.upm.miw.oneleft.plans.TestcontainersConfiguration;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AnonymousQueue;
@@ -98,5 +99,16 @@ class RabbitPlanEventPublisherTest {
 
         verify(subscriptions, timeout(10_000)).dispatch(new PlanNearbyNotice.Message(lucia, planId, "PADEL",
                 "Pádel 2 contra 2, falta uno", "Pistas de la Albufera", Instant.parse("2026-11-16T17:20:00Z"), 1, 700));
+    }
+
+    @Test
+    void aCancellationReachesTheStreamsOfEveryoneInThePlan() {
+        var event = new PlanCancelled(UUID.randomUUID(), "Padel", "Courts", Instant.parse("2026-11-16T17:20:00Z"),
+                PlanCancelled.Reason.MINIMUM_NOT_REACHED, List.of(UUID.randomUUID(), UUID.randomUUID()),
+                Instant.parse("2026-11-16T16:50:00Z"));
+
+        publisher.publish(event);
+
+        verify(subscriptions, timeout(10_000)).dispatch(event);
     }
 }
