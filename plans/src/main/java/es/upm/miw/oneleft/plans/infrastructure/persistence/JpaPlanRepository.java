@@ -8,6 +8,7 @@ import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.model.Participant;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -67,7 +68,9 @@ public class JpaPlanRepository implements PlanRepository {
 
     @Override
     public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {
-        return jpa.findByOrganizerIdAndStartsAtAfterOrderByStartsAt(organizerId, from).stream()
+        // A plan cancelled for not reaching its minimum (HU-039) is no longer upcoming
+        return jpa.findByOrganizerIdAndStartsAtAfterAndStatusNotOrderByStartsAt(organizerId, from,
+                        PlanStatus.CANCELLED).stream()
                 .map(JpaPlanRepository::toDomain).toList();
     }
 
