@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.realtime;
 
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
@@ -25,6 +26,7 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
     static final String SPOT_FREED = "plan-spot";
     static final String PLAN_NEARBY = "plan-nearby";
     static final String PLAN_REMINDER = "plan-reminder";
+    static final String PLAN_CANCELLED = "plan-cancelled";
 
     public UserEventSubscriptions(MeterRegistry meterRegistry) {
         super(meterRegistry, "oneleft.plans.user.subscriptions", "Users connected to their personal event stream");
@@ -71,6 +73,16 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
             if (recipients.contains(userId)) {
                 send(emitter, SseEmitter.event().name(PLAN_REMINDER).id(event.planId() + ":reminder")
                         .data(PlanReminderNotice.of(event), MediaType.APPLICATION_JSON));
+            }
+        });
+    }
+
+    public void dispatch(PlanCancelled event) {
+        var recipients = Set.copyOf(event.recipientIds());
+        forEach((userId, emitter) -> {
+            if (recipients.contains(userId)) {
+                send(emitter, SseEmitter.event().name(PLAN_CANCELLED).id(event.planId() + ":cancelled")
+                        .data(PlanCancelledNotice.of(event), MediaType.APPLICATION_JSON));
             }
         });
     }

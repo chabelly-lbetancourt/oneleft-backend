@@ -3,10 +3,12 @@ package es.upm.miw.oneleft.plans.infrastructure.persistence;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.ConcurrentPlanUpdateException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
+import es.upm.miw.oneleft.plans.domain.model.Minimum;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.model.Participant;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -44,10 +46,13 @@ public class JpaPlanRepository implements PlanRepository {
         var location = GEOMETRY.createPoint(new Coordinate(point.longitude(), point.latitude()));
         var participants = plan.participants().stream().map(JpaPlanRepository::toEmbeddable).toList();
         var waitlist = plan.waitlist().stream().map(JpaPlanRepository::toEmbeddable).toList();
+        var minimum = plan.minimum();
         var entity = new PlanEntity(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                 plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
                 plan.occupied(), plan.level(), plan.status(), plan.publishedAt(), participants, waitlist,
-                plan.remindedAt(), plan.version());
+                plan.remindedAt(), minimum == null ? null : minimum.participants(),
+                minimum == null ? null : minimum.deadline(), minimum == null ? null : minimum.confirmedAt(),
+                plan.version());
         try {
             // Flushing here makes a stale version fail inside the adapter, where it becomes a domain exception
             return toDomain(jpa.saveAndFlush(entity));
@@ -63,7 +68,9 @@ public class JpaPlanRepository implements PlanRepository {
 
     @Override
     public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {
-        return jpa.findByOrganizerIdAndStartsAtAfterOrderByStartsAt(organizerId, from).stream()
+        // A plan cancelled for not reaching its minimum (HU-039) is no longer upcoming
+        return jpa.findByOrganizerIdAndStartsAtAfterAndStatusNotOrderByStartsAt(organizerId, from,
+                        PlanStatus.CANCELLED).stream()
                 .map(JpaPlanRepository::toDomain).toList();
     }
 
@@ -90,6 +97,8 @@ public class JpaPlanRepository implements PlanRepository {
         return new Plan(e.getId(), new Organizer(e.getOrganizerId(), e.getOrganizerName()), e.getActivity(),
                 e.getTitle(), e.getDescription(), meetingPoint, e.getStartsAt(), e.getSpots(), e.getOccupied(),
                 e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, waitlist, e.getRemindedAt(),
+                e.getMinParticipants() == null ? null
+                        : new Minimum(e.getMinParticipants(), e.getMinimumDeadline(), e.getConfirmedAt()),
                 e.getVersion());
     }
 
