@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.plans.infrastructure.realtime;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -105,5 +106,28 @@ class UserEventSubscriptionsTest {
                 List.of(UUID.randomUUID()), Instant.now());
         assertThat(PlanReminderNotice.of(event))
                 .isEqualTo(new PlanReminderNotice(event.planId(), "Padel", "Courts", event.startsAt()));
+    }
+
+    @Test
+    void aCancellationReachesEveryoneInThePlanAndNobodyElse() {
+        var organizer = UUID.randomUUID();
+        var lucia = UUID.randomUUID();
+        subscriptions.subscribe(organizer).complete();
+        subscriptions.subscribe(lucia).complete();
+        subscriptions.subscribe(UUID.randomUUID()).complete();
+
+        subscriptions.dispatch(new PlanCancelled(UUID.randomUUID(), "Padel", "Courts",
+                Instant.parse("2026-11-16T17:20:00Z"), PlanCancelled.Reason.MINIMUM_NOT_REACHED,
+                List.of(organizer, lucia), Instant.now()));
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+    }
+
+    @Test
+    void theCancellationNoticeCarriesWhatTheAppShows() {
+        var event = new PlanCancelled(UUID.randomUUID(), "Padel", "Courts", Instant.parse("2026-11-16T17:20:00Z"),
+                PlanCancelled.Reason.MINIMUM_NOT_REACHED, List.of(UUID.randomUUID()), Instant.now());
+        assertThat(PlanCancelledNotice.of(event)).isEqualTo(new PlanCancelledNotice(event.planId(), "Padel",
+                "Courts", event.startsAt(), PlanCancelled.Reason.MINIMUM_NOT_REACHED));
     }
 }

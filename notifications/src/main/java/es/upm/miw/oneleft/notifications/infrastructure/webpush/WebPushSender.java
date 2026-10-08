@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.notifications.infrastructure.webpush;
 
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
+import es.upm.miw.oneleft.notifications.domain.model.PlanCancellation;
 import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
 import es.upm.miw.oneleft.notifications.domain.port.out.PushSender;
@@ -71,6 +72,15 @@ class WebPushSender implements PushSender {
         return deliver(subscription, message(NoticeTexts.title(reminder, language),
                 NoticeTexts.body(reminder, language, clock.getZone()), reminder.planId(),
                 "plan-" + reminder.planId() + "-reminder"), reminder.startsAt());
+    }
+
+    @Override
+    public Result send(PushSubscription subscription, PlanCancellation cancellation) {
+        var language = subscription.language();
+        // Same tag as the reminder: if it is still shown, the cancellation replaces it
+        return deliver(subscription, message(NoticeTexts.title(cancellation, language),
+                NoticeTexts.body(cancellation, language, clock.getZone()), cancellation.planId(),
+                "plan-" + cancellation.planId() + "-reminder"), cancellation.startsAt());
     }
 
     /** What the service worker shows: title, text, the plan to open and a tag so that a message is shown once. */

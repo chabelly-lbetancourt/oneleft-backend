@@ -111,4 +111,39 @@ class PlanControllerTest {
                         .content(planJson(Instant.now().plus(Duration.ofHours(1)), 1)))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void publishesAPlanWithAMinimumOfParticipants() throws Exception {
+        var startsAt = Instant.now().plus(Duration.ofHours(2));
+        var deadline = startsAt.minus(Duration.ofHours(1));
+        var body = planJson(startsAt, 3).replace("\"level\"",
+                "\"minParticipants\": 2, \"minimumDeadline\": \"%s\", \"level\"".formatted(deadline));
+
+        mockMvc.perform(post(PlanController.PLANS).with(user(UUID.randomUUID().toString()))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.minimum.participants").value(2))
+                .andExpect(jsonPath("$.minimum.deadline").value(deadline.toString()))
+                .andExpect(jsonPath("$.minimum.confirmed").value(false));
+        mockMvc.perform(post(PlanController.PLANS).with(user(UUID.randomUUID().toString()))
+                        .contentType(MediaType.APPLICATION_JSON).content(planJson(startsAt, 1)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.minimum").doesNotExist());
+    }
+
+    @Test
+    void rejectsAMinimumAboveTheSpotsOrWithoutItsDeadline() throws Exception {
+        var subject = UUID.randomUUID().toString();
+        var startsAt = Instant.now().plus(Duration.ofHours(2));
+        mockMvc.perform(post(PlanController.PLANS).with(user(subject)).contentType(MediaType.APPLICATION_JSON)
+                        .content(planJson(startsAt, 2).replace("\"level\"",
+                                "\"minParticipants\": 3, \"minimumDeadline\": \"%s\", \"level\""
+                                        .formatted(startsAt.minus(Duration.ofHours(1))))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("plan.minimum"));
+        mockMvc.perform(post(PlanController.PLANS).with(user(subject)).contentType(MediaType.APPLICATION_JSON)
+                        .content(planJson(startsAt, 2).replace("\"level\"", "\"minParticipants\": 1, \"level\"")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("plan.minimumDeadline"));
+    }
 }

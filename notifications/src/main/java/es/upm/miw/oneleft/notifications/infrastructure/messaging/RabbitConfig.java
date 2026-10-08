@@ -24,6 +24,9 @@ public class RabbitConfig {
     public static final String PLAN_REMINDER = "plan.reminder";
     /** Durable and shared like the one above: each reminder (HU-007) is sent once, even by several replicas. */
     public static final String PLAN_REMINDER_QUEUE = "notifications.plan-reminder";
+    public static final String PLAN_CANCELLED = "plan.cancelled";
+    /** Durable and shared too: each cancellation (HU-039) is notified once. */
+    public static final String PLAN_CANCELLED_QUEUE = "notifications.plan-cancelled";
 
     /** Notices for the app, relayed by the plans service through each person's real-time stream. */
     public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
@@ -57,6 +60,16 @@ public class RabbitConfig {
     @Bean
     Binding planReminderBinding(Queue planReminderQueue, TopicExchange plansExchange) {
         return BindingBuilder.bind(planReminderQueue).to(plansExchange).with(PLAN_REMINDER);
+    }
+
+    @Bean
+    Queue planCancelledQueue() {
+        return QueueBuilder.durable(PLAN_CANCELLED_QUEUE).build();
+    }
+
+    @Bean
+    Binding planCancelledBinding(Queue planCancelledQueue, TopicExchange plansExchange) {
+        return BindingBuilder.bind(planCancelledQueue).to(plansExchange).with(PLAN_CANCELLED);
     }
 
     /**

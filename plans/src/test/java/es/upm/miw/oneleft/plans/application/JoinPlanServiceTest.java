@@ -6,6 +6,7 @@ import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
@@ -68,7 +69,9 @@ class JoinPlanServiceTest {
         public List<UUID> findDueForLifecycle(Instant now) {
             return data.values().stream().filter(plan -> switch (plan.status()) {
                 case OPEN, FULL -> !plan.startsAt().isAfter(now) || plan.remindedAt() == null
-                        && !plan.startsAt().isAfter(now.plus(Plan.REMINDER_LEAD));
+                        && !plan.startsAt().isAfter(now.plus(Plan.REMINDER_LEAD))
+                        || plan.minimum() != null && plan.minimum().pending()
+                        && !plan.minimum().deadline().isAfter(now);
                 case IN_PROGRESS -> !plan.startsAt().isAfter(now.minus(Plan.DURATION));
                 default -> false;
             }).map(Plan::id).toList();
@@ -95,6 +98,11 @@ class JoinPlanServiceTest {
 
         @Override
         public void publish(PlanReminder event) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void publish(PlanCancelled event) {
             throw new UnsupportedOperationException();
         }
     };

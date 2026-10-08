@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
+import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.NativeQuery;
 import org.springframework.data.repository.query.Param;
@@ -11,16 +12,20 @@ import java.util.UUID;
 
 interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
 
-    List<PlanEntity> findByOrganizerIdAndStartsAtAfterOrderByStartsAt(UUID organizerId, Instant from);
+    List<PlanEntity> findByOrganizerIdAndStartsAtAfterAndStatusNotOrderByStartsAt(UUID organizerId, Instant from,
+                                                                               PlanStatus excluded);
 
     /**
-     * Plans with a lifecycle step due (HU-007): open or full ones that start (or are about to, without a reminder yet),
-     * and those in progress that have ended. The {@code plan_lifecycle} index keeps it cheap every minute.
+     * Plans with a lifecycle step due (HU-007): open or full ones that start (or are about to, without a reminder yet)
+     * or whose minimum reaches its deadline (HU-039), and those in progress that have ended. The {@code plan_lifecycle}
+     * and {@code plan_minimum_pending} indexes keep it cheap every minute.
      */
     @NativeQuery("""
             SELECT p.id FROM plan p
             WHERE (p.status IN ('OPEN', 'FULL')
-                   AND (p.starts_at <= :now OR (p.reminded_at IS NULL AND p.starts_at <= :remindUntil)))
+                   AND (p.starts_at <= :now OR (p.reminded_at IS NULL AND p.starts_at <= :remindUntil)
+                        OR (p.min_participants IS NOT NULL AND p.confirmed_at IS NULL
+                            AND p.minimum_deadline <= :now)))
                OR (p.status = 'IN_PROGRESS' AND p.starts_at <= :endedBefore)""")
     List<UUID> findDueForLifecycle(@Param("now") Instant now, @Param("remindUntil") Instant remindUntil,
                                    @Param("endedBefore") Instant endedBefore);

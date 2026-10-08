@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.notifications.infrastructure.webpush;
 
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
+import es.upm.miw.oneleft.notifications.domain.model.PlanCancellation;
 import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
 import es.upm.miw.oneleft.notifications.domain.port.out.PushSender;
@@ -117,6 +118,32 @@ class WebPushSenderTest {
         var english = json.readValue(new String(browser.read(bodies.get(1)), StandardCharsets.UTF_8), Map.class);
         assertThat(english).containsEntry("title", "Starting soon: Pádel 2 contra 2, falta uno")
                 .containsEntry("body", "At 17:30 · Pistas de la Albufera. Tap to see who is going.");
+    }
+
+    @Test
+    void theCancellationOfAPlanReplacesItsReminder() throws Exception {
+        var sender = new WebPushSender(keys(), http, CLOCK);
+        var bodies = new java.util.ArrayList<byte[]>();
+        pushService.expect(org.springframework.test.web.client.ExpectedCount.twice(), requestTo(ENDPOINT))
+                .andExpect(header("TTL", "3600"))
+                .andExpect(request -> bodies.add(((MockClientHttpRequest) request).getBodyAsBytes()))
+                .andRespond(withStatus(HttpStatus.CREATED));
+        var cancellation = new PlanCancellation(NOTICE.planId(), "Pádel 2 contra 2", "Pistas de la Albufera",
+                NOW.plus(Duration.ofHours(1)), List.of(LUCIA));
+
+        assertThat(sender.send(subscription("es"), cancellation)).isEqualTo(PushSender.Result.SENT);
+        sender.send(subscription("en"), cancellation);
+
+        var json = JsonMapper.builder().build();
+        var spanish = json.readValue(new String(browser.read(bodies.get(0)), StandardCharsets.UTF_8), Map.class);
+        assertThat(spanish).containsEntry("title", "Plan cancelado: Pádel 2 contra 2")
+                .containsEntry("body", "No se llegó al mínimo de participantes. Era a las 18:00 · Pistas de la "
+                        + "Albufera.")
+                .containsEntry("url", "/plans/" + NOTICE.planId())
+                .containsEntry("tag", "plan-" + NOTICE.planId() + "-reminder");
+        var english = json.readValue(new String(browser.read(bodies.get(1)), StandardCharsets.UTF_8), Map.class);
+        assertThat(english).containsEntry("title", "Plan cancelled: Pádel 2 contra 2")
+                .containsEntry("body", "Not enough people joined. It was at 18:00 · Pistas de la Albufera.");
     }
 
     @Test

@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.plans.application;
 
+import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static es.upm.miw.oneleft.plans.PlanFixtures.CLOCK;
+import static es.upm.miw.oneleft.plans.PlanFixtures.COURTS;
 import static es.upm.miw.oneleft.plans.PlanFixtures.NOW;
 import static es.upm.miw.oneleft.plans.PlanFixtures.ana;
 import static es.upm.miw.oneleft.plans.PlanFixtures.padelPlan;
@@ -49,6 +52,7 @@ class PlanLifecycleServiceTest {
 
     private final JoinPlanServiceTest.Plans plans = new JoinPlanServiceTest.Plans();
     private final List<PlanReminder> reminders = new ArrayList<>();
+    private final List<PlanCancelled> cancellations = new ArrayList<>();
     private final PlanEventPublisher publisher = new PlanEventPublisher() {
         @Override
         public void publish(PlanPublished event) {
@@ -68,6 +72,11 @@ class PlanLifecycleServiceTest {
         @Override
         public void publish(PlanReminder event) {
             reminders.add(event);
+        }
+
+        @Override
+        public void publish(PlanCancelled event) {
+            cancellations.add(event);
         }
     };
     private final MovingClock clock = new MovingClock();
@@ -121,5 +130,54 @@ class PlanLifecycleServiceTest {
 
         assertThat(service.advance()).isEqualTo(1);
         assertThat(plans.data.get(plan.id()).status()).isEqualTo(PlanStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void aPlanWithoutItsMinimumIsCancelledAtTheDeadlineAndNeverReminded() {
+        var lucia = UUID.randomUUID();
+        var start = CLOCK.instant().plus(Duration.ofHours(1));
+        var deadline = start.minus(Duration.ofMinutes(40));
+        var plan = plans.save(Plan.publish(ana(), Activity.PADEL, "Padel 2 vs 2", null, COURTS, start, 3, null, 2,
+                deadline, CLOCK).join(lucia, "Lucía", CLOCK));
+
+        clock.now = deadline.minusSeconds(1);
+        assertThat(service.advance()).isZero();
+
+        clock.now = deadline;
+        assertThat(service.advance()).isEqualTo(1);
+        assertThat(plans.data.get(plan.id()).status()).isEqualTo(PlanStatus.CANCELLED);
+        assertThat(cancellations).singleElement().satisfies(cancelled ->
+                assertThat(cancelled.recipientIds()).containsExactly(plan.organizer().id(), lucia));
+
+        clock.now = start.minus(Plan.REMINDER_LEAD);
+        assertThat(service.advance()).isZero();
+        clock.now = start;
+        assertThat(service.advance()).isZero();
+        assertThat(reminders).isEmpty();
+        assertThat(cancellations).hasSize(1);
+    }
+
+    @Test
+    void aPlanThatReachesItsMinimumIsConfirmedFirstAndThenReminded() {
+        var lucia = UUID.randomUUID();
+        var start = CLOCK.instant().plus(Duration.ofHours(1));
+        // The deadline is after the reminder time: the reminder waits for the confirmation
+        var deadline = start.minus(Duration.ofMinutes(10));
+        var plan = plans.save(Plan.publish(ana(), Activity.PADEL, "Padel 2 vs 2", null, COURTS, start, 3, null, 1,
+                deadline, CLOCK).join(lucia, "Lucía", CLOCK));
+
+        clock.now = start.minus(Plan.REMINDER_LEAD);
+        assertThat(service.advance()).isZero();
+        assertThat(reminders).isEmpty();
+
+        clock.now = deadline;
+        assertThat(service.advance()).isEqualTo(1);
+        assertThat(plans.data.get(plan.id()).minimum().confirmedAt()).isEqualTo(deadline);
+        assertThat(reminders).isEmpty();
+
+        assertThat(service.advance()).isEqualTo(1);
+        assertThat(reminders).singleElement().satisfies(reminder ->
+                assertThat(reminder.recipientIds()).containsExactly(plan.organizer().id(), lucia));
+        assertThat(cancellations).isEmpty();
     }
 }
