@@ -44,7 +44,8 @@ public class WeatherController {
     @Schema(description = "Weather forecast at the time and place of the plan")
     public record WeatherResponse(@Schema(description = "Hour of the forecast") Instant time,
                                   @Schema(description = "°C", example = "17.4") double temperature,
-                                  @Schema(description = "Chance of rain, %", example = "70") int precipitationProbability,
+                                  @Schema(description = "Chance of rain, %", example = "70")
+                                  int precipitationProbability,
                                   @Schema(description = "km/h", example = "12.6") double windSpeed,
                                   @Schema(description = "Chance of rain of 60 % or more") boolean rainLikely) {
 
