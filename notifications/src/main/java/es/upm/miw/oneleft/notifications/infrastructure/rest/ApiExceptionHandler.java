@@ -1,5 +1,7 @@
 package es.upm.miw.oneleft.notifications.infrastructure.rest;
 
+import es.upm.miw.oneleft.notifications.domain.model.AlertLimitException;
+import es.upm.miw.oneleft.notifications.domain.model.AlertNotFoundException;
 import es.upm.miw.oneleft.notifications.domain.model.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -21,13 +23,27 @@ public class ApiExceptionHandler {
         return problem(exception.getMessage(), exception.code());
     }
 
+    @ExceptionHandler(AlertNotFoundException.class)
+    ProblemDetail notFound(AlertNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage(), exception.code());
+    }
+
+    @ExceptionHandler(AlertLimitException.class)
+    ProblemDetail limit(AlertLimitException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage(), exception.code());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ProblemDetail badRequest(IllegalArgumentException exception) {
         return problem(exception.getMessage(), GENERIC_VALIDATION);
     }
 
     private static ProblemDetail problem(String detail, String code) {
-        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+        return problem(HttpStatus.BAD_REQUEST, detail, code);
+    }
+
+    private static ProblemDetail problem(HttpStatus status, String detail, String code) {
+        var problem = ProblemDetail.forStatusAndDetail(status, detail);
         problem.setProperty(CODE, code);
         return problem;
     }
