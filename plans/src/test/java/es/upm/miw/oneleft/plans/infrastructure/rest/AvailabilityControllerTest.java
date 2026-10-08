@@ -87,10 +87,11 @@ class AvailabilityControllerTest {
     void onlyTheOrganizerSeesTheFreePeopleNearAndJoiningEndsTheFreeMode() throws Exception {
         var organizer = UUID.randomUUID();
         var lucia = UUID.randomUUID();
-        // A plan far from any other test, so that only Lucía is around
+        // A plan far from any other test, so that only Lucía is around. Her zone is rounded to 40.90, the same as the
+        // plan: the distance shown is the minimum step, 500 m
         var plan = padelPlanOf(organizer, 40.9);
         mockMvc.perform(put(ME).with(user(lucia)).contentType(MediaType.APPLICATION_JSON)
-                        .content(FREE_PADEL.replace("40.3912", "40.905")))
+                        .content(FREE_PADEL.replace("40.3912", "40.902")))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get(freePeopleOf(plan)).with(user(organizer)))
