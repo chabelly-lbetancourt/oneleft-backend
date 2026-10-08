@@ -31,3 +31,13 @@ interface SpringDataSentNoticeRepository extends JpaRepository<SentNoticeEntity,
     @Query("select count(n) from SentNoticeEntity n where n.id.userId = :userId and n.sentAt >= :since")
     long countSince(@Param("userId") UUID userId, @Param("since") Instant since);
 }
+
+interface SpringDataAlertRepository extends JpaRepository<AlertEntity, UUID> {
+
+    List<AlertEntity> findByUserIdOrderByCreatedAt(UUID userId);
+
+    long countByUserId(UUID userId);
+
+    @Query("select a from AlertEntity a where a.activities is empty or :activity member of a.activities")
+    List<AlertEntity> findFor(@Param("activity") Activity activity);
+}

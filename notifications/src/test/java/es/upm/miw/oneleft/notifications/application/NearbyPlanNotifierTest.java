@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.notifications.application;
 
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
+import es.upm.miw.oneleft.notifications.domain.model.Level;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
 import es.upm.miw.oneleft.notifications.domain.model.NotificationPreferences;
 import es.upm.miw.oneleft.notifications.domain.model.PlanCancellation;
@@ -8,6 +9,8 @@ import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PublishedPlan;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
 import es.upm.miw.oneleft.notifications.domain.model.QuietHours;
+import es.upm.miw.oneleft.notifications.domain.model.SavedAlert;
+import es.upm.miw.oneleft.notifications.domain.port.out.AlertRepository;
 import es.upm.miw.oneleft.notifications.domain.port.out.NoticeLog;
 import es.upm.miw.oneleft.notifications.domain.port.out.PreferencesRepository;
 import es.upm.miw.oneleft.notifications.domain.port.out.PushSender;
@@ -16,11 +19,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +45,7 @@ class NearbyPlanNotifierTest {
     private static final UUID DIEGO = UUID.randomUUID();
 
     private final Preferences preferences = new Preferences();
+    private final Alerts alerts = new Alerts();
     private final Log log = new Log();
     private final List<NearbyPlanNotice> published = new ArrayList<>();
     private final Subscriptions subscriptions = new Subscriptions();
@@ -52,7 +58,8 @@ class NearbyPlanNotifierTest {
     }
 
     private NearbyPlanNotifier at(Instant now) {
-        return new NearbyPlanNotifier(preferences, log, published::add, subscriptions, push, Clock.fixed(now, MADRID));
+        return new NearbyPlanNotifier(preferences, alerts, log, published::add, subscriptions, push,
+                Clock.fixed(now, MADRID));
     }
 
     private static PublishedPlan padel(Duration startsIn) {
@@ -167,6 +174,93 @@ class NearbyPlanNotifierTest {
         assertThat(subscriptions.findByUser(LUCIA)).as("only its owner can remove it").hasSize(1);
         service.unsubscribe(LUCIA, "https://push.example/lucia");
         assertThat(subscriptions.findByUser(LUCIA)).isEmpty();
+    }
+
+    /** «Padel after work» around the courts: Monday to Friday from 17:00 to 21:00 (HU-036). */
+    private static SavedAlert afterWork(UUID userId, Level level) {
+        return new SavedAlert(UUID.randomUUID(), userId, "Pádel al salir", Set.of(Activity.PADEL), level, 40.39,
+                -3.63, 2_000, EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), LocalTime.of(17, 0),
+                LocalTime.of(21, 0));
+    }
+
+    @Test
+    void aSavedAlertThatMatchesThePlanNotifiesItsOwnerOnce() {
+        // Two alerts and the notices of HU-006, all for the same plan: Lucía hears about it once
+        alerts.save(afterWork(LUCIA, Level.INTERMEDIATE));
+        alerts.save(afterWork(LUCIA, null));
+        preferences.save(wantsEverything(LUCIA, null, 5));
+        // Diego has no notices of HU-006: the alert works with the default limits
+        alerts.save(afterWork(DIEGO, null));
+        var plan = new PublishedPlan(UUID.randomUUID(), ANA, Activity.PADEL, "Pádel 2 contra 2, falta uno",
+                "Pistas de la Albufera", 40.3964, -3.6297, NOW.plus(Duration.ofHours(1)), 1, Level.INTERMEDIATE);
+
+        assertThat(notifier.notifyNearby(plan)).isEqualTo(2);
+
+        assertThat(published).extracting(NearbyPlanNotice::userId).containsExactlyInAnyOrder(LUCIA, DIEGO);
+        assertThat(published).filteredOn(notice -> notice.userId().equals(DIEGO)).singleElement()
+                .satisfies(notice -> assertThat(notice.distanceMeters()).isEqualTo(700));
+    }
+
+    @Test
+    void anAlertOnlyNotifiesThePlansItLooksFor() {
+        alerts.save(afterWork(DIEGO, Level.ADVANCED));
+        alerts.save(afterWork(LUCIA, null));
+
+        // Intermediate: not for Diego's advanced alert; at 22:00 on a Monday: outside Lucía's hours
+        var late = new PublishedPlan(UUID.randomUUID(), ANA, Activity.PADEL, "Pádel tarde", "Pistas", 40.3964,
+                -3.6297, NOW.plus(Duration.ofHours(5)), 1, Level.INTERMEDIATE);
+        assertThat(notifier.notifyNearby(late)).isZero();
+
+        // The same in the afternoon: Lucía; and a plan for any level reaches Diego too
+        var anyLevel = new PublishedPlan(UUID.randomUUID(), ANA, Activity.PADEL, "Pádel", "Pistas", 40.3964, -3.6297,
+                NOW.plus(Duration.ofHours(1)), 1, null);
+        assertThat(notifier.notifyNearby(anyLevel)).isEqualTo(2);
+    }
+
+    @Test
+    void theQuietHoursOfThePersonAlsoSilenceTheirAlerts() {
+        alerts.save(afterWork(LUCIA, null));
+        preferences.save(new NotificationPreferences(LUCIA, false, null, null, 3_000, Set.of(),
+                new QuietHours(LocalTime.of(16, 0), LocalTime.of(18, 0)), 5));
+
+        assertThat(notifier.notifyNearby(padel(Duration.ofHours(1)))).isZero();
+    }
+
+    /** Also used by {@link AlertServiceTest}. */
+    static final class Alerts implements AlertRepository {
+        final Map<UUID, SavedAlert> all = new java.util.LinkedHashMap<>();
+
+        @Override
+        public List<SavedAlert> findByUser(UUID userId) {
+            return all.values().stream().filter(alert -> alert.userId().equals(userId)).toList();
+        }
+
+        @Override
+        public Optional<SavedAlert> findById(UUID alertId) {
+            return Optional.ofNullable(all.get(alertId));
+        }
+
+        @Override
+        public long countByUser(UUID userId) {
+            return findByUser(userId).size();
+        }
+
+        @Override
+        public SavedAlert save(SavedAlert alert) {
+            all.put(alert.id(), alert);
+            return alert;
+        }
+
+        @Override
+        public void delete(UUID alertId) {
+            all.remove(alertId);
+        }
+
+        @Override
+        public List<SavedAlert> findFor(Activity activity) {
+            return all.values().stream()
+                    .filter(alert -> alert.activities().isEmpty() || alert.activities().contains(activity)).toList();
+        }
     }
 
     private static final class Preferences implements PreferencesRepository {
