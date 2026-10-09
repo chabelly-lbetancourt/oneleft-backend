@@ -98,6 +98,11 @@ class PlanServiceTest {
         public void publish(es.upm.miw.oneleft.plans.domain.model.PlanCancelled event) {
             throw new UnsupportedOperationException("Not used by PlanService");
         }
+
+        @Override
+        public void publish(es.upm.miw.oneleft.plans.domain.model.PlanArrival event) {
+            throw new UnsupportedOperationException();
+        }
     };
     private final PlanService service = new PlanService(repository, publisher, CLOCK);
 

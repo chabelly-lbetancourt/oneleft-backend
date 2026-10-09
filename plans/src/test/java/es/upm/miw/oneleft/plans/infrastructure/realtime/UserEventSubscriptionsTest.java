@@ -2,6 +2,8 @@ package es.upm.miw.oneleft.plans.infrastructure.realtime;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
+import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
+import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -129,5 +131,25 @@ class UserEventSubscriptionsTest {
                 PlanCancelled.Reason.MINIMUM_NOT_REACHED, List.of(UUID.randomUUID()), Instant.now());
         assertThat(PlanCancelledNotice.of(event)).isEqualTo(new PlanCancelledNotice(event.planId(), "Padel",
                 "Courts", event.startsAt(), PlanCancelled.Reason.MINIMUM_NOT_REACHED));
+    }
+
+    @Test
+    void anArrivalReachesTheRestOfTheGroupAndNobodyElse() {
+        var organizer = UUID.randomUUID();
+        subscriptions.subscribe(organizer).complete();
+        subscriptions.subscribe(UUID.randomUUID()).complete();
+
+        subscriptions.dispatch(new PlanArrival(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía",
+                ArrivalStatus.LATE, 10, List.of(organizer), Instant.now()));
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+    }
+
+    @Test
+    void theArrivalNoticeCarriesWhatTheAppShows() {
+        var event = new PlanArrival(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía", ArrivalStatus.LATE, 10,
+                List.of(UUID.randomUUID()), Instant.now());
+        assertThat(PlanArrivalNotice.of(event))
+                .isEqualTo(new PlanArrivalNotice(event.planId(), "Padel", "Lucía", ArrivalStatus.LATE, 10));
     }
 }
