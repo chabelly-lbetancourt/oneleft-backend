@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.Arrival;
+import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.Minimum;
@@ -79,6 +81,22 @@ public final class PlanDtos {
         }
     }
 
+    @Schema(description = "«On my way» or «running late» of someone of the group (HU-040)")
+    public record ArrivalDto(UUID userId, @Schema(example = "Lucía") String name, ArrivalStatus status,
+                             @Schema(example = "10") Integer minutesLate, Instant at) {
+
+        static ArrivalDto of(Arrival arrival) {
+            return new ArrivalDto(arrival.userId(), arrival.name(), arrival.status(), arrival.minutesLate(),
+                    arrival.at());
+        }
+    }
+
+    @Schema(description = "My status of arrival (HU-040)")
+    public record ArrivalRequest(@jakarta.validation.constraints.NotNull ArrivalStatus status,
+                                 @Schema(description = "5, 10, 15 or 30, only when running late", example = "10")
+                                 Integer minutesLate) {
+    }
+
     @Schema(description = "Published plan")
     public record PlanResponse(UUID id, UUID organizerId, @Schema(example = "Ana") String organizerName,
                                Activity activity, String title, String description, MeetingPointDto meetingPoint,
@@ -86,14 +104,25 @@ public final class PlanDtos {
                                PlanStatus status, Instant publishedAt, List<ParticipantDto> participants,
                                @Schema(description = "People waiting for a spot, first to last (HU-023)")
                                List<ParticipantDto> waitlist,
-                               @Schema(description = "Null when the plan goes ahead with anyone") MinimumDto minimum) {
+                               @Schema(description = "Null when the plan goes ahead with anyone") MinimumDto minimum,
+                               @Schema(description = "Only for the group of the plan, until it starts (HU-040)")
+                               List<ArrivalDto> arrivals) {
 
+        /** The plan without the statuses of arrival: for anyone, such as in the nearby search. */
         static PlanResponse of(Plan plan) {
+            return of(plan, null);
+        }
+
+        /** The plan as {@code viewer} sees it: the statuses of arrival only if they are in its group (HU-040). */
+        static PlanResponse of(Plan plan, UUID viewer) {
+            var arrivals = viewer != null && plan.isMember(viewer)
+                    ? plan.arrivals().stream().map(ArrivalDto::of).toList() : List.<ArrivalDto>of();
             return new PlanResponse(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                     plan.title(), plan.description(), MeetingPointDto.of(plan.meetingPoint()), plan.startsAt(),
                     plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt(),
                     plan.participants().stream().map(ParticipantDto::of).toList(),
-                    plan.waitlist().stream().map(ParticipantDto::of).toList(), MinimumDto.of(plan.minimum()));
+                    plan.waitlist().stream().map(ParticipantDto::of).toList(), MinimumDto.of(plan.minimum()),
+                    arrivals);
         }
     }
 

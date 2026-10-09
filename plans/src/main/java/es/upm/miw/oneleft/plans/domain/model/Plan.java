@@ -47,6 +47,8 @@ public class Plan {
     private final Instant remindedAt;
     /** Minimum of participants and its deadline (HU-039); null when the plan goes ahead with anyone. */
     private final Minimum minimum;
+    /** «On my way» and «running late» of the group (HU-040); emptied when the plan starts. */
+    private final List<Arrival> arrivals;
     /** Concurrency token of the persisted aggregate (optimistic locking). */
     private final long version;
 
@@ -84,11 +86,20 @@ public class Plan {
                 publishedAt, participants, waitlist, remindedAt, null, version);
     }
 
-    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    @SuppressWarnings("java:S107")
     public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
                 MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
                 PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
                 Instant remindedAt, Minimum minimum, long version) {
+        this(id, organizer, activity, title, description, meetingPoint, startsAt, spots, occupied, level, status,
+                publishedAt, participants, waitlist, remindedAt, minimum, List.of(), version);
+    }
+
+    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
+                MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
+                Instant remindedAt, Minimum minimum, List<Arrival> arrivals, long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
                 || status == null || publishedAt == null) {
             throw new ValidationException("plan.missingData", "Required plan data is missing");
@@ -131,6 +142,7 @@ public class Plan {
         this.waitlist = waitlist == null ? List.of() : List.copyOf(waitlist);
         this.remindedAt = remindedAt;
         this.minimum = minimum;
+        this.arrivals = arrivals == null ? List.of() : List.copyOf(arrivals);
         this.version = version;
     }
 
@@ -268,7 +280,7 @@ public class Plan {
             newOccupied = occupied;
         }
         var plan = with(newOccupied, newOccupied == spots ? PlanStatus.FULL : PlanStatus.OPEN, remaining, waiting,
-                remindedAt, minimum);
+                remindedAt, minimum, arrivalsWithout(userId));
         return new PlanLeft(plan, leaving, promoted, now);
     }
 
@@ -297,7 +309,8 @@ public class Plan {
         if (next == status) {
             return this;
         }
-        return with(occupied, next, participants, List.of(), remindedAt, minimum);
+        // Statuses of arrival only make sense before the start (HU-040)
+        return with(occupied, next, participants, List.of(), remindedAt, minimum, List.of());
     }
 
     /**
@@ -333,7 +346,8 @@ public class Plan {
         recipients.add(organizer.id());
         participants.forEach(participant -> recipients.add(participant.userId()));
         waitlist.forEach(person -> recipients.add(person.userId()));
-        var cancelled = with(occupied, PlanStatus.CANCELLED, participants, List.of(), remindedAt, minimum);
+        var cancelled = with(occupied, PlanStatus.CANCELLED, participants, List.of(), remindedAt, minimum,
+                List.of());
         return new MinimumChecked(cancelled, Optional.of(new PlanCancelled(id, title, meetingPoint.name(), startsAt,
                 PlanCancelled.Reason.MINIMUM_NOT_REACHED, recipients, now)));
     }
@@ -361,12 +375,69 @@ public class Plan {
         return minimum;
     }
 
+    public List<Arrival> arrivals() {
+        return arrivals;
+    }
+
+    /** Whether the person is in the group of the plan: its organizer or a participant. */
+    public boolean isMember(UUID userId) {
+        return organizer.id().equals(userId) || isParticipant(userId);
+    }
+
+    /**
+     * Someone of the group says «on my way» or «running late» (HU-040), until the plan starts. A new announcement
+     * replaces the previous one of the same person. The rest of the group is told.
+     */
+    public ArrivalAnnounced announce(UUID userId, ArrivalStatus arrivalStatus, Integer minutesLate, Clock clock) {
+        var now = clock.instant();
+        checkCanAnnounce(userId, now);
+        var name = organizer.id().equals(userId) ? organizer.name() : participants.stream()
+                .filter(participant -> participant.userId().equals(userId)).findFirst().orElseThrow().name();
+        var arrival = new Arrival(userId, name, arrivalStatus, minutesLate, now);
+        var updated = new ArrayList<>(arrivalsWithout(userId));
+        updated.add(arrival);
+        var recipients = new ArrayList<UUID>();
+        if (!organizer.id().equals(userId)) {
+            recipients.add(organizer.id());
+        }
+        participants.stream().map(Participant::userId).filter(id -> !id.equals(userId)).forEach(recipients::add);
+        return new ArrivalAnnounced(with(occupied, status, participants, waitlist, remindedAt, minimum, updated),
+                new PlanArrival(id, title, userId, name, arrivalStatus, arrival.minutesLate(), recipients, now));
+    }
+
+    /** Takes back the own status of arrival (HU-040). */
+    public Plan clearArrival(UUID userId, Clock clock) {
+        checkCanAnnounce(userId, clock.instant());
+        return with(occupied, status, participants, waitlist, remindedAt, minimum, arrivalsWithout(userId));
+    }
+
+    private void checkCanAnnounce(UUID userId, Instant now) {
+        if (!isMember(userId)) {
+            throw new JoinRejectedException("plan.notParticipant", "You have not joined this plan");
+        }
+        if (!startsAt.isAfter(now) || status != PlanStatus.OPEN && status != PlanStatus.FULL) {
+            throw new JoinRejectedException("plan.started", "The plan has already started");
+        }
+    }
+
+    private List<Arrival> arrivalsWithout(UUID userId) {
+        return arrivals.stream().filter(arrival -> !arrival.userId().equals(userId)).toList();
+    }
+
     /** Copy of this plan with what an operation changes; the rest, including the version, stays. */
     @SuppressWarnings("java:S107")
     private Plan with(int newOccupied, PlanStatus newStatus, List<Participant> newParticipants,
                       List<Participant> newWaitlist, Instant newRemindedAt, Minimum newMinimum) {
+        return with(newOccupied, newStatus, newParticipants, newWaitlist, newRemindedAt, newMinimum, arrivals);
+    }
+
+    @SuppressWarnings("java:S107")
+    private Plan with(int newOccupied, PlanStatus newStatus, List<Participant> newParticipants,
+                      List<Participant> newWaitlist, Instant newRemindedAt, Minimum newMinimum,
+                      List<Arrival> newArrivals) {
         return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied, level,
-                newStatus, publishedAt, newParticipants, newWaitlist, newRemindedAt, newMinimum, version);
+                newStatus, publishedAt, newParticipants, newWaitlist, newRemindedAt, newMinimum, newArrivals,
+                version);
     }
 
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */

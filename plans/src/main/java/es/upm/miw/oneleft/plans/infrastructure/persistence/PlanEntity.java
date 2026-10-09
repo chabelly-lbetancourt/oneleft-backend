@@ -110,6 +110,11 @@ public class PlanEntity {
     @Fetch(FetchMode.SELECT)
     private List<ParticipantEmbeddable> waitlist = new ArrayList<>();
 
+    /** «On my way» and «running late» of the group (HU-040) */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "plan_arrival", joinColumns = @JoinColumn(name = "plan_id"))
+    private List<ArrivalEmbeddable> arrivals = new ArrayList<>();
+
     protected PlanEntity() {
     }
 
@@ -118,7 +123,7 @@ public class PlanEntity {
                String meetingPoint, Point location, Instant startsAt, int spots, int occupied, Level level,
                PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants,
                List<ParticipantEmbeddable> waitlist, Instant remindedAt, Integer minParticipants,
-               Instant minimumDeadline, Instant confirmedAt, long version) {
+               Instant minimumDeadline, Instant confirmedAt, List<ArrivalEmbeddable> arrivals, long version) {
         this.id = id;
         this.organizerId = organizerId;
         this.organizerName = organizerName;
@@ -139,6 +144,7 @@ public class PlanEntity {
         this.minParticipants = minParticipants;
         this.minimumDeadline = minimumDeadline;
         this.confirmedAt = confirmedAt;
+        this.arrivals = new ArrayList<>(arrivals);
         this.version = version;
     }
 
@@ -162,5 +168,6 @@ public class PlanEntity {
     Integer getMinParticipants() { return minParticipants; }
     Instant getMinimumDeadline() { return minimumDeadline; }
     Instant getConfirmedAt() { return confirmedAt; }
+    List<ArrivalEmbeddable> getArrivals() { return arrivals; }
     long getVersion() { return version; }
 }
