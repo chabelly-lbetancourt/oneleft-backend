@@ -52,7 +52,7 @@ public class JpaPlanRepository implements PlanRepository {
                 plan.occupied(), plan.level(), plan.status(), plan.publishedAt(), participants, waitlist,
                 plan.remindedAt(), minimum == null ? null : minimum.participants(),
                 minimum == null ? null : minimum.deadline(), minimum == null ? null : minimum.confirmedAt(),
-                plan.version());
+                plan.arrivals().stream().map(ArrivalEmbeddable::new).toList(), plan.version());
         try {
             // Flushing here makes a stale version fail inside the adapter, where it becomes a domain exception
             return toDomain(jpa.saveAndFlush(entity));
@@ -99,7 +99,7 @@ public class JpaPlanRepository implements PlanRepository {
                 e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, waitlist, e.getRemindedAt(),
                 e.getMinParticipants() == null ? null
                         : new Minimum(e.getMinParticipants(), e.getMinimumDeadline(), e.getConfirmedAt()),
-                e.getVersion());
+                e.getArrivals().stream().map(ArrivalEmbeddable::toDomain).toList(), e.getVersion());
     }
 
     private static ParticipantEmbeddable toEmbeddable(Participant person) {
