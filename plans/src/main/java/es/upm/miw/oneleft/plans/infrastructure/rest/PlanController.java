@@ -97,8 +97,8 @@ public class PlanController {
     @Operation(summary = "Plan detail")
     @ApiResponse(responseCode = "200", description = "Plan")
     @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
-    public PlanResponse plan(@PathVariable UUID planId) {
-        return PlanResponse.of(queryPlans.plan(planId));
+    public PlanResponse plan(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
+        return PlanResponse.of(queryPlans.plan(planId), UUID.fromString(jwt.getSubject()));
     }
 
     @PostMapping(PARTICIPANTS)
@@ -110,7 +110,8 @@ public class PlanController {
     @ApiResponse(responseCode = "409", description = "No spot can be taken: plan.full, plan.started, "
             + "plan.alreadyJoined, plan.ownPlan, plan.notOpen or plan.busy", content = @Content)
     public PlanResponse join(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
-        return PlanResponse.of(joinPlan.join(planId, UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name")));
+        var userId = UUID.fromString(jwt.getSubject());
+        return PlanResponse.of(joinPlan.join(planId, userId, jwt.getClaimAsString("name")), userId);
     }
 
     @DeleteMapping(PARTICIPANTS + ME)
@@ -123,7 +124,8 @@ public class PlanController {
     @ApiResponse(responseCode = "409", description = "plan.notParticipant, plan.started or plan.busy",
             content = @Content)
     public PlanResponse leave(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
-        return PlanResponse.of(participation.leave(planId, UUID.fromString(jwt.getSubject())));
+        var userId = UUID.fromString(jwt.getSubject());
+        return PlanResponse.of(participation.leave(planId, userId), userId);
     }
 
     @PostMapping(WAITLIST)
@@ -150,14 +152,15 @@ public class PlanController {
     }
 
     @GetMapping(path = EVENTS_STREAM, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "My events in real time (HU-005, HU-006, HU-007, HU-023, HU-039)",
+    @Operation(summary = "My events in real time (HU-005, HU-006, HU-007, HU-023, HU-039, HU-040)",
             description = "Server-Sent Events for the signed-in user. Emits `ready` on connection; `plan-joined` "
                     + "(PlanJoinedNotice) and `plan-left` (PlanLeftNotice) when someone joins or leaves one of their "
                     + "plans; `plan-spot` (SpotFreedNotice) when a spot is freed for them from a waiting list; "
                     + "`plan-nearby` (PlanNearbyNotice) when a plan they asked for is published nearby; and "
                     + "`plan-reminder` (PlanReminderNotice) when a plan they are in is about to start; and "
                     + "`plan-cancelled` (PlanCancelledNotice) when a plan they are in or waiting for is cancelled "
-                    + "because it did not reach its minimum of participants.")
+                    + "because it did not reach its minimum of participants; and `plan-arrival` (PlanArrivalNotice) "
+                    + "when someone of the group of a plan is on the way or running late (HU-040).")
     @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PlanJoinedNotice.class)))
@@ -170,7 +173,7 @@ public class PlanController {
             description = "Plans I organize that have not started yet and have not been cancelled.")
     public List<PlanResponse> mine(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return queryPlans.upcomingPlansOrganizedBy(UUID.fromString(jwt.getSubject())).stream()
-                .map(PlanResponse::of).toList();
+                .map(plan -> PlanResponse.of(plan, UUID.fromString(jwt.getSubject()))).toList();
     }
 
     @GetMapping(NEARBY)

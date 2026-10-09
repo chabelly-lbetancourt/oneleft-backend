@@ -107,6 +107,11 @@ class JoinPlanServiceTest {
         public void publish(PlanCancelled event) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void publish(es.upm.miw.oneleft.plans.domain.model.PlanArrival event) {
+            throw new UnsupportedOperationException();
+        }
     };
     private final Availabilities availabilities = new Availabilities();
     private final JoinPlanService service =

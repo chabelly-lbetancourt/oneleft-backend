@@ -13,6 +13,8 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import es.upm.miw.oneleft.plans.TestcontainersConfiguration;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
+import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
+import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import org.junit.jupiter.api.Test;
@@ -106,6 +108,16 @@ class RabbitPlanEventPublisherTest {
         var event = new PlanCancelled(UUID.randomUUID(), "Padel", "Courts", Instant.parse("2026-11-16T17:20:00Z"),
                 PlanCancelled.Reason.MINIMUM_NOT_REACHED, List.of(UUID.randomUUID(), UUID.randomUUID()),
                 Instant.parse("2026-11-16T16:50:00Z"));
+
+        publisher.publish(event);
+
+        verify(subscriptions, timeout(10_000)).dispatch(event);
+    }
+
+    @Test
+    void anArrivalReachesTheStreamsOfTheGroup() {
+        var event = new PlanArrival(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía", ArrivalStatus.ON_THE_WAY,
+                null, List.of(UUID.randomUUID()), Instant.parse("2026-11-16T16:50:00Z"));
 
         publisher.publish(event);
 
