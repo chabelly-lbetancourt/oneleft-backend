@@ -17,7 +17,7 @@ spring:
     host: ${RABBITMQ_HOST:localhost}
     username: ${RABBITMQ_USER:oneleft}
     password: ${RABBITMQ_PASSWORD:oneleft-dev}
-  # Cache of the weather forecasts (HU-026)
+  # Cache of the weather forecasts (HU-026) and of the place suggestions (HU-071)
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -59,7 +59,8 @@ info:
   app:
     name: OneLeft · plans
 
-# Weather service (HU-026): open after half of the last 10 calls failed, half-open again after 30 s
+# Weather service (HU-026) and place suggestions (HU-071): each circuit opens after half of the last 10 calls
+# failed, and is half-open again after 30 s
 resilience4j:
   circuitbreaker:
     instances:
@@ -68,14 +69,23 @@ resilience4j:
         minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
+      places:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
   timelimiter:
     instances:
       weather:
+        timeout-duration: 4s
+      places:
         timeout-duration: 4s
 
 oneleft:
   weather:
     url: ${WEATHER_URL:https://api.open-meteo.com}
+  places:
+    url: ${PLACES_URL:https://photon.komoot.io}
   share:
     # Where a shared link finally opens the plan (the web app) and the time zone of the preview (HU-024)
     web-url: ${WEB_URL:http://localhost:4200}
