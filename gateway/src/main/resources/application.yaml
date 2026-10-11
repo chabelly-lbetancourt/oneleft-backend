@@ -31,6 +31,11 @@ spring:
               uri: ${PLANS_URL:http://localhost:8082}
               predicates:
                 - Path=/api/v1/plans/**
+            # Place suggestions for the meeting point (HU-071)
+            - id: places
+              uri: ${PLANS_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/places/**
             # Shared plan links (HU-024): public view and link preview page, without a session
             - id: plans-shared
               uri: ${PLANS_URL:http://localhost:8082}
@@ -118,6 +123,11 @@ oneleft:
         path: /api/v1/plans
         capacity: ${RATE_LIMIT_PUBLISH_PER_HOUR:5}
         period: PT1H
+      # Suggestions while typing (HU-071): one request per pause, and each one goes to an external geocoder
+      - name: places
+        path: /api/v1/places
+        capacity: ${RATE_LIMIT_PLACES_PER_MINUTE:30}
+        period: PT1M
       - name: api
         path: /api/**
         capacity: ${RATE_LIMIT_API_PER_MINUTE:120}
