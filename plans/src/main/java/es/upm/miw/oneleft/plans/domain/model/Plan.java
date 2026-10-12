@@ -505,6 +505,11 @@ public class Plan {
         return startsAt;
     }
 
+    /** When the plan is over: {@link #DURATION} after its start (HU-007), and its chat closes (HU-008). */
+    public Instant endsAt() {
+        return startsAt.plus(DURATION);
+    }
+
     public int spots() {
         return spots;
     }
