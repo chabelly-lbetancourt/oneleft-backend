@@ -36,6 +36,11 @@ spring:
               uri: ${PLANS_URL:http://localhost:8082}
               predicates:
                 - Path=/api/v1/places/**
+            # History of the chat of each plan (HU-008); its WebSocket, /ws/chat, is relayed by the gateway itself
+            - id: chats
+              uri: ${CHAT_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/chats/**
             # Shared plan links (HU-024): public view and link preview page, without a session
             - id: plans-shared
               uri: ${PLANS_URL:http://localhost:8082}
@@ -65,6 +70,12 @@ spring:
                 - Path=/api-docs/notifications
               filters:
                 - SetPath=/v3/api-docs
+            - id: chat-docs
+              uri: ${CHAT_URL:http://localhost:8084}
+              predicates:
+                - Path=/api-docs/chat
+              filters:
+                - SetPath=/v3/api-docs
 
 server:
   port: ${PORT:8080}
@@ -81,6 +92,8 @@ springdoc:
         url: /api-docs/plans
       - name: notifications
         url: /api-docs/notifications
+      - name: chat
+        url: /api-docs/chat
     urls-primary-name: users
     try-it-out-enabled: true
     persist-authorization: true
@@ -114,6 +127,9 @@ oneleft:
   proxy:
     # Connections from the gateway to the services: each open app keeps up to two real-time streams (SSE)
     max-connections: ${PROXY_MAX_CONNECTIONS:1000}
+  chat:
+    # Where the gateway relays the chat WebSocket (HU-008)
+    url: ${CHAT_URL:http://localhost:8084}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     # The first matching rule applies; buckets are per user (per IP without a session)
@@ -127,6 +143,11 @@ oneleft:
       - name: places
         path: /api/v1/places
         capacity: ${RATE_LIMIT_PLACES_PER_MINUTE:30}
+        period: PT1M
+      # Connections to the chat (HU-008): the messages inside them are limited by the chat service
+      - name: chat
+        path: /ws/**
+        capacity: ${RATE_LIMIT_CHAT_PER_MINUTE:30}
         period: PT1M
       - name: api
         path: /api/**
