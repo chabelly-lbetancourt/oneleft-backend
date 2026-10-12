@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -76,15 +77,18 @@ class PlanControllerTest {
 
     @Test
     void findsAPublishedPlan() throws Exception {
+        var startsAt = Instant.now().plus(Duration.ofHours(2)).truncatedTo(ChronoUnit.SECONDS);
         var result = mockMvc.perform(post(PlanController.PLANS).with(user(UUID.randomUUID().toString()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(planJson(Instant.now().plus(Duration.ofHours(2)), 3)))
+                        .content(planJson(startsAt, 3)))
                 .andReturn();
         var location = result.getResponse().getHeader("Location");
 
         mockMvc.perform(get(location).with(user(UUID.randomUUID().toString())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.spots").value(3));
+                .andExpect(jsonPath("$.spots").value(3))
+                // When it is over and its chat closes (HU-008)
+                .andExpect(jsonPath("$.endsAt").value(startsAt.plus(Duration.ofHours(3)).toString()));
         mockMvc.perform(get(PlanController.PLANS + "/" + UUID.randomUUID()).with(user(UUID.randomUUID().toString())))
                 .andExpect(status().isNotFound());
     }

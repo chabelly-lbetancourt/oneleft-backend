@@ -100,8 +100,9 @@ public final class PlanDtos {
     @Schema(description = "Published plan")
     public record PlanResponse(UUID id, UUID organizerId, @Schema(example = "Ana") String organizerName,
                                Activity activity, String title, String description, MeetingPointDto meetingPoint,
-                               Instant startsAt, int spots, int occupied, int freeSpots, Level level,
-                               PlanStatus status, Instant publishedAt, List<ParticipantDto> participants,
+                               Instant startsAt,
+                               @Schema(description = "When it is over and its chat closes (HU-008)") Instant endsAt,
+                               int spots, int occupied, int freeSpots, Level level, PlanStatus status, Instant publishedAt, List<ParticipantDto> participants,
                                @Schema(description = "People waiting for a spot, first to last (HU-023)")
                                List<ParticipantDto> waitlist,
                                @Schema(description = "Null when the plan goes ahead with anyone") MinimumDto minimum,
@@ -119,7 +120,7 @@ public final class PlanDtos {
                     ? plan.arrivals().stream().map(ArrivalDto::of).toList() : List.<ArrivalDto>of();
             return new PlanResponse(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                     plan.title(), plan.description(), MeetingPointDto.of(plan.meetingPoint()), plan.startsAt(),
-                    plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt(),
+                    plan.endsAt(), plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt(),
                     plan.participants().stream().map(ParticipantDto::of).toList(),
                     plan.waitlist().stream().map(ParticipantDto::of).toList(), MinimumDto.of(plan.minimum()),
                     arrivals);
