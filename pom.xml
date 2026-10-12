@@ -22,6 +22,7 @@
         <module>users</module>
         <module>plans</module>
         <module>notifications</module>
+        <module>chat</module>
     </modules>
 
     <properties>
