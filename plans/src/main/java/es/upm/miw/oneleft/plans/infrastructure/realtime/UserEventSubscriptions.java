@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.plans.infrastructure.realtime;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
+import es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
@@ -29,6 +30,7 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
     static final String PLAN_REMINDER = "plan-reminder";
     static final String PLAN_CANCELLED = "plan-cancelled";
     static final String PLAN_ARRIVAL = "plan-arrival";
+    static final String PLAN_CHECK_IN = "plan-check-in";
 
     public UserEventSubscriptions(MeterRegistry meterRegistry) {
         super(meterRegistry, "oneleft.plans.user.subscriptions", "Users connected to their personal event stream");
@@ -95,6 +97,16 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
             if (recipients.contains(userId)) {
                 send(emitter, SseEmitter.event().name(PLAN_CANCELLED).id(event.planId() + ":cancelled")
                         .data(PlanCancelledNotice.of(event), MediaType.APPLICATION_JSON));
+            }
+        });
+    }
+
+    public void dispatch(PlanCheckedIn event) {
+        var recipients = Set.copyOf(event.recipientIds());
+        forEach((userId, emitter) -> {
+            if (recipients.contains(userId)) {
+                send(emitter, SseEmitter.event().name(PLAN_CHECK_IN).id(event.planId() + ":check-in:" + event.userId())
+                        .data(PlanCheckInNotice.of(event), MediaType.APPLICATION_JSON));
             }
         });
     }
