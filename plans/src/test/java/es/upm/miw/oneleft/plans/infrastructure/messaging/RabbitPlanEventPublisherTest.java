@@ -106,7 +106,8 @@ class RabbitPlanEventPublisherTest {
 
     @Test
     void aCancellationReachesTheStreamsOfEveryoneInThePlan() {
-        var event = new PlanCancelled(UUID.randomUUID(), "Padel", "Courts", Instant.parse("2026-11-16T17:20:00Z"),
+        var event = new PlanCancelled(UUID.randomUUID(), UUID.randomUUID(), "Padel", "Courts",
+                Instant.parse("2026-11-16T17:20:00Z"),
                 PlanCancelled.Reason.MINIMUM_NOT_REACHED, List.of(UUID.randomUUID(), UUID.randomUUID()),
                 Instant.parse("2026-11-16T16:50:00Z"));
 

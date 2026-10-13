@@ -119,7 +119,7 @@ class UserEventSubscriptionsTest {
         subscriptions.subscribe(lucia).complete();
         subscriptions.subscribe(UUID.randomUUID()).complete();
 
-        subscriptions.dispatch(new PlanCancelled(UUID.randomUUID(), "Padel", "Courts",
+        subscriptions.dispatch(new PlanCancelled(UUID.randomUUID(), UUID.randomUUID(), "Padel", "Courts",
                 Instant.parse("2026-11-16T17:20:00Z"), PlanCancelled.Reason.MINIMUM_NOT_REACHED,
                 List.of(organizer, lucia), Instant.now()));
 
@@ -128,7 +128,8 @@ class UserEventSubscriptionsTest {
 
     @Test
     void theCancellationNoticeCarriesWhatTheAppShows() {
-        var event = new PlanCancelled(UUID.randomUUID(), "Padel", "Courts", Instant.parse("2026-11-16T17:20:00Z"),
+        var event = new PlanCancelled(UUID.randomUUID(), UUID.randomUUID(), "Padel", "Courts",
+                Instant.parse("2026-11-16T17:20:00Z"),
                 PlanCancelled.Reason.MINIMUM_NOT_REACHED, List.of(UUID.randomUUID()), Instant.now());
         assertThat(PlanCancelledNotice.of(event)).isEqualTo(new PlanCancelledNotice(event.planId(), "Padel",
                 "Courts", event.startsAt(), PlanCancelled.Reason.MINIMUM_NOT_REACHED));

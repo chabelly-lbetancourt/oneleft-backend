@@ -46,6 +46,11 @@ spring:
               uri: ${SOCIAL_URL:http://localhost:8085}
               predicates:
                 - Path=/api/v1/social/**
+            # Reputation from events (HU-009)
+            - id: reputation
+              uri: ${REPUTATION_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/reputation/**
             # Shared plan links (HU-024): public view and link preview page, without a session
             - id: plans-shared
               uri: ${PLANS_URL:http://localhost:8082}
@@ -87,6 +92,12 @@ spring:
                 - Path=/api-docs/social
               filters:
                 - SetPath=/v3/api-docs
+            - id: reputation-docs
+              uri: ${REPUTATION_URL:http://localhost:8086}
+              predicates:
+                - Path=/api-docs/reputation
+              filters:
+                - SetPath=/v3/api-docs
 
 server:
   port: ${PORT:8080}
@@ -107,6 +118,8 @@ springdoc:
         url: /api-docs/chat
       - name: social
         url: /api-docs/social
+      - name: reputation
+        url: /api-docs/reputation
     urls-primary-name: users
     try-it-out-enabled: true
     persist-authorization: true
