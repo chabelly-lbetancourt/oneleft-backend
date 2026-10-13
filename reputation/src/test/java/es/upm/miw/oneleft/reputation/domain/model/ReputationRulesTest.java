@@ -21,7 +21,7 @@ class ReputationRulesTest {
     private final UUID diego = UUID.randomUUID();
 
     private AttendanceFact attendance(List<UUID> attendees, List<UUID> absentees, boolean full) {
-        return new AttendanceFact(plan, "Padel", ana, attendees, absentees, full, NOW);
+        return new AttendanceFact(plan, "Padel", "PADEL", ana, attendees, absentees, full, NOW);
     }
 
     @Test
