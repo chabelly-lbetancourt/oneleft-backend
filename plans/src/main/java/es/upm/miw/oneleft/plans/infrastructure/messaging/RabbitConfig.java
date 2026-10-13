@@ -18,6 +18,7 @@ public class RabbitConfig {
     public static final String PLAN_CANCELLED = "plan.cancelled";
     public static final String PLAN_ARRIVAL = "plan.arrival";
     public static final String PLAN_CHECKED_IN = "plan.checked-in";
+    public static final String PLAN_ATTENDANCE_CLOSED = "plan.attendance-closed";
     /** Notices of the notifications service, relayed to each person's real-time stream (HU-006). */
     public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
     public static final String NEARBY_PLAN = "notification.nearby-plan";
