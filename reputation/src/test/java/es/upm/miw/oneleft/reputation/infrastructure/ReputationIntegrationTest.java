@@ -5,8 +5,12 @@ import es.upm.miw.oneleft.reputation.infrastructure.messaging.RabbitConfig;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationController;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +26,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -63,6 +68,12 @@ class ReputationIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private RabbitAdmin admin;
+
+    @Autowired
+    private TopicExchange notificationsExchange;
+
     private final UUID plan = UUID.randomUUID();
     private final UUID ana = UUID.randomUUID();
     private final UUID lucia = UUID.randomUUID();
@@ -81,6 +92,8 @@ class ReputationIntegrationTest {
             jdbc.update("DELETE FROM reputation_entry WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
         });
         jdbc.update("DELETE FROM reputation_score WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
+        jdbc.update("DELETE FROM track_record WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
+        jdbc.update("DELETE FROM badge WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
     }
 
     /** An event as another service sends it: JSON, with nothing of the classes of this one */
@@ -111,7 +124,7 @@ class ReputationIntegrationTest {
         publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_CHECKED_IN, checkIn);
         publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_CHECKED_IN, checkIn);
         publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_ATTENDANCE_CLOSED, Map.of("planId", plan,
-                "title", "Padel 2 vs 2", "organizerId", ana, "attendeeIds", List.of(lucia),
+                "title", "Padel 2 vs 2", "activity", "PADEL", "organizerId", ana, "attendeeIds", List.of(lucia),
                 "absenteeIds", List.of(ana, diego), "full", true, "startsAt", "2026-10-13T16:00:00Z",
                 "occurredAt", "2026-10-13T16:30:00Z"));
         publish(RabbitConfig.REPORTS_EXCHANGE, RabbitConfig.REPORT_CONFIRMED, Map.of("reportId", UUID.randomUUID(),
@@ -181,6 +194,54 @@ class ReputationIntegrationTest {
                         .with(user(ana, "admin")))
                 .andExpect(status().isOk());
         assertThat(score(lucia)).isEqualTo(10);
+    }
+
+    private void attendanceClosed(String activity, List<UUID> attendees, List<UUID> absentees, int minute) {
+        publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_ATTENDANCE_CLOSED, Map.of("planId", UUID.randomUUID(),
+                "title", "Plan", "activity", activity, "organizerId", ana, "attendeeIds", attendees,
+                "absenteeIds", absentees, "full", false,
+                "occurredAt", Instant.parse("2026-10-13T16:00:00Z").plusSeconds(60L * minute).toString()));
+    }
+
+    @Test
+    void theBadgesComeFromTheAttendanceOnceEachWithANoticeForThePlansService() throws Exception {
+        // Not exclusive (it survives a renewed connection) and durable (RabbitMQ 4); deleted at the end
+        var notices = new Queue("test.badges." + UUID.randomUUID(), true, false, false);
+        admin.declareQueue(notices);
+        admin.declareBinding(BindingBuilder.bind(notices).to(notificationsExchange).with(RabbitConfig.BADGE_EARNED));
+        try {
+            var activities = List.of("PADEL", "FOOTBALL", "BASKETBALL", "TENNIS", "RUNNING", "CYCLING", "HIKING",
+                    "BOARD_GAMES", "CINEMA", "CONCERTS");
+            for (var i = 0; i < activities.size(); i++) {
+                attendanceClosed(activities.get(i), List.of(lucia), List.of(ana), i);
+            }
+            attendanceClosed("PADEL", List.of(ana), List.of(lucia), 30);
+
+            waitUntil(() -> jdbc.queryForObject("SELECT COUNT(*) FROM track_record WHERE user_id = ?", Integer.class,
+                    lucia) == 11);
+            waitUntil(() -> jdbc.queryForObject("SELECT COUNT(*) FROM badge WHERE user_id = ?", Integer.class,
+                    lucia) == 2);
+
+            mockMvc.perform(get(ME + "/badges").with(user(lucia)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[?(@.badge == 'TEN_ACTIVITIES')].earned").value(true))
+                    .andExpect(jsonPath("$[?(@.badge == 'TEN_PLANS_COMPLETED')].earned").value(true))
+                    // The no-show of the last plan broke the streak
+                    .andExpect(jsonPath("$[?(@.badge == 'ALWAYS_PUNCTUAL')].progress").value(0))
+                    .andExpect(jsonPath("$[?(@.badge == 'FIRST_PLAN_ORGANIZED')].progress").value(0));
+            mockMvc.perform(get(ReputationController.REPUTATION + "/people/" + ana + "/badges").with(user(lucia)))
+                    .andExpect(jsonPath("$[0].badge").value("FIRST_PLAN_ORGANIZED"))
+                    .andExpect(jsonPath("$.length()").value(1));
+            var received = new ArrayList<String>();
+            for (var message = rabbit.receive(notices.getName(), WAIT.toMillis()); message != null;
+                 message = rabbit.receive(notices.getName(), 1000)) {
+                received.add(json.readTree(message.getBody()).path("badge").asString());
+            }
+            assertThat(received).containsExactlyInAnyOrder("FIRST_PLAN_ORGANIZED", "TEN_PLANS_COMPLETED",
+                    "TEN_ACTIVITIES");
+        } finally {
+            admin.deleteQueue(notices.getName());
+        }
     }
 
     @Test

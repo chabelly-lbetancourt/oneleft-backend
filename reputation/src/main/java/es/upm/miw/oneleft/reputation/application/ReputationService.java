@@ -1,6 +1,9 @@
 package es.upm.miw.oneleft.reputation.application;
 
 import es.upm.miw.oneleft.reputation.domain.model.AttendanceFact;
+import es.upm.miw.oneleft.reputation.domain.model.Badge;
+import es.upm.miw.oneleft.reputation.domain.model.BadgeProgress;
+import es.upm.miw.oneleft.reputation.domain.model.BadgeRules;
 import es.upm.miw.oneleft.reputation.domain.model.CancellationFact;
 import es.upm.miw.oneleft.reputation.domain.model.CheckInFact;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
@@ -10,14 +13,20 @@ import es.upm.miw.oneleft.reputation.domain.model.ReportFact;
 import es.upm.miw.oneleft.reputation.domain.model.Reputation;
 import es.upm.miw.oneleft.reputation.domain.model.ReputationRules;
 import es.upm.miw.oneleft.reputation.domain.model.ValidationException;
+import es.upm.miw.oneleft.reputation.domain.port.in.BadgesUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.in.RebuildScoresUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.in.RecordReputationUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.in.ReputationQueryUseCase;
+import es.upm.miw.oneleft.reputation.domain.port.out.BadgeNotices;
+import es.upm.miw.oneleft.reputation.domain.port.out.Badges;
 import es.upm.miw.oneleft.reputation.domain.port.out.Ledger;
 import es.upm.miw.oneleft.reputation.domain.port.out.Scores;
+import es.upm.miw.oneleft.reputation.domain.port.out.TrackRecords;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,18 +34,27 @@ import java.util.UUID;
 
 /**
  * Reputation from events (HU-009). Each entry goes to the immutable ledger and, only if it is new, to the score of its
- * person, in the same transaction: an event delivered twice counts once.
+ * person, in the same transaction: an event delivered twice counts once. When the attendance of a plan closes, its
+ * group also adds to their track record and may earn badges (HU-044), each one once, with a notice.
  */
 @Service
 @Transactional
-public class ReputationService implements RecordReputationUseCase, ReputationQueryUseCase, RebuildScoresUseCase {
+public class ReputationService implements RecordReputationUseCase, ReputationQueryUseCase, RebuildScoresUseCase,
+        BadgesUseCase {
 
     private final Ledger ledger;
     private final Scores scores;
+    private final TrackRecords trackRecords;
+    private final Badges badges;
+    private final BadgeNotices notices;
 
-    public ReputationService(Ledger ledger, Scores scores) {
+    public ReputationService(Ledger ledger, Scores scores, TrackRecords trackRecords, Badges badges,
+                             BadgeNotices notices) {
         this.ledger = ledger;
         this.scores = scores;
+        this.trackRecords = trackRecords;
+        this.badges = badges;
+        this.notices = notices;
     }
 
     @Override
@@ -47,6 +65,9 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
     @Override
     public void record(AttendanceFact attendance) {
         ReputationRules.attendanceClosed(attendance).forEach(this::append);
+        var lines = BadgeRules.attendances(attendance);
+        trackRecords.record(lines);
+        lines.forEach(line -> awardReached(line.userId(), attendance.occurredAt()));
     }
 
     @Override
@@ -83,8 +104,33 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<BadgeProgress> myBadges(UUID me) {
+        var record = trackRecords.of(me);
+        var earned = badges.earnedBy(me);
+        return Arrays.stream(Badge.values())
+                .map(badge -> new BadgeProgress(badge, record.progressOf(badge), badge.goal(), earned.get(badge)))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BadgeProgress> earnedBadgesOf(UUID userId) {
+        var earned = badges.earnedBy(userId);
+        return Arrays.stream(Badge.values()).filter(earned::containsKey)
+                .map(badge -> new BadgeProgress(badge, badge.goal(), badge.goal(), earned.get(badge))).toList();
+    }
+
+    @Override
     public int rebuildScores() {
         return scores.rebuildFromLedger();
+    }
+
+    /** The badges someone has just reached are theirs, with a notice; the ones they had change nothing */
+    private void awardReached(UUID userId, Instant at) {
+        BadgeRules.reached(trackRecords.of(userId)).stream()
+                .filter(badge -> badges.award(userId, badge, at))
+                .forEach(badge -> notices.earned(userId, badge, at));
     }
 
     private void append(LedgerEntry entry) {

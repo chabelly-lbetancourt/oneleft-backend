@@ -1,9 +1,11 @@
 package es.upm.miw.oneleft.reputation.infrastructure.rest;
 
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
+import es.upm.miw.oneleft.reputation.domain.port.in.BadgesUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.in.RebuildScoresUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.in.ReputationQueryUseCase;
 import es.upm.miw.oneleft.reputation.infrastructure.config.KeycloakJwt;
+import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.BadgeResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.LedgerResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.RebuildResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.ReputationResponse;
@@ -26,7 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.UUID;
 
-/** My reputation and its ledger, and the reputation of others (HU-009). */
+/** My reputation and its ledger, the reputation of others (HU-009) and the badges (HU-044). */
 @RestController
 @RequestMapping(ReputationController.REPUTATION)
 @Tag(name = "Reputation", description = "The score of each person and the ledger that explains it")
@@ -36,15 +38,20 @@ public class ReputationController {
     public static final String ME = "/me";
     public static final String MY_LEDGER = ME + "/ledger";
     public static final String PERSON = "/people/{userId}";
+    public static final String MY_BADGES = ME + "/badges";
+    public static final String PERSON_BADGES = PERSON + "/badges";
     public static final String SCORES = "/scores";
     public static final String REBUILD = SCORES + "/rebuild";
 
     private final ReputationQueryUseCase reputation;
     private final RebuildScoresUseCase rebuild;
+    private final BadgesUseCase badges;
 
-    public ReputationController(ReputationQueryUseCase reputation, RebuildScoresUseCase rebuild) {
+    public ReputationController(ReputationQueryUseCase reputation, RebuildScoresUseCase rebuild,
+                                BadgesUseCase badges) {
         this.reputation = reputation;
         this.rebuild = rebuild;
+        this.badges = badges;
     }
 
     @GetMapping(ME)
@@ -71,6 +78,22 @@ public class ReputationController {
     @ApiResponse(responseCode = "200", description = "The score")
     public ReputationResponse of(@PathVariable UUID userId) {
         return ReputationResponse.of(reputation.reputationOf(userId));
+    }
+
+    @GetMapping(MY_BADGES)
+    @Operation(summary = "My badges (HU-044)",
+            description = "Every badge, earned or not, with how far I am. Only plans that were held count, with a "
+                    + "check-in.")
+    @ApiResponse(responseCode = "200", description = "The five badges")
+    public List<BadgeResponse> myBadges(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
+        return badges.myBadges(KeycloakJwt.userId(jwt)).stream().map(BadgeResponse::of).toList();
+    }
+
+    @GetMapping(PERSON_BADGES)
+    @Operation(summary = "The badges someone has earned (HU-044)")
+    @ApiResponse(responseCode = "200", description = "The badges earned")
+    public List<BadgeResponse> badgesOf(@PathVariable UUID userId) {
+        return badges.earnedBadgesOf(userId).stream().map(BadgeResponse::of).toList();
     }
 
     @GetMapping(SCORES)
