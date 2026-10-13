@@ -50,6 +50,7 @@ class SocialIntegrationTest {
             .options(wireMockConfig().dynamicPort()).build();
 
     private static final String ME = SocialController.SOCIAL + SocialController.ME;
+    private static final String VISIBILITY = SocialController.SOCIAL + SocialController.MY_VISIBILITY;
 
     @DynamicPropertySource
     static void usersService(DynamicPropertyRegistry registry) {
@@ -126,13 +127,13 @@ class SocialIntegrationTest {
 
     @Test
     void aPublicProfileIsFollowedAtOnceAndOpeningOneAcceptsTheRequestsWaiting() throws Exception {
-        as(ana, "Ana", put(ME + SocialController.MY_VISIBILITY).contentType(MediaType.APPLICATION_JSON)
+        as(ana, "Ana", put(VISIBILITY).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"visibility\": \"PUBLIC\"}")).andExpect(jsonPath("$.visibility").value("PUBLIC"));
         as(lucia, "Lucía", put(ME + FollowController.FOLLOWED, ana)).andExpect(jsonPath("$.status").value("ACCEPTED"));
 
         as(diego, "Diego", get(ME)).andExpect(status().isOk());
         as(ana, "Ana", put(ME + FollowController.FOLLOWED, diego)).andExpect(jsonPath("$.status").value("PENDING"));
-        as(diego, "Diego", put(ME + SocialController.MY_VISIBILITY).contentType(MediaType.APPLICATION_JSON)
+        as(diego, "Diego", put(VISIBILITY).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"visibility\": \"PUBLIC\"}"))
                 .andExpect(jsonPath("$.followers").value(1))
                 .andExpect(jsonPath("$.requests").value(0));
@@ -174,9 +175,9 @@ class SocialIntegrationTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("follow.self"));
         as(lucia, "Lucía", get(ME + FollowController.FOLLOWERS).param("size", "51"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("page.invalid"));
-        as(lucia, "Lucía", put(ME + SocialController.MY_VISIBILITY).contentType(MediaType.APPLICATION_JSON)
+        as(lucia, "Lucía", put(VISIBILITY).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"visibility\": \"FRIENDS\"}")).andExpect(status().isBadRequest());
-        as(lucia, "Lucía", put(ME + SocialController.MY_VISIBILITY).contentType(MediaType.APPLICATION_JSON)
+        as(lucia, "Lucía", put(VISIBILITY).contentType(MediaType.APPLICATION_JSON)
                 .content("{}")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("validation"));
         mockMvc.perform(get(ME)).andExpect(status().isUnauthorized());
     }
