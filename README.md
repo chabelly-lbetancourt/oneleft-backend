@@ -13,6 +13,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 - `plans`: publicación de planes, plazas, caducidad y búsqueda de planes cercanos (PostGIS) en tiempo real (SSE).
 - `notifications`: avisos de planes cercanos (HU-006): preferencias de cada persona, a quién avisar y Web Push.
 - `chat`: chat de cada plan en tiempo real (HU-008) por WebSocket, con el gateway como relé.
+- `social`: seguir a personas (HU-047), con perfiles públicos o privados y solicitudes.
 - `ai`: creación de planes en lenguaje natural, moderación y ranking de notificaciones.
 
 **Stack:** Java 21 · Spring Boot · Spring Cloud · PostgreSQL/PostGIS · Redis · RabbitMQ · Keycloak · Spring AI · Maven · JUnit · JaCoCo · SonarQube
@@ -23,11 +24,12 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 
 | Módulo | Puerto | Estado |
 |---|---|---|
-| `gateway` | 8080 | Enruta `/api/v1/users/**` a `users`, `/api/v1/plans/**` y `/api/v1/places/**` a `plans`, `/api/v1/notifications/**` a `notifications` y `/api/v1/chats/**` a `chat`. Hace de relé del WebSocket `/ws/chat` (el token va en el subprotocolo `oneleft.bearer`) |
+| `gateway` | 8080 | Enruta `/api/v1/users/**` a `users`, `/api/v1/plans/**` y `/api/v1/places/**` a `plans`, `/api/v1/notifications/**` a `notifications`, `/api/v1/chats/**` a `chat` y `/api/v1/social/**` a `social`. Hace de relé del WebSocket `/ws/chat` (el token va en el subprotocolo `oneleft.bearer`) |
 | `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones |
 | `plans` | 8082 | HU-003 publicar un plan (evento `plan.published` en RabbitMQ) · HU-004 planes cercanos y avisos en tiempo real (SSE) · HU-025 check-in en el punto de encuentro (geocerca de 150 m con PostGIS; la ubicación no se guarda) |
 | `notifications` | 8083 | HU-006 avisos de planes cercanos: escucha `plan.published`, elige a quién avisar (zona, radio, actividades, horario sin avisos y máximo diario) y avisa en la app y por Web Push |
 | `chat` | 8084 | HU-008 chat de cada plan: solo su organizador y participantes (se pregunta a `plans`), de solo lectura cuando el plan termina, mensajes entre réplicas por RabbitMQ y borrados 24 h después |
+| `social` | 8085 | HU-047 seguir a personas: perfil público o privado (privado por defecto), solicitudes que se aceptan o rechazan, seguidores y seguidos. El nombre de alguien nuevo se pregunta una vez a `users` |
 
 El servicio `ai` se añade con sus historias de usuario.
 

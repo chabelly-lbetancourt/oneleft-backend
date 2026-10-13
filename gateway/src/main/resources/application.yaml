@@ -41,6 +41,11 @@ spring:
               uri: ${CHAT_URL:http://localhost:8084}
               predicates:
                 - Path=/api/v1/chats/**
+            # Following people (HU-047)
+            - id: social
+              uri: ${SOCIAL_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/social/**
             # Shared plan links (HU-024): public view and link preview page, without a session
             - id: plans-shared
               uri: ${PLANS_URL:http://localhost:8082}
@@ -76,6 +81,12 @@ spring:
                 - Path=/api-docs/chat
               filters:
                 - SetPath=/v3/api-docs
+            - id: social-docs
+              uri: ${SOCIAL_URL:http://localhost:8085}
+              predicates:
+                - Path=/api-docs/social
+              filters:
+                - SetPath=/v3/api-docs
 
 server:
   port: ${PORT:8080}
@@ -94,6 +105,8 @@ springdoc:
         url: /api-docs/notifications
       - name: chat
         url: /api-docs/chat
+      - name: social
+        url: /api-docs/social
     urls-primary-name: users
     try-it-out-enabled: true
     persist-authorization: true
