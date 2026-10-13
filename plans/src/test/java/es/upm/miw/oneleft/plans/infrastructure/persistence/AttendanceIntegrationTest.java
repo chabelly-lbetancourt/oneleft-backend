@@ -13,8 +13,8 @@ import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import es.upm.miw.oneleft.plans.infrastructure.messaging.RabbitConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.core.AnonymousQueue;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -70,9 +70,13 @@ class AttendanceIntegrationTest {
     private final UUID ana = UUID.randomUUID();
     private final UUID lucia = UUID.randomUUID();
 
+    /** Not exclusive to a connection: it survives a connection that is renewed while the test runs */
+    private final Queue queue = new Queue("test.attendance." + UUID.randomUUID(), false, false, false);
+
     @AfterEach
-    void deleteThePlans() {
+    void deleteThePlansAndTheQueue() {
         created.forEach(id -> jdbc.update("DELETE FROM plan WHERE id = ?", id));
+        admin.deleteQueue(queue.getName());
     }
 
     private Plan planStartingAt(Instant startsAt, Clock publishedWith) {
@@ -101,7 +105,6 @@ class AttendanceIntegrationTest {
 
     @Test
     void thePlansWhoseCheckInClosedPublishWhoArrivedOnce() {
-        var queue = new AnonymousQueue();
         admin.declareQueue(queue);
         admin.declareBinding(BindingBuilder.bind(queue).to(plansExchange).with(RabbitConfig.PLAN_ATTENDANCE_CLOSED));
         var twoHoursAgo = Clock.fixed(Instant.now().minus(Duration.ofHours(2)), ZoneOffset.UTC);
