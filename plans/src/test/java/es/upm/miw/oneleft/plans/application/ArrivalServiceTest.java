@@ -7,6 +7,7 @@ import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
+import es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
@@ -68,6 +69,11 @@ class ArrivalServiceTest {
         @Override
         public void publish(PlanArrival event) {
             events.add(event);
+        }
+
+        @Override
+        public void publish(PlanCheckedIn event) {
+            throw new UnsupportedOperationException();
         }
     };
     private final OptimisticPlanUpdates updates = new OptimisticPlanUpdates(plans,

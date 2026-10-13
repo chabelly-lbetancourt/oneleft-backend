@@ -5,6 +5,7 @@ import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
 import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
+import es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
@@ -151,5 +152,24 @@ class UserEventSubscriptionsTest {
                 List.of(UUID.randomUUID()), Instant.now());
         assertThat(PlanArrivalNotice.of(event))
                 .isEqualTo(new PlanArrivalNotice(event.planId(), "Padel", "Lucía", ArrivalStatus.LATE, 10));
+    }
+
+    @Test
+    void aCheckInReachesTheRestOfTheGroupAndNobodyElse() {
+        var organizer = UUID.randomUUID();
+        subscriptions.subscribe(organizer).complete();
+        subscriptions.subscribe(UUID.randomUUID()).complete();
+
+        subscriptions.dispatch(new PlanCheckedIn(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía",
+                List.of(organizer), Instant.now()));
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+    }
+
+    @Test
+    void theCheckInNoticeCarriesWhatTheAppShows() {
+        var event = new PlanCheckedIn(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía",
+                List.of(UUID.randomUUID()), Instant.now());
+        assertThat(PlanCheckInNotice.of(event)).isEqualTo(new PlanCheckInNotice(event.planId(), "Padel", "Lucía"));
     }
 }

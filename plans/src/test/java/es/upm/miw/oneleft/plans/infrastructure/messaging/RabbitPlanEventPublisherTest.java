@@ -16,6 +16,7 @@ import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
 import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
+import es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AnonymousQueue;
@@ -118,6 +119,16 @@ class RabbitPlanEventPublisherTest {
     void anArrivalReachesTheStreamsOfTheGroup() {
         var event = new PlanArrival(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía", ArrivalStatus.ON_THE_WAY,
                 null, List.of(UUID.randomUUID()), Instant.parse("2026-11-16T16:50:00Z"));
+
+        publisher.publish(event);
+
+        verify(subscriptions, timeout(10_000)).dispatch(event);
+    }
+
+    @Test
+    void aCheckInReachesTheStreamsOfTheGroup() {
+        var event = new PlanCheckedIn(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía",
+                List.of(UUID.randomUUID()), Instant.parse("2026-11-16T17:05:00Z"));
 
         publisher.publish(event);
 

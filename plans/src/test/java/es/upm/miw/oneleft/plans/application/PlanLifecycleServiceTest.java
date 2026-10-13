@@ -83,6 +83,11 @@ class PlanLifecycleServiceTest {
         public void publish(es.upm.miw.oneleft.plans.domain.model.PlanArrival event) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void publish(es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn event) {
+            throw new UnsupportedOperationException();
+        }
     };
     private final MovingClock clock = new MovingClock();
     private final PlanLifecycleService service = new PlanLifecycleService(plans,
