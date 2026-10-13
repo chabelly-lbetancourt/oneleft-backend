@@ -70,8 +70,11 @@ class AttendanceIntegrationTest {
     private final UUID ana = UUID.randomUUID();
     private final UUID lucia = UUID.randomUUID();
 
-    /** Not exclusive to a connection: it survives a connection that is renewed while the test runs */
-    private final Queue queue = new Queue("test.attendance." + UUID.randomUUID(), false, false, false);
+    /**
+     * Not exclusive to a connection, so it survives a connection renewed while the test runs; durable, because RabbitMQ
+     * 4 does not allow transient queues that are not exclusive. Deleted at the end.
+     */
+    private final Queue queue = new Queue("test.attendance." + UUID.randomUUID(), true, false, false);
 
     @AfterEach
     void deleteThePlansAndTheQueue() {
