@@ -1,5 +1,7 @@
 package es.upm.miw.oneleft.gateway;
 
+import es.upm.miw.oneleft.gateway.chat.ChatBearerTokenResolver;
+import es.upm.miw.oneleft.gateway.chat.ChatRelayConfig;
 import es.upm.miw.oneleft.gateway.ratelimit.RateLimitFilter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,9 +45,13 @@ public class SecurityConfig {
                         // Shared plan links (HU-024): anyone with the link (the rate limit still applies per IP)
                         .requestMatchers(HttpMethod.GET, "/api/v1/public/**", "/share/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
+                        // Chat of a plan (HU-008): WebSocket relayed to the chat service
+                        .requestMatchers(HttpMethod.GET, ChatRelayConfig.PATH).authenticated()
                         .anyRequest().denyAll())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {
-                }))
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenResolver(new ChatBearerTokenResolver())
+                        .jwt(jwt -> {
+                        }))
                 .build();
     }
 

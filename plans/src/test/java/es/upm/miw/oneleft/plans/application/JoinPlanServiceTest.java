@@ -1,15 +1,18 @@
 package es.upm.miw.oneleft.plans.application;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.Availability;
 import es.upm.miw.oneleft.plans.domain.model.ConcurrentPlanUpdateException;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
+import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.junit.jupiter.api.Test;
@@ -22,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static es.upm.miw.oneleft.plans.PlanFixtures.CLOCK;
@@ -61,6 +65,19 @@ class JoinPlanServiceTest {
         public List<Plan> findOpenNearby(NearbySearch search, Instant now, int limit) {
             return List.of();
         }
+
+        /** Same conditions as the SQL query (tested in JpaPlanRepositoryTest), in memory. */
+        @Override
+        public List<UUID> findDueForLifecycle(Instant now) {
+            return data.values().stream().filter(plan -> switch (plan.status()) {
+                case OPEN, FULL -> !plan.startsAt().isAfter(now) || plan.remindedAt() == null
+                        && !plan.startsAt().isAfter(now.plus(Plan.REMINDER_LEAD))
+                        || plan.minimum() != null && plan.minimum().pending()
+                        && !plan.minimum().deadline().isAfter(now);
+                case IN_PROGRESS -> !plan.startsAt().isAfter(now.minus(Plan.DURATION));
+                default -> false;
+            }).map(Plan::id).toList();
+        }
     }
 
     private final Plans plans = new Plans();
@@ -80,20 +97,39 @@ class JoinPlanServiceTest {
         public void publish(PlanLeftEvent event) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void publish(PlanReminder event) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void publish(PlanCancelled event) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void publish(es.upm.miw.oneleft.plans.domain.model.PlanArrival event) {
+            throw new UnsupportedOperationException();
+        }
     };
+    private final Availabilities availabilities = new Availabilities();
     private final JoinPlanService service =
             new JoinPlanService(new OptimisticPlanUpdates(plans, TransactionOperations.withoutTransaction()), publisher,
-                    CLOCK);
+                    availabilities, CLOCK);
     private final Plan plan = plans.save(Plan.publish(ana(), Activity.PADEL, "Padel match", null,
             new MeetingPoint("Courts", 40.39, -3.62), NOW.plus(Duration.ofHours(1)), 1, null, CLOCK));
 
     @Test
     void takesTheSpotAndNotifiesTheOrganizer() {
         var lucia = UUID.randomUUID();
+        availabilities.save(Availability.start(lucia, 40.39, -3.62, 2, Set.of(), CLOCK));
 
         var joined = service.join(plan.id(), lucia, "Lucía");
 
         assertThat(joined.isParticipant(lucia)).isTrue();
+        // Whoever joins a plan is no longer free (HU-035)
+        assertThat(availabilities.data).doesNotContainKey(lucia);
         assertThat(plans.data.get(plan.id()).freeSpots()).isZero();
         assertThat(events).singleElement().satisfies(event -> {
             assertThat(event.organizerId()).isEqualTo(plan.organizer().id());

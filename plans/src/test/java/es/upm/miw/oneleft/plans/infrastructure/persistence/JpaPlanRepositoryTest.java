@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
+import es.upm.miw.oneleft.plans.PlanFixtures;
 import es.upm.miw.oneleft.plans.TestcontainersConfiguration;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
@@ -16,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -114,6 +116,35 @@ class JpaPlanRepositoryTest {
     }
 
     @Test
+    void findsThePlansWithALifecycleStepDueAndKeepsTheReminder() {
+        var now = clock.instant();
+        // PostgreSQL rounds times to microseconds: the test works with the plans as they come back from it
+        var soon = stored(repository.save(padelPlan(ana(), Duration.ofMinutes(40), clock)));
+        var later = stored(repository.save(padelPlan(ana(), Duration.ofHours(3), clock)));
+        var reminded = soon.remind(soon.startsAt().minus(Plan.REMINDER_LEAD)).plan();
+        repository.save(reminded);
+        assertThat(stored(soon).remindedAt())
+                .isEqualTo(reminded.remindedAt().truncatedTo(ChronoUnit.MICROS));
+
+        // In 15 minutes «later» is still far, and «soon» has its reminder already
+        assertThat(repository.findDueForLifecycle(now.plus(Duration.ofMinutes(15))))
+                .doesNotContain(soon.id(), later.id());
+        // At its start, «soon» starts; «later» is within its reminder time
+        assertThat(repository.findDueForLifecycle(soon.startsAt()))
+                .contains(soon.id()).doesNotContain(later.id());
+        assertThat(repository.findDueForLifecycle(later.startsAt().minus(Plan.REMINDER_LEAD))).contains(later.id());
+
+        var started = repository.save(stored(soon).advance(soon.startsAt()));
+        assertThat(started.status()).isEqualTo(PlanStatus.IN_PROGRESS);
+        assertThat(repository.findDueForLifecycle(soon.startsAt().plusSeconds(60))).doesNotContain(soon.id());
+        assertThat(repository.findDueForLifecycle(soon.startsAt().plus(Plan.DURATION))).contains(soon.id());
+    }
+
+    private Plan stored(Plan plan) {
+        return repository.findById(plan.id()).orElseThrow();
+    }
+
+    @Test
     void theNearbySearchUsesTheGeographyIndex() {
         var plan = jdbc.execute((ConnectionCallback<String>) connection -> {
             try (var statement = connection.createStatement()) {
@@ -131,5 +162,41 @@ class JpaPlanRepositoryTest {
             }
         });
         assertThat(plan).contains("plan_location_geography");
+    }
+
+    @Test
+    void savesTheMinimumAndFindsThePlanAtItsDeadline() {
+        var lucia = UUID.randomUUID();
+        // Whole seconds: PostgreSQL rounds the nanoseconds of the runner's clock to microseconds
+        var start = clock.instant().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofHours(1));
+        var deadline = start.minus(Duration.ofMinutes(40));
+        var plan = stored(repository.save(Plan.publish(ana(), Activity.PADEL, "Padel 2 vs 2", null,
+                PlanFixtures.COURTS, start, 3, null, 1, deadline, clock).join(lucia, "Lucía", clock)));
+        assertThat(plan.minimum().participants()).isEqualTo(1);
+        assertThat(plan.minimum().deadline()).isEqualTo(deadline);
+        assertThat(plan.minimum().pending()).isTrue();
+
+        assertThat(repository.findDueForLifecycle(plan.minimum().deadline().minusSeconds(1)))
+                .doesNotContain(plan.id());
+        assertThat(repository.findDueForLifecycle(plan.minimum().deadline())).contains(plan.id());
+
+        var confirmed = repository.save(plan.checkMinimum(plan.minimum().deadline()).plan());
+        assertThat(stored(confirmed).minimum().pending()).isFalse();
+        assertThat(repository.findDueForLifecycle(plan.minimum().deadline().plusSeconds(60)))
+                .doesNotContain(plan.id());
+    }
+
+    @Test
+    void aCancelledPlanIsNotDueAnyMore() {
+        var start = clock.instant().plus(Duration.ofHours(1));
+        var plan = stored(repository.save(Plan.publish(ana(), Activity.PADEL, "Padel 2 vs 2", null,
+                PlanFixtures.COURTS, start, 3, null, 2, start.minus(Duration.ofMinutes(40)), clock)));
+
+        var cancelled = repository.save(plan.checkMinimum(plan.minimum().deadline()).plan());
+
+        assertThat(stored(cancelled).status()).isEqualTo(PlanStatus.CANCELLED);
+        assertThat(repository.findByOrganizerStartingAfter(plan.organizer().id(), clock.instant())).isEmpty();
+        assertThat(repository.findDueForLifecycle(start)).doesNotContain(plan.id());
+        assertThat(repository.findDueForLifecycle(start.plus(Plan.DURATION))).doesNotContain(plan.id());
     }
 }

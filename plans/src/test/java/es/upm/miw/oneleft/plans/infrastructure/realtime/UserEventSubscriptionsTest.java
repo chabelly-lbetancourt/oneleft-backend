@@ -2,10 +2,15 @@ package es.upm.miw.oneleft.plans.infrastructure.realtime;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
+import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
+import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
+import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,5 +85,71 @@ class UserEventSubscriptionsTest {
                 Instant.parse("2026-11-16T17:20:00Z"), 1, 700);
         assertThat(PlanNearbyNotice.of(message)).isEqualTo(new PlanNearbyNotice(message.planId(), "PADEL", "Pádel",
                 "Pistas", message.startsAt(), 1, 700));
+    }
+
+    @Test
+    void aReminderReachesEveryoneInThePlanAndNobodyElse() {
+        var organizer = UUID.randomUUID();
+        var lucia = UUID.randomUUID();
+        // Streams found broken are forgotten when written to: only the recipients' streams are written
+        subscriptions.subscribe(organizer).complete();
+        subscriptions.subscribe(lucia).complete();
+        subscriptions.subscribe(UUID.randomUUID()).complete();
+
+        subscriptions.dispatch(new PlanReminder(UUID.randomUUID(), "Padel", "Courts",
+                Instant.parse("2026-11-16T17:20:00Z"), List.of(organizer, lucia), Instant.now()));
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+    }
+
+    @Test
+    void theReminderNoticeCarriesWhatTheAppShows() {
+        var event = new PlanReminder(UUID.randomUUID(), "Padel", "Courts", Instant.parse("2026-11-16T17:20:00Z"),
+                List.of(UUID.randomUUID()), Instant.now());
+        assertThat(PlanReminderNotice.of(event))
+                .isEqualTo(new PlanReminderNotice(event.planId(), "Padel", "Courts", event.startsAt()));
+    }
+
+    @Test
+    void aCancellationReachesEveryoneInThePlanAndNobodyElse() {
+        var organizer = UUID.randomUUID();
+        var lucia = UUID.randomUUID();
+        subscriptions.subscribe(organizer).complete();
+        subscriptions.subscribe(lucia).complete();
+        subscriptions.subscribe(UUID.randomUUID()).complete();
+
+        subscriptions.dispatch(new PlanCancelled(UUID.randomUUID(), "Padel", "Courts",
+                Instant.parse("2026-11-16T17:20:00Z"), PlanCancelled.Reason.MINIMUM_NOT_REACHED,
+                List.of(organizer, lucia), Instant.now()));
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+    }
+
+    @Test
+    void theCancellationNoticeCarriesWhatTheAppShows() {
+        var event = new PlanCancelled(UUID.randomUUID(), "Padel", "Courts", Instant.parse("2026-11-16T17:20:00Z"),
+                PlanCancelled.Reason.MINIMUM_NOT_REACHED, List.of(UUID.randomUUID()), Instant.now());
+        assertThat(PlanCancelledNotice.of(event)).isEqualTo(new PlanCancelledNotice(event.planId(), "Padel",
+                "Courts", event.startsAt(), PlanCancelled.Reason.MINIMUM_NOT_REACHED));
+    }
+
+    @Test
+    void anArrivalReachesTheRestOfTheGroupAndNobodyElse() {
+        var organizer = UUID.randomUUID();
+        subscriptions.subscribe(organizer).complete();
+        subscriptions.subscribe(UUID.randomUUID()).complete();
+
+        subscriptions.dispatch(new PlanArrival(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía",
+                ArrivalStatus.LATE, 10, List.of(organizer), Instant.now()));
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+    }
+
+    @Test
+    void theArrivalNoticeCarriesWhatTheAppShows() {
+        var event = new PlanArrival(UUID.randomUUID(), "Padel", UUID.randomUUID(), "Lucía", ArrivalStatus.LATE, 10,
+                List.of(UUID.randomUUID()), Instant.now());
+        assertThat(PlanArrivalNotice.of(event))
+                .isEqualTo(new PlanArrivalNotice(event.planId(), "Padel", "Lucía", ArrivalStatus.LATE, 10));
     }
 }
