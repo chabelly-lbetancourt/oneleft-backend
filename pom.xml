@@ -23,6 +23,7 @@
         <module>plans</module>
         <module>notifications</module>
         <module>chat</module>
+        <module>social</module>
     </modules>
 
     <properties>
