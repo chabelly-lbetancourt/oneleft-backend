@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.NativeQuery;
 import org.springframework.data.repository.query.Param;
 
@@ -62,4 +63,15 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
                                     @Param("activities") Collection<String> activities,
                                     @Param("requester") UUID requester, @Param("now") Instant now,
                                     @Param("until") Instant until, @Param("limit") int limit);
+
+    /** Plans not cancelled whose check-in has closed and whose attendance is still open, the oldest first. */
+    @NativeQuery("""
+            SELECT p.id FROM plan p
+            WHERE p.attendance_closed_at IS NULL AND p.status <> 'CANCELLED' AND p.starts_at <= :startedBefore
+            ORDER BY p.starts_at LIMIT :limit""")
+    List<UUID> findAttendanceDue(@Param("startedBefore") Instant startedBefore, @Param("limit") int limit);
+
+    @Modifying
+    @NativeQuery("UPDATE plan SET attendance_closed_at = :at WHERE id = :id")
+    int markAttendanceClosed(@Param("id") UUID id, @Param("at") Instant at);
 }

@@ -1,12 +1,14 @@
 package es.upm.miw.oneleft.plans.infrastructure.messaging;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
+import es.upm.miw.oneleft.plans.domain.model.PlanAttendanceClosed;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
+import es.upm.miw.oneleft.plans.domain.port.out.AttendancePublisher;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
@@ -15,7 +17,7 @@ import org.springframework.stereotype.Component;
  * Output adapter: publishes plan events to the {@code oneleft.plans} RabbitMQ exchange.
  */
 @Component
-public class RabbitPlanEventPublisher implements PlanEventPublisher {
+public class RabbitPlanEventPublisher implements PlanEventPublisher, AttendancePublisher {
 
     private final RabbitTemplate rabbit;
 
@@ -56,5 +58,10 @@ public class RabbitPlanEventPublisher implements PlanEventPublisher {
     @Override
     public void publish(PlanCheckedIn event) {
         rabbit.convertAndSend(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_CHECKED_IN, event);
+    }
+
+    @Override
+    public void publish(PlanAttendanceClosed event) {
+        rabbit.convertAndSend(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_ATTENDANCE_CLOSED, event);
     }
 }

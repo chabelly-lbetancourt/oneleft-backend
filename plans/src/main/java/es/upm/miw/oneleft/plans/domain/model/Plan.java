@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Main aggregate: a plan for the next few hours with free spots that other people can take.
@@ -348,8 +349,8 @@ public class Plan {
         waitlist.forEach(person -> recipients.add(person.userId()));
         var cancelled = with(occupied, PlanStatus.CANCELLED, participants, List.of(), remindedAt, minimum,
                 List.of());
-        return new MinimumChecked(cancelled, Optional.of(new PlanCancelled(id, title, meetingPoint.name(), startsAt,
-                PlanCancelled.Reason.MINIMUM_NOT_REACHED, recipients, now)));
+        return new MinimumChecked(cancelled, Optional.of(new PlanCancelled(id, organizer.id(), title,
+                meetingPoint.name(), startsAt, PlanCancelled.Reason.MINIMUM_NOT_REACHED, recipients, now)));
     }
 
     /**
@@ -423,6 +424,19 @@ public class Plan {
     }
 
     /** The event of a check-in, for the rest of the group. */
+    /**
+     * Who of the group arrived, once the check-in has closed (HU-025, HU-009): the check-ins of people who are no
+     * longer in the group do not count.
+     */
+    public PlanAttendanceClosed attendance(List<CheckIn> checkIns, Instant now) {
+        var group = new ArrayList<UUID>();
+        group.add(organizer.id());
+        participants.forEach(participant -> group.add(participant.userId()));
+        var arrived = checkIns.stream().map(CheckIn::userId).collect(Collectors.toSet());
+        return new PlanAttendanceClosed(id, title, organizer.id(), group.stream().filter(arrived::contains).toList(),
+                group.stream().filter(userId -> !arrived.contains(userId)).toList(), freeSpots() == 0, startsAt, now);
+    }
+
     public PlanCheckedIn checkedInEvent(CheckIn checkIn) {
         return new PlanCheckedIn(id, title, checkIn.userId(), checkIn.name(), groupBut(checkIn.userId()),
                 checkIn.at());

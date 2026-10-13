@@ -9,8 +9,8 @@ import java.util.UUID;
  * organizer, the participants and the waiting list ({@code recipientIds}) are told in the app and with a notification
  * of the browser.
  */
-public record PlanCancelled(UUID planId, String title, String placeName, Instant startsAt, Reason reason,
-                            List<UUID> recipientIds, Instant occurredAt) {
+public record PlanCancelled(UUID planId, UUID organizerId, String title, String placeName, Instant startsAt,
+                            Reason reason, List<UUID> recipientIds, Instant occurredAt) {
 
     public enum Reason { MINIMUM_NOT_REACHED }
 
