@@ -391,18 +391,64 @@ public class Plan {
     public ArrivalAnnounced announce(UUID userId, ArrivalStatus arrivalStatus, Integer minutesLate, Clock clock) {
         var now = clock.instant();
         checkCanAnnounce(userId, now);
-        var name = organizer.id().equals(userId) ? organizer.name() : participants.stream()
-                .filter(participant -> participant.userId().equals(userId)).findFirst().orElseThrow().name();
+        var name = memberName(userId);
         var arrival = new Arrival(userId, name, arrivalStatus, minutesLate, now);
         var updated = new ArrayList<>(arrivalsWithout(userId));
         updated.add(arrival);
+        return new ArrivalAnnounced(with(occupied, status, participants, waitlist, remindedAt, minimum, updated),
+                new PlanArrival(id, title, userId, name, arrivalStatus, arrival.minutesLate(), groupBut(userId),
+                        now));
+    }
+
+    /**
+     * Someone of the group arrives at the meeting point (HU-025): from {@link CheckIn#OPENS_BEFORE} before the start
+     * until {@link CheckIn#CLOSES_AFTER} after it, unless the plan was cancelled. Whether they are close enough is
+     * checked outside, against the meeting point in the database.
+     */
+    public CheckIn checkIn(UUID userId, Clock clock) {
+        var now = clock.instant();
+        checkIsMember(userId);
+        if (status == PlanStatus.CANCELLED) {
+            throw new JoinRejectedException("plan.notOpen", "The plan was cancelled");
+        }
+        if (now.isBefore(startsAt.minus(CheckIn.OPENS_BEFORE))) {
+            throw new JoinRejectedException("checkIn.notYet", "The check-in opens " + CheckIn.OPENS_BEFORE.toMinutes()
+                    + " minutes before the start");
+        }
+        if (now.isAfter(startsAt.plus(CheckIn.CLOSES_AFTER))) {
+            throw new JoinRejectedException("checkIn.closed", "The check-in closed " + CheckIn.CLOSES_AFTER.toMinutes()
+                    + " minutes after the start");
+        }
+        return new CheckIn(id, userId, memberName(userId), now);
+    }
+
+    /** The event of a check-in, for the rest of the group. */
+    public PlanCheckedIn checkedInEvent(CheckIn checkIn) {
+        return new PlanCheckedIn(id, title, checkIn.userId(), checkIn.name(), groupBut(checkIn.userId()),
+                checkIn.at());
+    }
+
+    /** Throws unless the person is the organizer or a participant. */
+    public void checkIsMember(UUID userId) {
+        if (!isMember(userId)) {
+            throw new JoinRejectedException("plan.notParticipant", "You have not joined this plan");
+        }
+    }
+
+    private String memberName(UUID userId) {
+        return organizer.id().equals(userId) ? organizer.name() : participants.stream()
+                .filter(participant -> participant.userId().equals(userId)).findFirst().orElseThrow().name();
+    }
+
+    /** The organizer and the participants, except {@code userId}. */
+    private List<UUID> groupBut(UUID userId) {
         var recipients = new ArrayList<UUID>();
         if (!organizer.id().equals(userId)) {
             recipients.add(organizer.id());
         }
-        participants.stream().map(Participant::userId).filter(id -> !id.equals(userId)).forEach(recipients::add);
-        return new ArrivalAnnounced(with(occupied, status, participants, waitlist, remindedAt, minimum, updated),
-                new PlanArrival(id, title, userId, name, arrivalStatus, arrival.minutesLate(), recipients, now));
+        participants.stream().map(Participant::userId).filter(member -> !member.equals(userId))
+                .forEach(recipients::add);
+        return recipients;
     }
 
     /** Takes back the own status of arrival (HU-040). */
@@ -412,9 +458,7 @@ public class Plan {
     }
 
     private void checkCanAnnounce(UUID userId, Instant now) {
-        if (!isMember(userId)) {
-            throw new JoinRejectedException("plan.notParticipant", "You have not joined this plan");
-        }
+        checkIsMember(userId);
         if (!startsAt.isAfter(now) || status != PlanStatus.OPEN && status != PlanStatus.FULL) {
             throw new JoinRejectedException("plan.started", "The plan has already started");
         }

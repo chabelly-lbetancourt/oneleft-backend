@@ -3,6 +3,8 @@ package es.upm.miw.oneleft.plans.infrastructure.rest;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Arrival;
 import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
+import es.upm.miw.oneleft.plans.domain.model.CheckIn;
+import es.upm.miw.oneleft.plans.domain.model.DeviceLocation;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.Minimum;
@@ -95,6 +97,25 @@ public final class PlanDtos {
     public record ArrivalRequest(@jakarta.validation.constraints.NotNull ArrivalStatus status,
                                  @Schema(description = "5, 10, 15 or 30, only when running late", example = "10")
                                  Integer minutesLate) {
+    }
+
+    @Schema(description = "Where the device is now, only to check that it is at the meeting point (HU-025). "
+            + "It is not stored")
+    public record CheckInRequest(
+            @NotNull @DecimalMin("-90") @DecimalMax("90") @Schema(example = "40.3912") Double latitude,
+            @NotNull @DecimalMin("-180") @DecimalMax("180") @Schema(example = "-3.6287") Double longitude) {
+
+        DeviceLocation toDomain() {
+            return new DeviceLocation(latitude, longitude);
+        }
+    }
+
+    @Schema(description = "Someone of the group arrived at the meeting point (HU-025)")
+    public record CheckInResponse(UUID userId, @Schema(example = "Lucía") String name, Instant at) {
+
+        static CheckInResponse of(CheckIn checkIn) {
+            return new CheckInResponse(checkIn.userId(), checkIn.name(), checkIn.at());
+        }
     }
 
     @Schema(description = "Published plan")

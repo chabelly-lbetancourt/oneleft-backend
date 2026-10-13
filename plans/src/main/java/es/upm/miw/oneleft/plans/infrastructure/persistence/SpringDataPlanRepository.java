@@ -12,6 +12,17 @@ import java.util.UUID;
 
 interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
 
+    /**
+     * Whether a point is within some metres of the meeting point of a plan (HU-025), with PostGIS on {@code geography}
+     * like the proximity search. Null when the plan does not exist.
+     */
+    @NativeQuery("""
+            SELECT ST_DWithin(p.location::geography,
+                              ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :meters)
+            FROM plan p WHERE p.id = :id""")
+    Boolean isWithin(@Param("id") UUID id, @Param("latitude") double latitude, @Param("longitude") double longitude,
+                     @Param("meters") double meters);
+
     List<PlanEntity> findByOrganizerIdAndStartsAtAfterAndStatusNotOrderByStartsAt(UUID organizerId, Instant from,
                                                                                PlanStatus excluded);
 
