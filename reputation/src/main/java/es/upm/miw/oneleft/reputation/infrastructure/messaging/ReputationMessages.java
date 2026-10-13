@@ -27,11 +27,12 @@ final class ReputationMessages {
     }
 
     /** plan.attendance-closed */
-    record Attendance(UUID planId, String title, UUID organizerId, List<UUID> attendeeIds, List<UUID> absenteeIds,
-                      boolean full, Instant occurredAt) {
+    record Attendance(UUID planId, String title, String activity, UUID organizerId, List<UUID> attendeeIds,
+                      List<UUID> absenteeIds, boolean full, Instant occurredAt) {
 
         AttendanceFact toDomain() {
-            return new AttendanceFact(planId, title, organizerId, attendeeIds, absenteeIds, full, occurredAt);
+            return new AttendanceFact(planId, title, activity, organizerId, attendeeIds, absenteeIds, full,
+                    occurredAt);
         }
     }
 
@@ -43,6 +44,10 @@ final class ReputationMessages {
             return new CancellationFact(planId, title, organizerId, startsAt, BY_ORGANIZER.equals(reason),
                     occurredAt);
         }
+    }
+
+    /** notification.badge-earned (HU-044), for the real-time stream of the person, relayed by the plans service */
+    record BadgeEarned(UUID userId, String badge, Instant earnedAt) {
     }
 
     /** report.confirmed (HU-033) */

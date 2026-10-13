@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.messaging;
 
+import es.upm.miw.oneleft.plans.infrastructure.realtime.BadgeEarnedNotice;
 import es.upm.miw.oneleft.plans.infrastructure.realtime.PlanNearbyNotice;
 import es.upm.miw.oneleft.plans.infrastructure.realtime.UserEventSubscriptions;
 import org.springframework.amqp.core.MessageBuilder;
@@ -134,5 +135,20 @@ class RabbitPlanEventPublisherTest {
         publisher.publish(event);
 
         verify(subscriptions, timeout(10_000)).dispatch(event);
+    }
+
+    @Test
+    void theBadgesOfTheReputationReachThePersonsStream() {
+        var lucia = UUID.randomUUID();
+        var json = """
+                {"userId":"%s","badge":"TEN_ACTIVITIES","earnedAt":"2026-11-16T17:50:00Z"}""".formatted(lucia);
+        var properties = new MessageProperties();
+        properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+
+        rabbit.send(RabbitConfig.NOTIFICATIONS_EXCHANGE, RabbitConfig.BADGE_EARNED,
+                MessageBuilder.withBody(json.getBytes(StandardCharsets.UTF_8)).andProperties(properties).build());
+
+        verify(subscriptions, timeout(10_000)).dispatch(new BadgeEarnedNotice.Message(lucia, "TEN_ACTIVITIES",
+                Instant.parse("2026-11-16T17:50:00Z")));
     }
 }

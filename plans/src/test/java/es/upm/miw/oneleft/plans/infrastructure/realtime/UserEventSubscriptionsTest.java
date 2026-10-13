@@ -173,4 +173,18 @@ class UserEventSubscriptionsTest {
                 List.of(UUID.randomUUID()), Instant.now());
         assertThat(PlanCheckInNotice.of(event)).isEqualTo(new PlanCheckInNotice(event.planId(), "Padel", "Lucía"));
     }
+
+    @Test
+    void aBadgeIsToldOnlyToWhoEarnedIt() {
+        var lucia = UUID.randomUUID();
+        subscriptions.subscribe(UUID.randomUUID());
+        subscriptions.subscribe(lucia).complete();
+        var notice = new BadgeEarnedNotice.Message(lucia, "ALWAYS_PUNCTUAL", Instant.now());
+
+        subscriptions.dispatch(notice);
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+        assertThat(BadgeEarnedNotice.of(notice)).isEqualTo(new BadgeEarnedNotice("ALWAYS_PUNCTUAL",
+                notice.earnedAt()));
+    }
 }

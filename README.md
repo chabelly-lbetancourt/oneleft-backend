@@ -31,7 +31,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 | `notifications` | 8083 | HU-006 avisos de planes cercanos: escucha `plan.published`, elige a quién avisar (zona, radio, actividades, horario sin avisos y máximo diario) y avisa en la app y por Web Push |
 | `chat` | 8084 | HU-008 chat de cada plan: solo su organizador y participantes (se pregunta a `plans`), de solo lectura cuando el plan termina, mensajes entre réplicas por RabbitMQ y borrados 24 h después |
 | `social` | 8085 | HU-047 seguir a personas: perfil público o privado (privado por defecto), solicitudes que se aceptan o rechazan, seguidores y seguidos. El nombre de alguien nuevo se pregunta una vez a `users` |
-| `reputation` | 8086 | HU-009 reputación: escucha `plan.checked-in`, `plan.attendance-closed`, `plan.cancelled` y `report.confirmed` en colas duraderas, apunta cada cambio en un libro inmutable (motivo, puntos, plan y fecha) y mantiene la puntuación como proyección recalculable |
+| `reputation` | 8086 | HU-009 reputación: escucha `plan.checked-in`, `plan.attendance-closed`, `plan.cancelled` y `report.confirmed` en colas duraderas, apunta cada cambio en un libro inmutable (motivo, puntos, plan y fecha) y mantiene la puntuación como proyección recalculable · HU-044 insignias por hitos a partir de la asistencia, con aviso en tiempo real (`notification.badge-earned`) |
 
 El servicio `ai` se añade con sus historias de usuario.
 
