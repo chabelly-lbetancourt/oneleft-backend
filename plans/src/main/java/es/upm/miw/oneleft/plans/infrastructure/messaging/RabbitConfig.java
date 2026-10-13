@@ -22,6 +22,8 @@ public class RabbitConfig {
     /** Notices of the notifications service, relayed to each person's real-time stream (HU-006). */
     public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
     public static final String NEARBY_PLAN = "notification.nearby-plan";
+    /** A new badge of reputation (HU-044), from the reputation service. */
+    public static final String BADGE_EARNED = "notification.badge-earned";
 
     @Bean
     TopicExchange plansExchange() {

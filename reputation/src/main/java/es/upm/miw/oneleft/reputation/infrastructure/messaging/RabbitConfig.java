@@ -26,6 +26,9 @@ public class RabbitConfig {
     /** Confirmed reports of the moderation (HU-033): the exchange is ready for when it publishes them. */
     public static final String REPORTS_EXCHANGE = "oneleft.reports";
     public static final String REPORT_CONFIRMED = "report.confirmed";
+    /** Notices for the app, relayed by the plans service through each person's real-time stream (HU-044). */
+    public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
+    public static final String BADGE_EARNED = "notification.badge-earned";
 
     public static final String CHECK_INS_QUEUE = "reputation.check-ins";
     public static final String ATTENDANCE_QUEUE = "reputation.attendance";
@@ -45,6 +48,11 @@ public class RabbitConfig {
     @Bean
     TopicExchange reportsExchange() {
         return new TopicExchange(REPORTS_EXCHANGE, true, false);
+    }
+
+    @Bean
+    TopicExchange notificationsExchange() {
+        return new TopicExchange(NOTIFICATIONS_EXCHANGE, true, false);
     }
 
     @Bean

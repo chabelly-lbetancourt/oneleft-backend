@@ -433,7 +433,8 @@ public class Plan {
         group.add(organizer.id());
         participants.forEach(participant -> group.add(participant.userId()));
         var arrived = checkIns.stream().map(CheckIn::userId).collect(Collectors.toSet());
-        return new PlanAttendanceClosed(id, title, organizer.id(), group.stream().filter(arrived::contains).toList(),
+        return new PlanAttendanceClosed(id, title, activity, organizer.id(),
+                group.stream().filter(arrived::contains).toList(),
                 group.stream().filter(userId -> !arrived.contains(userId)).toList(), freeSpots() == 0, startsAt, now);
     }
 

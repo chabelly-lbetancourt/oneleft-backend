@@ -31,8 +31,8 @@ class PlanAttendanceTest {
 
         var attendance = plan.attendance(List.of(checkIn(LUCIA)), closing);
 
-        assertThat(attendance).isEqualTo(new PlanAttendanceClosed(plan.id(), plan.title(), organizer, List.of(LUCIA),
-                List.of(organizer), true, plan.startsAt(), closing));
+        assertThat(attendance).isEqualTo(new PlanAttendanceClosed(plan.id(), plan.title(), Activity.PADEL, organizer,
+                List.of(LUCIA), List.of(organizer), true, plan.startsAt(), closing));
     }
 
     @Test

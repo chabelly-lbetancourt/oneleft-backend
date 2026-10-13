@@ -1,5 +1,7 @@
 package es.upm.miw.oneleft.reputation.infrastructure.rest;
 
+import es.upm.miw.oneleft.reputation.domain.model.Badge;
+import es.upm.miw.oneleft.reputation.domain.model.BadgeProgress;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
@@ -46,5 +48,15 @@ public final class ReputationDtos {
 
     @Schema(description = "The scores rebuilt from the ledger")
     public record RebuildResponse(@Schema(description = "People with a score") int people) {
+    }
+
+    @Schema(description = "A badge for a milestone (HU-044): how far, and since when it was earned")
+    public record BadgeResponse(Badge badge, @Schema(example = "7") int progress, @Schema(example = "10") int goal,
+                                boolean earned, Instant earnedAt) {
+
+        static BadgeResponse of(BadgeProgress badge) {
+            return new BadgeResponse(badge.badge(), badge.progress(), badge.goal(), badge.earned(),
+                    badge.earnedAt());
+        }
     }
 }
