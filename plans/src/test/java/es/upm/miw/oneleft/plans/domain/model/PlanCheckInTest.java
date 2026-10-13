@@ -72,6 +72,13 @@ class PlanCheckInTest {
     }
 
     @Test
+    void theTimeOfArrivalIsKeptToTheSecond() {
+        var checkIn = plan.checkIn(LUCIA, at(start.plusNanos(123_456_789)));
+
+        assertThat(checkIn.at()).isEqualTo(start);
+    }
+
+    @Test
     void aCheckInNeedsAllItsData() {
         assertThatThrownBy(() -> new CheckIn(plan.id(), LUCIA, null, start))
                 .isInstanceOfSatisfying(ValidationException.class,

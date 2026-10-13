@@ -2,11 +2,13 @@ package es.upm.miw.oneleft.plans.domain.model;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /**
  * Someone of the group of a plan arrived at the meeting point (HU-025). It is kept as their attendance, for the
- * reputation (HU-009) and to reduce no-shows; where they were when they checked in is not.
+ * reputation (HU-009) and to reduce no-shows; where they were when they checked in is not. The time is kept to the
+ * second: it is all the app shows, and it stays the same once stored.
  */
 public record CheckIn(UUID planId, UUID userId, String name, Instant at) {
 
@@ -21,5 +23,6 @@ public record CheckIn(UUID planId, UUID userId, String name, Instant at) {
         if (planId == null || userId == null || name == null || at == null) {
             throw new ValidationException("checkIn.missingData", "Required check-in data is missing");
         }
+        at = at.truncatedTo(ChronoUnit.SECONDS);
     }
 }
