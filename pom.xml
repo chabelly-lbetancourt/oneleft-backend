@@ -24,6 +24,7 @@
         <module>notifications</module>
         <module>chat</module>
         <module>social</module>
+        <module>reputation</module>
     </modules>
 
     <properties>
