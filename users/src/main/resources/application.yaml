@@ -24,6 +24,21 @@ spring:
           # but the token issuer is still the public URL (localhost:8180)
           jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
 
+oneleft:
+  storage:
+    # Profile photos (HU-020) in an S3-compatible storage: Versity S3 Gateway in Docker, S3 or a Lightsail bucket when
+    # deployed. Photos go from the device to the storage with signed links: they never go through this service
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:7070}
+    # The address browsers reach, which the links are signed for (inside Docker it is not the internal one)
+    public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:${STORAGE_ENDPOINT:http://localhost:7070}}
+    bucket: ${STORAGE_BUCKET:oneleft-photos}
+    region: ${STORAGE_REGION:us-east-1}
+    access-key: ${STORAGE_ACCESS_KEY:oneleft}
+    secret-key: ${STORAGE_SECRET_KEY:oneleft-dev-storage}
+    path-style: ${STORAGE_PATH_STYLE:true}
+    # Development only: deployed, the bucket already exists
+    create-bucket: ${STORAGE_CREATE_BUCKET:true}
+
 server:
   # Behind the gateway: generated URLs (Location header...) use the public host from X-Forwarded-*
   forward-headers-strategy: framework

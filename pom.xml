@@ -36,6 +36,8 @@
         <loki4j.version>2.1.0</loki4j.version>
         <bucket4j.version>8.20.0</bucket4j.version>
         <springdoc.version>3.1.1</springdoc.version>
+        <!-- S3 client of the profile photos (HU-020) -->
+        <aws-sdk.version>2.55.10</aws-sdk.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
         <!-- Minimum line coverage (definition of done) -->
         <coverage.minimum>0.80</coverage.minimum>
@@ -55,6 +57,13 @@
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
