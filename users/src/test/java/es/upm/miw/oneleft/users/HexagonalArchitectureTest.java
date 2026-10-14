@@ -26,6 +26,13 @@ class HexagonalArchitectureTest {
             .should().dependOnClassesThat().resideInAPackage("org.springframework..")
             .allowEmptyShould(true);
 
+    /** The storage of the photos is only known by its adapter: S3 could be swapped without touching the rest */
+    @ArchTest
+    static final ArchRule onlyTheStorageAdapterKnowsTheAwsSdk = noClasses()
+            .that().resideOutsideOfPackage("..infrastructure.storage..")
+            .should().dependOnClassesThat().resideInAPackage("software.amazon..")
+            .allowEmptyShould(true);
+
     @ArchTest
     static final ArchRule applicationDoesNotDependOnInfrastructure = noClasses()
             .that().resideInAPackage("..application..")

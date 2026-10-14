@@ -26,7 +26,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 | Módulo | Puerto | Estado |
 |---|---|---|
 | `gateway` | 8080 | Enruta `/api/v1/users/**` a `users`, `/api/v1/plans/**` y `/api/v1/places/**` a `plans`, `/api/v1/notifications/**` a `notifications`, `/api/v1/chats/**` a `chat`, `/api/v1/social/**` a `social` y `/api/v1/reputation/**` a `reputation`. Hace de relé del WebSocket `/ws/chat` (el token va en el subprotocolo `oneleft.bearer`) |
-| `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones |
+| `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones · HU-020 foto de perfil en un almacenamiento compatible con S3, con enlaces firmados |
 | `plans` | 8082 | HU-003 publicar un plan (evento `plan.published` en RabbitMQ) · HU-004 planes cercanos y avisos en tiempo real (SSE) · HU-025 check-in en el punto de encuentro (geocerca de 150 m con PostGIS; la ubicación no se guarda) y, al cerrarse, quién llegó (`plan.attendance-closed`) |
 | `notifications` | 8083 | HU-006 avisos de planes cercanos: escucha `plan.published`, elige a quién avisar (zona, radio, actividades, horario sin avisos y máximo diario) y avisa en la app y por Web Push |
 | `chat` | 8084 | HU-008 chat de cada plan: solo su organizador y participantes (se pregunta a `plans`), de solo lectura cuando el plan termina, mensajes entre réplicas por RabbitMQ y borrados 24 h después |
@@ -107,6 +107,30 @@ publicar cuando los anteriores ya han empezado.
 mensaje (RFC 8291, comprobado con el ejemplo de la RFC) y firma VAPID (RFC 8292). Necesita un par de claves VAPID en
 `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` (se generan con `oneleft-infra/docker/generate-vapid-keys.sh`). Sin ellas el
 servicio funciona igual, pero los avisos solo llegan dentro de la app.
+
+### Fotos de perfil (HU-020)
+
+`users` guarda las fotos en un almacenamiento de objetos compatible con S3: Versity S3 Gateway en Docker y S3 o un
+bucket de Lightsail al desplegar, con el mismo código (AWS SDK) y otra configuración. La foto nunca pasa por el
+backend:
+
+1. `POST /api/v1/users/me/photo/uploads` con el tipo y el tamaño (WebP o JPEG, hasta 1 MiB) devuelve un enlace firmado
+   que solo acepta un `PUT` de exactamente ese tipo y tamaño durante 5 minutos.
+2. La web sube la foto a ese enlace y la confirma con `PUT /api/v1/users/me/photo`, que comprueba en el almacenamiento
+   que está y es válida, la guarda y borra la anterior.
+3. Las fotos se ven con enlaces firmados que caducan en 1 hora y solo con sesión: `GET /api/v1/users/photos?ids=…`
+   (hasta 50 personas por petición, una por lista). El bucket es privado.
+
+| Variable | Para qué | Por defecto |
+|---|---|---|
+| `STORAGE_ENDPOINT` | Dónde lo llama el servicio | `http://localhost:7070` |
+| `STORAGE_PUBLIC_ENDPOINT` | Dónde lo alcanza el navegador: los enlaces se firman para esa dirección | `STORAGE_ENDPOINT` |
+| `STORAGE_BUCKET` · `STORAGE_REGION` | Bucket y región | `oneleft-photos` · `us-east-1` |
+| `STORAGE_ACCESS_KEY` · `STORAGE_SECRET_KEY` | Claves, siempre desde el entorno al desplegar | las de desarrollo |
+| `STORAGE_PATH_STYLE` | El bucket en la ruta, como piden los servidores compatibles | `true` |
+| `STORAGE_CREATE_BUCKET` | Crea el bucket al arrancar (desarrollo); desplegado, `false` | `true` |
+
+Si el almacenamiento no responde, el servicio arranca igual y solo fallan las fotos (`503`, `photo.unavailable`).
 
 Imágenes Docker:
 

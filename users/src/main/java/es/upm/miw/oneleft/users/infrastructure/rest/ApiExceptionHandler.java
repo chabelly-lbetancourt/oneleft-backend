@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.users.infrastructure.rest;
 
+import es.upm.miw.oneleft.users.domain.model.PhotoStorageUnavailableException;
 import es.upm.miw.oneleft.users.domain.model.ProfileNotFoundException;
 import es.upm.miw.oneleft.users.domain.model.ValidationException;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ProfileNotFoundException.class)
     ProblemDetail notFound(ProfileNotFoundException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage(), ProfileNotFoundException.CODE);
+    }
+
+    @ExceptionHandler(PhotoStorageUnavailableException.class)
+    ProblemDetail unavailable(PhotoStorageUnavailableException exception) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), PhotoStorageUnavailableException.CODE);
     }
 
     @ExceptionHandler(ValidationException.class)
