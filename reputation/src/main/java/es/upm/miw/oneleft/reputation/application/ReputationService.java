@@ -10,6 +10,7 @@ import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
 import es.upm.miw.oneleft.reputation.domain.model.ReportFact;
+import es.upm.miw.oneleft.reputation.domain.model.TrackRecord;
 import es.upm.miw.oneleft.reputation.domain.model.Reputation;
 import es.upm.miw.oneleft.reputation.domain.model.ReputationRules;
 import es.upm.miw.oneleft.reputation.domain.model.ValidationException;
@@ -119,6 +120,12 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
         var earned = badges.earnedBy(userId);
         return Arrays.stream(Badge.values()).filter(earned::containsKey)
                 .map(badge -> new BadgeProgress(badge, badge.goal(), badge.goal(), earned.get(badge))).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TrackRecord trackRecordOf(UUID userId) {
+        return trackRecords.of(userId);
     }
 
     @Override

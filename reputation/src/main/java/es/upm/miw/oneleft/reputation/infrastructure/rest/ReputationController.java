@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.reputation.infrastructure.rest;
 
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
+import es.upm.miw.oneleft.reputation.domain.model.TrackRecord;
 import es.upm.miw.oneleft.reputation.domain.port.in.BadgesUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.in.RebuildScoresUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.in.ReputationQueryUseCase;
@@ -40,6 +41,7 @@ public class ReputationController {
     public static final String PERSON = "/people/{userId}";
     public static final String MY_BADGES = ME + "/badges";
     public static final String PERSON_BADGES = PERSON + "/badges";
+    public static final String PERSON_STATS = PERSON + "/stats";
     public static final String SCORES = "/scores";
     public static final String REBUILD = SCORES + "/rebuild";
 
@@ -94,6 +96,23 @@ public class ReputationController {
     @ApiResponse(responseCode = "200", description = "The badges earned")
     public List<BadgeResponse> badgesOf(@PathVariable UUID userId) {
         return badges.earnedBadgesOf(userId).stream().map(BadgeResponse::of).toList();
+    }
+
+    @GetMapping(PERSON_STATS)
+    @Operation(summary = "What someone has done (HU-048)",
+            description = "Plans arrived at, plans organized that were held and different activities: only plans "
+                    + "that were held count, with a check-in, as for the badges.")
+    @ApiResponse(responseCode = "200", description = "Their statistics")
+    public StatsResponse statsOf(@PathVariable UUID userId) {
+        return StatsResponse.of(userId, badges.trackRecordOf(userId));
+    }
+
+    /** What someone has done, in numbers */
+    public record StatsResponse(UUID userId, int plansCompleted, int plansOrganized, int activities) {
+
+        static StatsResponse of(UUID userId, TrackRecord record) {
+            return new StatsResponse(userId, record.completed(), record.organizedHeld(), record.activities());
+        }
     }
 
     @GetMapping(SCORES)

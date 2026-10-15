@@ -74,4 +74,31 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
     @Modifying
     @NativeQuery("UPDATE plan SET attendance_closed_at = :at WHERE id = :id")
     int markAttendanceClosed(@Param("id") UUID id, @Param("at") Instant at);
+
+    /**
+     * The latest plans held that someone organized or arrived at (HU-048): finished, with a check-in of theirs or, if
+     * they organized it, of anybody. Only the columns the profile shows.
+     */
+    @NativeQuery("""
+            SELECT p.id AS id, p.title AS title, p.activity AS activity, p.starts_at AS startsAt,
+                   p.organizer_id AS organizerId
+            FROM plan p
+            WHERE p.status = 'FINISHED'
+              AND EXISTS (SELECT 1 FROM plan_check_in c
+                          WHERE c.plan_id = p.id AND (c.user_id = :userId OR p.organizer_id = :userId))
+            ORDER BY p.starts_at DESC
+            LIMIT :limit""")
+    List<RecentRow> findRecentlyHeldWith(@Param("userId") UUID userId, @Param("limit") int limit);
+
+    interface RecentRow {
+        UUID getId();
+
+        String getTitle();
+
+        String getActivity();
+
+        Instant getStartsAt();
+
+        UUID getOrganizerId();
+    }
 }

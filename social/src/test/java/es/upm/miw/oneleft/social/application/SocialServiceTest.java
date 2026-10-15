@@ -92,6 +92,46 @@ class SocialServiceTest {
     }
 
     @Test
+    void theNetworkOfAPrivateProfileIsOnlyForItsFollowers() {
+        var diegoCaller = new Caller(diego, "Diego");
+        service.myAccount(diegoCaller);
+        service.follow(diegoCaller, ana.userId());
+        service.accept(ana.userId(), diego);
+        service.follow(lucia, ana.userId());
+
+        assertThat(service.person(lucia, ana.userId()).activityVisible()).isFalse();
+        assertThatThrownBy(() -> service.followersOf(lucia, ana.userId(), FIRST))
+                .isInstanceOfSatisfying(SocialException.class,
+                        error -> assertThat(error.code()).isEqualTo("social.private"));
+        assertThatThrownBy(() -> service.followingOf(lucia, ana.userId(), FIRST))
+                .isInstanceOf(SocialException.class);
+
+        service.accept(ana.userId(), lucia.userId());
+
+        assertThat(service.person(lucia, ana.userId()).activityVisible()).isTrue();
+        assertThat(service.followersOf(lucia, ana.userId(), FIRST).items()).extracting(Connection::name)
+                .containsExactlyInAnyOrder("Diego", "Lucía");
+        assertThat(service.followingOf(lucia, ana.userId(), FIRST).items()).isEmpty();
+        // Diego's profile is private too, and Lucía does not follow him
+        assertThatThrownBy(() -> service.followingOf(lucia, diego, FIRST)).isInstanceOf(SocialException.class);
+    }
+
+    @Test
+    void theNetworkOfAPublicProfileOrMyOwnIsForEveryone() {
+        service.myAccount(lucia);
+        service.changeVisibility(ana, Visibility.PUBLIC);
+        service.follow(ana, lucia.userId());
+        service.accept(lucia.userId(), ana.userId());
+
+        assertThat(service.person(new Caller(diego, "Diego"), ana.userId()).activityVisible()).isTrue();
+        assertThat(service.followingOf(new Caller(diego, "Diego"), ana.userId(), FIRST).items())
+                .extracting(Connection::name).containsExactly("Lucía");
+        assertThat(service.followersOf(lucia, lucia.userId(), FIRST).items()).extracting(Connection::name)
+                .containsExactly("Ana");
+        assertThat(service.person(lucia, lucia.userId()).activityVisible()).isTrue();
+    }
+
+    @Test
     void openingAPrivateProfileAcceptsTheRequestsAndClosingItKeepsTheFollowers() {
         service.follow(lucia, ana.userId());
 

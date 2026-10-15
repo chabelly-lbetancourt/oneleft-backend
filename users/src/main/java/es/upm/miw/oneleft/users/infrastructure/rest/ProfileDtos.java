@@ -53,21 +53,22 @@ public final class ProfileDtos {
     }
 
     @Schema(description = "Own profile, with the approximate zone")
-    public record ProfileResponse(UUID userId, @Schema(example = "Ana") String displayName, ZoneDto zone,
-                                  List<HobbyDto> hobbies) {
+    public record ProfileResponse(UUID userId, @Schema(example = "Ana") String displayName,
+                                  @Schema(example = "Corro los domingos y busco gente para pádel") String bio,
+                                  ZoneDto zone, List<HobbyDto> hobbies) {
 
         static ProfileResponse of(Profile profile) {
-            return new ProfileResponse(profile.userId(), profile.displayName(), ZoneDto.of(profile.zone()),
-                    profile.hobbies().stream().map(HobbyDto::of).toList());
+            return new ProfileResponse(profile.userId(), profile.displayName(), profile.bio(),
+                    ZoneDto.of(profile.zone()), profile.hobbies().stream().map(HobbyDto::of).toList());
         }
     }
 
     @Schema(description = "Profile visible to other participants: no coordinates")
-    public record PublicProfileResponse(UUID userId, @Schema(example = "Ana") String displayName,
+    public record PublicProfileResponse(UUID userId, @Schema(example = "Ana") String displayName, String bio,
                                         @Schema(example = "Vallecas") String zoneName, List<HobbyDto> hobbies) {
 
         static PublicProfileResponse of(Profile profile) {
-            return new PublicProfileResponse(profile.userId(), profile.displayName(),
+            return new PublicProfileResponse(profile.userId(), profile.displayName(), profile.bio(),
                     profile.zone() == null ? null : profile.zone().name(),
                     profile.hobbies().stream().map(HobbyDto::of).toList());
         }
@@ -76,6 +77,7 @@ public final class ProfileDtos {
     @Schema(description = "Changes to the own profile")
     public record UpdateProfileRequest(
             @NotBlank @Size(max = Profile.MAX_DISPLAY_NAME_LENGTH) @Schema(example = "Ana") String displayName,
+            @Schema(description = "Optional, up to 300 characters; empty removes it") String bio,
             @Valid ZoneDto zone,
             @NotNull @Size(max = Profile.MAX_HOBBIES) List<@Valid @NotNull HobbyDto> hobbies) {
     }

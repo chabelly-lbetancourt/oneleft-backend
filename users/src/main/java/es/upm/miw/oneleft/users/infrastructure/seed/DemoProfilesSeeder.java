@@ -31,16 +31,18 @@ public class DemoProfilesSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DemoProfilesSeeder.class);
 
-    private record DemoProfile(Identity identity, String displayName, ApproximateZone zone, List<Hobby> hobbies) {
+    private record DemoProfile(Identity identity, String displayName, String bio, ApproximateZone zone,
+                               List<Hobby> hobbies) {
     }
 
     static final List<DemoProfile> PROFILES = List.of(
             new DemoProfile(new Identity("a624d063-bd1e-442d-b52d-8de2df356c13", "Ana Pruebas", "ana@oneleft.dev",
-                    Set.of("user")), "Ana", new ApproximateZone("Vallecas", 40.39, -3.63),
+                    Set.of("user")), "Ana", "Corro los domingos por el parque y busco a alguien para el pádel.",
+                    new ApproximateZone("Vallecas", 40.39, -3.63),
                     List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE), new Hobby(Activity.RUNNING, Level.BEGINNER),
                             new Hobby(Activity.BOARD_GAMES, Level.ADVANCED))),
             new DemoProfile(new Identity("9e51a057-ce42-4177-b020-ac2fc7ec6ffa", "Admin Pruebas", "admin@oneleft.dev",
-                    Set.of("user", "admin")), "Admin", new ApproximateZone("Moratalaz", 40.41, -3.64),
+                    Set.of("user", "admin")), "Admin", null, new ApproximateZone("Moratalaz", 40.41, -3.64),
                     List.of(new Hobby(Activity.TENNIS, Level.ADVANCED), new Hobby(Activity.CYCLING, Level.INTERMEDIATE))));
 
     private final ManageProfileUseCase profiles;
@@ -60,7 +62,7 @@ public class DemoProfilesSeeder implements ApplicationRunner {
             profiles.profileOf(UUID.fromString(demo.identity().subject()));
             return false;
         } catch (ProfileNotFoundException missing) {
-            profiles.updateMyProfile(demo.identity(), demo.displayName(), demo.zone(), demo.hobbies());
+            profiles.updateMyProfile(demo.identity(), demo.displayName(), demo.bio(), demo.zone(), demo.hobbies());
             return true;
         }
     }

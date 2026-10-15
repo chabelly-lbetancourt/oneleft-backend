@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.plans.domain.port.out;
 
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.RecentPlan;
 
 import java.time.Instant;
 import java.util.List;
@@ -19,6 +20,12 @@ public interface PlanRepository {
     Optional<Plan> findById(UUID planId);
 
     List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from);
+
+    /**
+     * The latest plans held (finished, with someone who arrived) that someone organized or arrived at (HU-048), in one
+     * query and without the meeting point.
+     */
+    List<RecentPlan> findRecentlyHeldWith(UUID userId, int limit);
 
     /**
      * Open plans with free spots that start within the search window, sorted by distance.

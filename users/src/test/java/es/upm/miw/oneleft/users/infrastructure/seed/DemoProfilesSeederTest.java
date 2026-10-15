@@ -46,7 +46,7 @@ class DemoProfilesSeederTest {
     @Test
     void keepsTheChangesMadeInTheApp() {
         var identity = new Identity(ADMIN.toString(), "Admin Pruebas", "admin@oneleft.dev", Set.of("admin"));
-        profiles.updateMyProfile(identity, "Admin del club", null, List.of());
+        profiles.updateMyProfile(identity, "Admin del club", null, null, List.of());
 
         seeder.run(new DefaultApplicationArguments());
 

@@ -26,6 +26,7 @@ class ValidationCodesTest {
         var id = UUID.randomUUID();
         assertCode(() -> new Profile(null, "Ana", null, List.of()), "profile.userRequired");
         assertCode(() -> new Profile(id, " ", null, List.of()), "profile.displayName");
+        assertCode(() -> new Profile(id, "Ana", "x".repeat(301), null, List.of()), "profile.bio");
         assertCode(() -> new Profile(id, "Ana", null, List.of(new Hobby(Activity.PADEL, Level.BEGINNER),
                 new Hobby(Activity.PADEL, Level.ADVANCED))), "profile.duplicateActivity");
         var many = java.util.Arrays.stream(Activity.values()).map(a -> new Hobby(a, Level.BEGINNER)).toList();

@@ -7,6 +7,7 @@ import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.RecentPlan;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
@@ -55,6 +56,15 @@ class JoinPlanServiceTest {
         public Optional<Plan> findById(UUID planId) {
             return Optional.ofNullable(data.get(planId));
         }
+
+        @Override
+
+        public List<RecentPlan> findRecentlyHeldWith(UUID userId, int limit) {
+
+            return List.of();
+
+        }
+
 
         @Override
         public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {

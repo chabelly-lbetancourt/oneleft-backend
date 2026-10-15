@@ -8,6 +8,7 @@ import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.model.Participant;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.RecentPlan;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.locationtech.jts.geom.Coordinate;
@@ -64,6 +65,14 @@ public class JpaPlanRepository implements PlanRepository {
     @Override
     public Optional<Plan> findById(UUID planId) {
         return jpa.findById(planId).map(JpaPlanRepository::toDomain);
+    }
+
+    @Override
+    public List<RecentPlan> findRecentlyHeldWith(UUID userId, int limit) {
+        return jpa.findRecentlyHeldWith(userId, limit).stream()
+                .map(row -> new RecentPlan(row.getId(), row.getTitle(), Activity.valueOf(row.getActivity()),
+                        row.getStartsAt(), row.getOrganizerId().equals(userId)))
+                .toList();
     }
 
     @Override

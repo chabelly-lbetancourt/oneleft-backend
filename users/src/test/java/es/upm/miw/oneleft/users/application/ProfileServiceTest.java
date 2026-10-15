@@ -52,7 +52,7 @@ class ProfileServiceTest {
 
     @Test
     void laterAccessesReturnTheStoredProfile() {
-        service.updateMyProfile(ana, "Anita", null, List.of());
+        service.updateMyProfile(ana, "Anita", null, null, List.of());
         assertThat(service.myProfile(ana).displayName()).isEqualTo("Anita");
     }
 
@@ -61,7 +61,7 @@ class ProfileServiceTest {
         var zone = new ApproximateZone("Vallecas", 40.3912, -3.6287);
         var hobbies = List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE), new Hobby(Activity.CINEMA, Level.BEGINNER));
 
-        var updated = service.updateMyProfile(ana, "Ana", zone, hobbies);
+        var updated = service.updateMyProfile(ana, "Ana", null, zone, hobbies);
 
         assertThat(updated.zone().latitude()).isEqualTo(40.39);
         assertThat(service.profileOf(UUID.fromString(subject)).hobbies()).hasSize(2);
