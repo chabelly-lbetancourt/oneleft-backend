@@ -34,8 +34,9 @@ public class ProfileService implements ManageProfileUseCase {
 
     @Override
     @Transactional
-    public Profile updateMyProfile(Identity identity, String displayName, ApproximateZone zone, List<Hobby> hobbies) {
-        return profiles.save(myProfile(identity).update(displayName, zone, hobbies));
+    public Profile updateMyProfile(Identity identity, String displayName, String bio, ApproximateZone zone,
+                                   List<Hobby> hobbies) {
+        return profiles.save(myProfile(identity).update(displayName, bio, zone, hobbies));
     }
 
     @Override

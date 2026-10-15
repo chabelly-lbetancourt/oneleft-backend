@@ -35,4 +35,16 @@ class PersonTest {
         assertThat(lucia.renamed("Lucía M.").name()).isEqualTo("Lucía M.");
         assertThat(lucia.withVisibility(Visibility.PUBLIC).visibility()).isEqualTo(Visibility.PUBLIC);
     }
+
+    @Test
+    void thePlansAndTheNetworkOfSomeoneAreSeenByThemTheirFollowersOrEveryoneIfTheirProfileIsPublic() {
+        var closed = new Person(UUID.randomUUID(), "Ana", Visibility.PRIVATE);
+        var open = closed.withVisibility(Visibility.PUBLIC);
+
+        assertThat(new PersonView(closed, 0, 0, Relation.NONE, false).activityVisible()).isFalse();
+        assertThat(new PersonView(closed, 0, 0, Relation.REQUESTED, false).activityVisible()).isFalse();
+        assertThat(new PersonView(closed, 0, 0, Relation.FOLLOWING, false).activityVisible()).isTrue();
+        assertThat(new PersonView(closed, 0, 0, Relation.SELF, false).activityVisible()).isTrue();
+        assertThat(new PersonView(open, 0, 0, Relation.NONE, false).activityVisible()).isTrue();
+    }
 }

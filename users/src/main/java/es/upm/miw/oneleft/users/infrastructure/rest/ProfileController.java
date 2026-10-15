@@ -49,7 +49,7 @@ public class ProfileController {
 
     @PutMapping(MY_PROFILE)
     @Operation(summary = "Edit my profile",
-            description = "Replaces the display name, zone and hobbies. The zone is stored approximated.")
+            description = "Replaces the display name, bio, zone and hobbies. The zone is stored approximated.")
     @ApiResponse(responseCode = "200", description = "Profile updated")
     @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
     @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
@@ -58,7 +58,8 @@ public class ProfileController {
         var zone = request.zone() == null ? null : request.zone().toDomain();
         var hobbies = request.hobbies().stream().map(HobbyDto::toDomain).toList();
         return ProfileResponse.of(
-                profiles.updateMyProfile(KeycloakJwt.toIdentity(jwt), request.displayName(), zone, hobbies));
+                profiles.updateMyProfile(KeycloakJwt.toIdentity(jwt), request.displayName(), request.bio(), zone,
+                        hobbies));
     }
 
     @GetMapping(PROFILE)

@@ -27,11 +27,22 @@ class ProfileTest {
     void updateReplacesNameZoneAndHobbies() {
         var zone = new ApproximateZone("Vallecas", 40.39, -3.62);
         var updated = new Profile(ID, "Ana", null, null)
-                .update("  Anita ", zone, List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE)));
+                .update("  Anita ", null, zone, List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE)));
         assertThat(updated.displayName()).isEqualTo("Anita");
         assertThat(updated.zone()).isEqualTo(zone);
         assertThat(updated.hobbies()).containsExactly(new Hobby(Activity.PADEL, Level.INTERMEDIATE));
-        assertThat(updated.update("Ana", null, null).hobbies()).isEmpty();
+        assertThat(updated.update("Ana", null, null, null).hobbies()).isEmpty();
+    }
+
+    @Test
+    void aBioIsOptionalTrimmedAndLimited() {
+        var profile = new Profile(ID, "Ana", "  Corro los domingos  ", null, List.of());
+        assertThat(profile.bio()).isEqualTo("Corro los domingos");
+        assertThat(profile.update("Ana", "   ", null, null).bio()).isNull();
+        assertThat(new Profile(ID, "Ana", null, List.of()).bio()).isNull();
+        assertThat(new Profile(ID, "Ana", "x".repeat(Profile.MAX_BIO_LENGTH), null, List.of()).bio()).hasSize(300);
+        assertThatThrownBy(() -> new Profile(ID, "Ana", "x".repeat(Profile.MAX_BIO_LENGTH + 1), null, List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

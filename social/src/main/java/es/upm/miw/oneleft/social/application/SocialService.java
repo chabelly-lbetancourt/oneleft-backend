@@ -126,6 +126,20 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResult<Connection> followersOf(Caller me, UUID userId, PageQuery page) {
+        requireActivityVisible(me, userId);
+        return follows.followersOf(userId, FollowStatus.ACCEPTED, page);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<Connection> followingOf(Caller me, UUID userId, PageQuery page) {
+        requireActivityVisible(me, userId);
+        return follows.followedBy(userId, FollowStatus.ACCEPTED, page);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public PageResult<Connection> requests(UUID me, PageQuery page) {
         return follows.followersOf(me, FollowStatus.PENDING, page);
     }
@@ -134,6 +148,12 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
     @Transactional(readOnly = true)
     public PageResult<Connection> sentRequests(UUID me, PageQuery page) {
         return follows.followedBy(me, FollowStatus.PENDING, page);
+    }
+
+    private void requireActivityVisible(Caller me, UUID userId) {
+        if (!person(me, userId).activityVisible()) {
+            throw new SocialException(SocialException.Reason.PRIVATE, "Only their followers see their network");
+        }
     }
 
     /** The caller as a person of the service: created the first time, with the current name of their account. */

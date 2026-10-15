@@ -31,6 +31,7 @@ public class JpaProfileRepository implements ProfileRepository {
     public Profile save(Profile profile) {
         var entity = jpa.findById(profile.userId()).orElseGet(() -> new ProfileEntity(profile.userId()));
         entity.setDisplayName(profile.displayName());
+        entity.setBio(profile.bio());
         var zone = profile.zone();
         if (zone == null) {
             entity.setZone(null, null, null);
@@ -46,6 +47,6 @@ public class JpaProfileRepository implements ProfileRepository {
         var zone = entity.getZoneName() == null ? null : new ApproximateZone(entity.getZoneName(),
                 entity.getZoneLatitude().doubleValue(), entity.getZoneLongitude().doubleValue());
         var hobbies = entity.getHobbies().stream().map(h -> new Hobby(h.activity(), h.level())).toList();
-        return new Profile(entity.getUserId(), entity.getDisplayName(), zone, hobbies);
+        return new Profile(entity.getUserId(), entity.getDisplayName(), entity.getBio(), zone, hobbies);
     }
 }
