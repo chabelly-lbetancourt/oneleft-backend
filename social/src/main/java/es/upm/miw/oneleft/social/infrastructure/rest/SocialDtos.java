@@ -42,11 +42,13 @@ public final class SocialDtos {
                                  long followers, long following,
                                  @Schema(description = "NONE, REQUESTED (waiting for them), FOLLOWING or SELF")
                                  Relation relation,
-                                 @Schema(description = "They follow me") boolean followsMe) {
+                                 @Schema(description = "They follow me") boolean followsMe,
+                                 @Schema(description = "I may see their recent plans and their network (HU-048)")
+                                 boolean activityVisible) {
 
         static PersonResponse of(PersonView view) {
             return new PersonResponse(view.person().userId(), view.person().name(), view.person().visibility(),
-                    view.followers(), view.following(), view.relation(), view.followsMe());
+                    view.followers(), view.following(), view.relation(), view.followsMe(), view.activityVisible());
         }
     }
 

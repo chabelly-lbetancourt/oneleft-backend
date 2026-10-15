@@ -82,6 +82,9 @@ resilience4j:
         timeout-duration: 4s
 
 oneleft:
+  # Whether the plans of someone may be seen (HU-048): the social service decides, asked with the token of the caller
+  social:
+    url: ${SOCIAL_URL:http://localhost:8085}
   weather:
     url: ${WEATHER_URL:https://api.open-meteo.com}
   places:

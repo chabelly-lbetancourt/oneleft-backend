@@ -23,6 +23,7 @@ public class ApiExceptionHandler {
     private static HttpStatus status(SocialException.Reason reason) {
         return switch (reason) {
             case PERSON_NOT_FOUND, REQUEST_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case PRIVATE -> HttpStatus.FORBIDDEN;
             case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }

@@ -26,13 +26,14 @@ class JpaProfileRepositoryTest {
     @Test
     void savesAndLoadsAProfileWithZoneAndHobbies() {
         var id = UUID.randomUUID();
-        var profile = new Profile(id, "Ana", new ApproximateZone("Vallecas", 40.3912, -3.6287),
+        var profile = new Profile(id, "Ana", "Corro los domingos", new ApproximateZone("Vallecas", 40.3912, -3.6287),
                 List.of(new Hobby(Activity.PADEL, Level.INTERMEDIATE), new Hobby(Activity.RUNNING, Level.ADVANCED)));
 
         repository.save(profile);
         var loaded = repository.findById(id).orElseThrow();
 
         assertThat(loaded.displayName()).isEqualTo("Ana");
+        assertThat(loaded.bio()).isEqualTo("Corro los domingos");
         assertThat(loaded.zone()).isEqualTo(new ApproximateZone("Vallecas", 40.39, -3.63));
         assertThat(loaded.hobbies()).containsExactlyInAnyOrderElementsOf(profile.hobbies());
     }

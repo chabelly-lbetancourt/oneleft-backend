@@ -91,6 +91,25 @@ class ProfileControllerTest {
     }
 
     @Test
+    void theBioIsMineToWriteAndOthersSeeIt() throws Exception {
+        var subject = UUID.randomUUID().toString();
+        mockMvc.perform(put(BASE + ProfileController.MY_PROFILE).with(user(subject, "Ana"))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"displayName": "Ana", "bio": " Corro los domingos ", "hobbies": []}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bio").value("Corro los domingos"));
+
+        mockMvc.perform(get(BASE + "/" + subject + "/profile").with(user(UUID.randomUUID().toString(), "Otro")))
+                .andExpect(jsonPath("$.bio").value("Corro los domingos"));
+
+        mockMvc.perform(put(BASE + ProfileController.MY_PROFILE).with(user(subject, "Ana"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\": \"Ana\", \"bio\": \"" + "x".repeat(301) + "\", \"hobbies\": []}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("profile.bio"));
+    }
+
+    @Test
     void unknownProfileIsNotFound() throws Exception {
         mockMvc.perform(get(BASE + "/" + UUID.randomUUID() + "/profile").with(user(UUID.randomUUID().toString(), "A")))
                 .andExpect(status().isNotFound())

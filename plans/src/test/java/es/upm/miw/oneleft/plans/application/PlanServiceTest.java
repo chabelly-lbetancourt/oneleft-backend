@@ -5,6 +5,7 @@ import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.RecentPlan;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
@@ -45,6 +46,15 @@ class PlanServiceTest {
         public Optional<Plan> findById(UUID planId) {
             return Optional.ofNullable(data.get(planId));
         }
+
+        @Override
+
+        public List<RecentPlan> findRecentlyHeldWith(UUID userId, int limit) {
+
+            return List.of();
+
+        }
+
 
         @Override
         public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {

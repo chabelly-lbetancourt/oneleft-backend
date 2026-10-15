@@ -28,6 +28,17 @@ public interface FollowUseCase {
 
     PageResult<Connection> following(UUID me, PageQuery page);
 
+    /**
+     * The followers of someone (HU-048).
+     *
+     * @throws es.upm.miw.oneleft.social.domain.model.SocialException {@code PRIVATE} if their profile is private and I
+     *                                                                  do not follow them
+     */
+    PageResult<Connection> followersOf(Caller me, UUID userId, PageQuery page);
+
+    /** Who someone follows (HU-048), with the same privacy as {@link #followersOf}. */
+    PageResult<Connection> followingOf(Caller me, UUID userId, PageQuery page);
+
     /** The requests waiting for my answer. */
     PageResult<Connection> requests(UUID me, PageQuery page);
 
