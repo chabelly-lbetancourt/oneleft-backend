@@ -232,6 +232,12 @@ class ReputationIntegrationTest {
             mockMvc.perform(get(ReputationController.REPUTATION + "/people/" + ana + "/badges").with(user(lucia)))
                     .andExpect(jsonPath("$[0].badge").value("FIRST_PLAN_ORGANIZED"))
                     .andExpect(jsonPath("$.length()").value(1));
+            // The same plans make the statistics of the social profile (HU-048)
+            mockMvc.perform(get(ReputationController.REPUTATION + "/people/" + lucia + "/stats").with(user(ana)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.plansCompleted").value(10))
+                    .andExpect(jsonPath("$.plansOrganized").value(0))
+                    .andExpect(jsonPath("$.activities").value(10));
             var received = new ArrayList<String>();
             for (var message = rabbit.receive(notices.getName(), WAIT.toMillis()); message != null;
                  message = rabbit.receive(notices.getName(), 1000)) {

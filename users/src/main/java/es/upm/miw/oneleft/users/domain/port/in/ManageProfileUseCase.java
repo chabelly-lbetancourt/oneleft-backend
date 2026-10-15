@@ -16,7 +16,9 @@ public interface ManageProfileUseCase {
     /** Returns the authenticated user's profile; creates it from their identity if it does not exist yet. */
     Profile myProfile(Identity identity);
 
-    Profile updateMyProfile(Identity identity, String displayName, ApproximateZone zone, List<Hobby> hobbies);
+    /** Replaces my display name, bio, zone and hobbies. */
+    Profile updateMyProfile(Identity identity, String displayName, String bio, ApproximateZone zone,
+                            List<Hobby> hobbies);
 
     /** @throws es.upm.miw.oneleft.users.domain.model.ProfileNotFoundException if the user has no profile */
     Profile profileOf(UUID userId);

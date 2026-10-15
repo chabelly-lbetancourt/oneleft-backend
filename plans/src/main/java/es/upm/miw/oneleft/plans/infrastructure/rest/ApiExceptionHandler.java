@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
+import es.upm.miw.oneleft.plans.domain.model.PersonActivityException;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.ValidationException;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(JoinRejectedException.class)
     ProblemDetail conflict(JoinRejectedException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage(), exception.code());
+    }
+
+    @ExceptionHandler(PersonActivityException.class)
+    ProblemDetail personActivity(PersonActivityException exception) {
+        var status = switch (exception.reason()) {
+            case PRIVATE -> HttpStatus.FORBIDDEN;
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return problem(status, exception.getMessage(), exception.code());
     }
 
     @ExceptionHandler(ValidationException.class)

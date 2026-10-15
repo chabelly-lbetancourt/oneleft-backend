@@ -126,6 +126,29 @@ class SocialIntegrationTest {
     }
 
     @Test
+    void theNetworkOfAPrivateProfileIsOnlyForItsFollowers() throws Exception {
+        usersKnows(ana, "Ana");
+        as(ana, "Ana", get(ME));
+        as(lucia, "Lucía", put(ME + FollowController.FOLLOWED, ana));
+        var followers = SocialController.SOCIAL + SocialController.PERSON_FOLLOWERS;
+        var following = SocialController.SOCIAL + SocialController.PERSON_FOLLOWING;
+
+        as(lucia, "Lucía", get(SocialController.SOCIAL + SocialController.PERSON, ana))
+                .andExpect(jsonPath("$.activityVisible").value(false));
+        as(lucia, "Lucía", get(followers, ana))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("social.private"));
+        as(diego, "Diego", get(following, ana)).andExpect(status().isForbidden());
+
+        as(ana, "Ana", post(ME + FollowController.ACCEPT, lucia));
+
+        as(lucia, "Lucía", get(SocialController.SOCIAL + SocialController.PERSON, ana))
+                .andExpect(jsonPath("$.activityVisible").value(true));
+        as(lucia, "Lucía", get(followers, ana))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].name").value("Lucía"));
+        as(ana, "Ana", get(following, ana)).andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+    }
+
+    @Test
     void aPublicProfileIsFollowedAtOnceAndOpeningOneAcceptsTheRequestsWaiting() throws Exception {
         as(ana, "Ana", put(VISIBILITY).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"visibility\": \"PUBLIC\"}")).andExpect(jsonPath("$.visibility").value("PUBLIC"));

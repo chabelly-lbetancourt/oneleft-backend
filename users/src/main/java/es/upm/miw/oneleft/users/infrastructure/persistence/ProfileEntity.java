@@ -28,6 +28,9 @@ public class ProfileEntity {
     @Column(name = "display_name", nullable = false, length = 50)
     private String displayName;
 
+    @Column(name = "bio", length = 300)
+    private String bio;
+
     @Column(name = "zone_name", length = 60)
     private String zoneName;
 
@@ -67,6 +70,14 @@ public class ProfileEntity {
 
     void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    String getBio() {
+        return bio;
+    }
+
+    void setBio(String bio) {
+        this.bio = bio;
     }
 
     String getZoneName() {

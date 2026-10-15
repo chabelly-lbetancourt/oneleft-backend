@@ -2,7 +2,7 @@ package es.upm.miw.oneleft.social.domain.model;
 
 /**
  * Why a person or a request cannot be reached, with a stable code for the clients: {@code person.notFound},
- * {@code follow.requestNotFound} or {@code social.unavailable}.
+ * {@code follow.requestNotFound}, {@code social.private} or {@code social.unavailable}.
  */
 public class SocialException extends RuntimeException {
 
@@ -11,6 +11,8 @@ public class SocialException extends RuntimeException {
         PERSON_NOT_FOUND("person.notFound"),
         /** There is no request of that person waiting for an answer. */
         REQUEST_NOT_FOUND("follow.requestNotFound"),
+        /** Their profile is private and I do not follow them: their plans and their network are not mine to see. */
+        PRIVATE("social.private"),
         /** The users service did not answer, so the name of someone new is not known. */
         UNAVAILABLE("social.unavailable");
 

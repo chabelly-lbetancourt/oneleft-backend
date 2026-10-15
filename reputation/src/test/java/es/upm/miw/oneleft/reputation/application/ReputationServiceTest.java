@@ -139,6 +139,11 @@ class ReputationServiceTest {
                 .singleElement().satisfies(badge -> assertThat(badge.progress()).isZero());
         assertThat(service.myBadges(ana)).filteredOn(badge -> badge.badge() == Badge.ALWAYS_PUNCTUAL)
                 .singleElement().satisfies(badge -> assertThat(badge.progress()).isEqualTo(11));
+        // The statistics of the social profile (HU-048) come from the same plans
+        var record = service.trackRecordOf(lucia);
+        assertThat(record.completed()).isEqualTo(10);
+        assertThat(record.activities()).isEqualTo(10);
+        assertThat(service.trackRecordOf(ana).organizedHeld()).isEqualTo(11);
     }
 
     @Test
