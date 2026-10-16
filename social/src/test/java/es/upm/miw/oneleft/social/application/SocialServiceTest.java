@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.social.application;
 
+import es.upm.miw.oneleft.social.InMemoryFeed;
 import es.upm.miw.oneleft.social.InMemorySocial;
 import es.upm.miw.oneleft.social.domain.model.Caller;
 import es.upm.miw.oneleft.social.domain.model.Connection;
@@ -31,6 +32,7 @@ class SocialServiceTest {
     private final Caller ana = new Caller(UUID.randomUUID(), "Ana");
     private final UUID diego = UUID.randomUUID();
     private final InMemorySocial social = new InMemorySocial();
+    private final InMemoryFeed feed = new InMemoryFeed(social);
     private final List<UUID> asked = new ArrayList<>();
     private final SocialService service = new SocialService(social, social, userId -> {
         asked.add(userId);
@@ -38,7 +40,7 @@ class SocialServiceTest {
             return "Ana";
         }
         throw new SocialException(SocialException.Reason.PERSON_NOT_FOUND, "Unknown");
-    }, CLOCK);
+    }, feed, CLOCK);
 
     @Test
     void aNewPersonIsPrivateWithTheNameOfTheirAccount() {
@@ -192,5 +194,25 @@ class SocialServiceTest {
         // Someone unknown is looked up but not saved just for being seen
         assertThat(service.person(lucia, ana.userId()).relation()).isEqualTo(Relation.NONE);
         assertThat(social.find(ana.userId())).isEmpty();
+    }
+
+    @Test
+    void whoeverStartsOrStopsFollowingSomeoneHasTheirFeedComputedAgain() {
+        social.save(new Person(ana.userId(), "Ana", Visibility.PRIVATE));
+        service.follow(lucia, ana.userId());
+        assertThat(feed.forgotten).containsExactly(lucia.userId());
+
+        service.accept(ana.userId(), lucia.userId());
+        service.unfollow(lucia.userId(), ana.userId());
+        assertThat(feed.forgotten).containsExactly(lucia.userId(), lucia.userId(), lucia.userId());
+
+        // A private profile that becomes public lets in whoever was waiting: their feeds change too
+        service.follow(lucia, ana.userId());
+        feed.forgotten.clear();
+        service.changeVisibility(ana, Visibility.PUBLIC);
+        assertThat(feed.forgotten).containsExactly(lucia.userId());
+
+        service.removeFollower(ana.userId(), lucia.userId());
+        assertThat(feed.forgotten).containsExactly(lucia.userId(), lucia.userId());
     }
 }
