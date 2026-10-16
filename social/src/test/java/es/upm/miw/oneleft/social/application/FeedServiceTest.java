@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.social.InMemoryFeed;
 import es.upm.miw.oneleft.social.InMemorySocial;
 import es.upm.miw.oneleft.social.domain.model.Activity;
 import es.upm.miw.oneleft.social.domain.model.ActivityType;
+import es.upm.miw.oneleft.social.domain.model.FeedAudience;
 import es.upm.miw.oneleft.social.domain.model.FeedItem;
 import es.upm.miw.oneleft.social.domain.model.Follow;
 import es.upm.miw.oneleft.social.domain.model.FollowStatus;
@@ -13,16 +14,22 @@ import es.upm.miw.oneleft.social.domain.model.Visibility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
-/** HU-051: the feed of each person, computed when it is read, with its cache and its real-time notices. */
+/**
+ * HU-051: the feed of each person, computed when it is read, with its cache and its real-time notices. HU-059: who sees
+ * someone's activity, and the plans they keep out of it.
+ */
 class FeedServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-10-16T10:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final PageQuery FIRST = new PageQuery(0, PageQuery.DEFAULT_SIZE);
     private final UUID lucia = UUID.randomUUID();
     private final UUID ana = UUID.randomUUID();
@@ -30,7 +37,7 @@ class FeedServiceTest {
     private final UUID plan = UUID.randomUUID();
     private final InMemorySocial social = new InMemorySocial();
     private final InMemoryFeed feed = new InMemoryFeed(social);
-    private final FeedService service = new FeedService(feed, social, social, feed, feed);
+    private final FeedService service = new FeedService(feed, social, social, feed, feed, feed, CLOCK);
 
     private static Activity activity(UUID actor, ActivityType type, UUID plan, int minutesAgo) {
         return new Activity(actor, type, plan, "Padel at the club", "PADEL", NOW.plusSeconds(3600),
@@ -43,9 +50,9 @@ class FeedServiceTest {
 
     @BeforeEach
     void people() {
-        social.save(new Person(lucia, "Lucía", Visibility.PRIVATE));
-        social.save(new Person(ana, "Ana", Visibility.PRIVATE));
-        social.save(new Person(diego, "Diego", Visibility.PUBLIC));
+        social.save(new Person(lucia, "Lucía", Visibility.PRIVATE, FeedAudience.FOLLOWERS));
+        social.save(new Person(ana, "Ana", Visibility.PRIVATE, FeedAudience.FOLLOWERS));
+        social.save(new Person(diego, "Diego", Visibility.PUBLIC, FeedAudience.FOLLOWERS));
     }
 
     @Test
@@ -152,5 +159,55 @@ class FeedServiceTest {
 
         assertThat(feed.cached).isEmpty();
         assertThat(service.feed(lucia, FIRST).items()).extracting(FeedItem::planId).containsExactly(other);
+    }
+
+    @Test
+    void whoeverSharesTheirActivityWithNobodyLeavesTheFeedsAtOnce() {
+        follow(lucia, ana, FollowStatus.ACCEPTED);
+        service.record(activity(ana, ActivityType.PUBLISHED, plan, 30));
+        social.save(social.people.get(ana).withFeedAudience(FeedAudience.NOBODY));
+
+        assertThat(service.feed(lucia, FIRST).items()).isEmpty();
+
+        // While it lasts nothing new is kept nor told
+        service.record(activity(ana, ActivityType.JOINED, UUID.randomUUID(), 10));
+        assertThat(feed.activities).hasSize(1);
+        assertThat(feed.notices).hasSize(1);
+
+        // Back to her followers: what was kept before shows up again, what she did meanwhile does not
+        social.save(social.people.get(ana).withFeedAudience(FeedAudience.FOLLOWERS));
+        feed.cached.clear();
+        assertThat(service.feed(lucia, FIRST).items()).extracting(FeedItem::type)
+                .containsExactly(ActivityType.PUBLISHED);
+    }
+
+    @Test
+    void aHiddenPlanLeavesTheFeedsOfTheFollowersUntilItIsShownAgain() {
+        var other = UUID.randomUUID();
+        follow(lucia, ana, FollowStatus.ACCEPTED);
+        service.record(activity(ana, ActivityType.PUBLISHED, plan, 30));
+        service.record(activity(ana, ActivityType.JOINED, other, 20));
+        service.feed(lucia, FIRST);
+        feed.forgotten.clear();
+
+        service.hidePlan(ana, plan);
+        service.hidePlan(ana, plan);
+
+        assertThat(service.isHidden(ana, plan)).isTrue();
+        assertThat(service.isHidden(lucia, plan)).isFalse();
+        // The feeds of her followers are computed again, once
+        assertThat(feed.forgotten).containsExactly(lucia);
+        assertThat(service.feed(lucia, FIRST).items()).extracting(FeedItem::planId).containsExactly(other);
+        // Nothing new of the hidden plan is kept nor told
+        var notices = feed.notices.size();
+        service.record(activity(ana, ActivityType.COMPLETED, plan, 0));
+        assertThat(feed.notices).hasSize(notices);
+        assertThat(feed.activities).hasSize(2);
+
+        service.showPlan(ana, plan);
+        service.showPlan(ana, plan);
+
+        assertThat(feed.forgotten).containsExactly(lucia, lucia);
+        assertThat(service.feed(lucia, FIRST).items()).extracting(FeedItem::planId).containsExactly(other, plan);
     }
 }

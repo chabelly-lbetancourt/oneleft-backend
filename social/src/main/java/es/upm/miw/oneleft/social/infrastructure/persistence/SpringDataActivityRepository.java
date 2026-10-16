@@ -39,6 +39,7 @@ interface SpringDataActivityRepository extends JpaRepository<ActivityEntity, Lon
     /**
      * The feed of someone, computed when it is read (fan-out on read): the activity of the people they follow, once
      * accepted, with their names, the latest first. The index on (actor_id, occurred_at) serves each person followed.
+     * Whoever shares their activity with nobody, and the plans each person hid, stay out (HU-059).
      */
     @Query(value = """
             SELECT new es.upm.miw.oneleft.social.infrastructure.persistence.FeedRow(
@@ -48,12 +49,18 @@ interface SpringDataActivityRepository extends JpaRepository<ActivityEntity, Lon
             JOIN PersonEntity p ON p.userId = a.actorId
             WHERE f.id.followerId = :viewer
               AND f.status = es.upm.miw.oneleft.social.domain.model.FollowStatus.ACCEPTED
+              AND p.feedAudience = es.upm.miw.oneleft.social.domain.model.FeedAudience.FOLLOWERS
+              AND NOT EXISTS (SELECT 1 FROM HiddenPlanEntity h
+                              WHERE h.id.userId = a.actorId AND h.id.planId = a.planId)
             ORDER BY a.occurredAt DESC, a.id DESC""",
             countQuery = """
                     SELECT COUNT(a) FROM ActivityEntity a
                     JOIN FollowEntity f ON f.id.followeeId = a.actorId
                     JOIN PersonEntity p ON p.userId = a.actorId
                     WHERE f.id.followerId = :viewer
-                      AND f.status = es.upm.miw.oneleft.social.domain.model.FollowStatus.ACCEPTED""")
+                      AND f.status = es.upm.miw.oneleft.social.domain.model.FollowStatus.ACCEPTED
+                      AND p.feedAudience = es.upm.miw.oneleft.social.domain.model.FeedAudience.FOLLOWERS
+                      AND NOT EXISTS (SELECT 1 FROM HiddenPlanEntity h
+                                      WHERE h.id.userId = a.actorId AND h.id.planId = a.planId)""")
     Page<FeedRow> feedOf(@Param("viewer") UUID viewer, Pageable page);
 }

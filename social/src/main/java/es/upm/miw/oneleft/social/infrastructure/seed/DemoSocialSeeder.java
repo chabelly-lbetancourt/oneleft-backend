@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.social.infrastructure.seed;
 
+import es.upm.miw.oneleft.social.domain.model.FeedAudience;
 import es.upm.miw.oneleft.social.domain.model.Follow;
 import es.upm.miw.oneleft.social.domain.model.FollowStatus;
 import es.upm.miw.oneleft.social.domain.model.Person;
@@ -32,13 +33,13 @@ public class DemoSocialSeeder implements ApplicationRunner {
     public static final String PROFILE = "seed & !pro";
 
     static final Person ANA = new Person(UUID.fromString("a624d063-bd1e-442d-b52d-8de2df356c13"), "Ana Pruebas",
-            Visibility.PRIVATE);
+            Visibility.PRIVATE, FeedAudience.FOLLOWERS);
     static final Person DIEGO = new Person(UUID.fromString("5d1c7c2e-2f0b-4d6e-9a43-0c1e7a9b0002"), "Diego",
-            Visibility.PUBLIC);
+            Visibility.PUBLIC, FeedAudience.FOLLOWERS);
     static final Person MARTA = new Person(UUID.fromString("5d1c7c2e-2f0b-4d6e-9a43-0c1e7a9b0003"), "Marta",
-            Visibility.PUBLIC);
+            Visibility.PUBLIC, FeedAudience.FOLLOWERS);
     static final Person JAVIER = new Person(UUID.fromString("5d1c7c2e-2f0b-4d6e-9a43-0c1e7a9b0004"), "Javier",
-            Visibility.PUBLIC);
+            Visibility.PUBLIC, FeedAudience.FOLLOWERS);
 
     private static final Logger log = LoggerFactory.getLogger(DemoSocialSeeder.class);
 
