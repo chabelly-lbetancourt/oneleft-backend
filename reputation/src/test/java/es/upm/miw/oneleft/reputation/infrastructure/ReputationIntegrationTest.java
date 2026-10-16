@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.reputation.infrastructure;
 
 import es.upm.miw.oneleft.reputation.TestcontainersConfiguration;
+import es.upm.miw.oneleft.reputation.domain.model.Badge;
+import es.upm.miw.oneleft.reputation.domain.port.out.BadgeNotices;
 import es.upm.miw.oneleft.reputation.infrastructure.messaging.RabbitConfig;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationController;
 import org.junit.jupiter.api.AfterEach;
@@ -73,6 +75,9 @@ class ReputationIntegrationTest {
 
     @Autowired
     private TopicExchange notificationsExchange;
+
+    @Autowired
+    private BadgeNotices badgeNotices;
 
     private final UUID plan = UUID.randomUUID();
     private final UUID ana = UUID.randomUUID();
@@ -245,6 +250,33 @@ class ReputationIntegrationTest {
             }
             assertThat(received).containsExactlyInAnyOrder("FIRST_PLAN_ORGANIZED", "TEN_PLANS_COMPLETED",
                     "TEN_ACTIVITIES");
+        } finally {
+            admin.deleteQueue(notices.getName());
+        }
+    }
+
+    /** backend#120: a badge whose transaction fails is never announced; once saved, it is announced once */
+    @Test
+    void aBadgeIsAnnouncedOnlyOnceItIsSaved() {
+        var notices = new Queue("test.badge-commit." + UUID.randomUUID(), true, false, false);
+        admin.declareQueue(notices);
+        admin.declareBinding(BindingBuilder.bind(notices).to(notificationsExchange).with(RabbitConfig.BADGE_EARNED));
+        try {
+            transaction.executeWithoutResult(status -> {
+                badgeNotices.earned(lucia, Badge.TEN_ACTIVITIES, Instant.now());
+                status.setRollbackOnly();
+            });
+            assertThat(rabbit.receive(notices.getName(), 1000)).isNull();
+
+            transaction.executeWithoutResult(status -> {
+                badgeNotices.earned(lucia, Badge.TEN_ACTIVITIES, Instant.now());
+                // Not before the commit
+                assertThat(rabbit.receive(notices.getName(), 500)).isNull();
+            });
+            var notice = rabbit.receive(notices.getName(), WAIT.toMillis());
+            assertThat(notice).isNotNull();
+            assertThat(json.readTree(notice.getBody()).path("badge").asString()).isEqualTo("TEN_ACTIVITIES");
+            assertThat(rabbit.receive(notices.getName(), 1000)).isNull();
         } finally {
             admin.deleteQueue(notices.getName());
         }
