@@ -24,6 +24,8 @@ public class RabbitConfig {
     public static final String NEARBY_PLAN = "notification.nearby-plan";
     /** A new badge of reputation (HU-044), from the reputation service. */
     public static final String BADGE_EARNED = "notification.badge-earned";
+    /** New activity of someone followed (HU-051), from the social service. */
+    public static final String FEED_ACTIVITY = "notification.feed-activity";
 
     @Bean
     TopicExchange plansExchange() {

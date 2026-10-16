@@ -5,6 +5,25 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/social}
     username: ${DB_USER:oneleft}
     password: ${DB_PASSWORD:oneleft-dev}
+  # Events of the plans service that make the activity feed, and its notices (HU-051)
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    username: ${RABBITMQ_USER:oneleft}
+    password: ${RABBITMQ_PASSWORD:oneleft-dev}
+    listener:
+      simple:
+        # An event that keeps failing is tried three times and then goes to social.dead-letters, instead of
+        # coming back forever
+        retry:
+          enabled: true
+          max-attempts: 3
+        default-requeue-rejected: false
+  # First page of each feed (HU-051). Short timeouts: without Redis the feed is read from the database
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      timeout: 1s
+      connect-timeout: 1s
   jpa:
     open-in-view: false
     hibernate:
@@ -41,6 +60,10 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    redis:
+      # The cache of the feeds is a shortcut: without it the service still works
+      enabled: false
   info:
     env:
       enabled: true
