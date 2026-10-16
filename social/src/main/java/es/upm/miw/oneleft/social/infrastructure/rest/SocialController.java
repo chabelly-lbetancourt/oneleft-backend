@@ -5,6 +5,7 @@ import es.upm.miw.oneleft.social.domain.port.in.FollowUseCase;
 import es.upm.miw.oneleft.social.domain.port.in.SocialAccountUseCase;
 import es.upm.miw.oneleft.social.infrastructure.config.KeycloakJwt;
 import es.upm.miw.oneleft.social.infrastructure.rest.SocialDtos.AccountResponse;
+import es.upm.miw.oneleft.social.infrastructure.rest.SocialDtos.FeedAudienceRequest;
 import es.upm.miw.oneleft.social.infrastructure.rest.SocialDtos.PageResponse;
 import es.upm.miw.oneleft.social.infrastructure.rest.SocialDtos.PersonResponse;
 import es.upm.miw.oneleft.social.infrastructure.rest.SocialDtos.VisibilityRequest;
@@ -35,6 +36,7 @@ public class SocialController {
     public static final String SOCIAL = "/api/v1/social";
     public static final String ME = "/me";
     public static final String MY_VISIBILITY = ME + "/visibility";
+    public static final String MY_FEED_AUDIENCE = ME + "/feed-audience";
     public static final String PERSON = "/people/{userId}";
     public static final String PERSON_FOLLOWERS = PERSON + "/followers";
     public static final String PERSON_FOLLOWING = PERSON + "/following";
@@ -64,6 +66,18 @@ public class SocialController {
     public AccountResponse changeVisibility(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                             @Valid @RequestBody VisibilityRequest request) {
         return AccountResponse.of(accounts.changeVisibility(KeycloakJwt.caller(jwt), request.visibility()));
+    }
+
+    @PutMapping(MY_FEED_AUDIENCE)
+    @Operation(summary = "Who sees my activity",
+            description = "FOLLOWERS (the default): my followers, once accepted, see in their feeds the plans I "
+                    + "publish, join and complete. NOBODY: it leaves their feeds at once, and nothing of what I do is "
+                    + "kept while it lasts (HU-059).")
+    @ApiResponse(responseCode = "200", description = "My profile and my counts")
+    @ApiResponse(responseCode = "400", description = "Missing or unknown audience", content = @Content)
+    public AccountResponse changeFeedAudience(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
+                                              @Valid @RequestBody FeedAudienceRequest request) {
+        return AccountResponse.of(accounts.changeFeedAudience(KeycloakJwt.caller(jwt), request.feedAudience()));
     }
 
     @GetMapping(PERSON)

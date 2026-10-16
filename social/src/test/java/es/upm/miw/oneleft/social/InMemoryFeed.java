@@ -8,26 +8,32 @@ import es.upm.miw.oneleft.social.domain.model.PageResult;
 import es.upm.miw.oneleft.social.domain.port.out.Activities;
 import es.upm.miw.oneleft.social.domain.port.out.FeedCache;
 import es.upm.miw.oneleft.social.domain.port.out.FeedNotices;
+import es.upm.miw.oneleft.social.domain.port.out.HiddenPlans;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * The activity, the cache of the feeds and their notices in memory, with the same rules as the SQL query (tested in
- * FeedIntegrationTest): only the people followed and accepted, the latest first.
+ * The activity, the hidden plans, the cache of the feeds and their notices in memory, with the same rules as the SQL
+ * query (tested in FeedIntegrationTest): only the people followed and accepted who share their activity, without the
+ * plans they hid, the latest first.
  */
-public class InMemoryFeed implements Activities, FeedCache, FeedNotices {
+public class InMemoryFeed implements Activities, HiddenPlans, FeedCache, FeedNotices {
 
     public final List<Activity> activities = new ArrayList<>();
     public final Map<UUID, PageResult<FeedItem>> cached = new HashMap<>();
     public final List<UUID> forgotten = new ArrayList<>();
     public final List<Notice> notices = new ArrayList<>();
+    public final Set<String> hidden = new HashSet<>();
     private final InMemorySocial social;
 
     public InMemoryFeed(InMemorySocial social) {
@@ -66,13 +72,30 @@ public class InMemoryFeed implements Activities, FeedCache, FeedNotices {
                 .map(follow -> follow.followeeId()).toList();
         List<FeedItem> all = activities.stream()
                 .filter(activity -> followed.contains(activity.actorId())
-                        && social.people.containsKey(activity.actorId()))
+                        && social.people.containsKey(activity.actorId())
+                        && social.people.get(activity.actorId()).sharesActivity()
+                        && !isHidden(activity.actorId(), activity.planId()))
                 .sorted(Comparator.comparing(Activity::occurredAt).reversed())
                 .map(activity -> FeedItem.of(activity, social.people.get(activity.actorId()).name()))
                 .toList();
         var from = Math.min(all.size(), page.page() * page.size());
         return new PageResult<>(all.subList(from, Math.min(all.size(), from + page.size())), page.page(), page.size(),
                 all.size());
+    }
+
+    @Override
+    public boolean hide(UUID userId, UUID planId, Instant at) {
+        return hidden.add(userId + ">" + planId);
+    }
+
+    @Override
+    public boolean show(UUID userId, UUID planId) {
+        return hidden.remove(userId + ">" + planId);
+    }
+
+    @Override
+    public boolean isHidden(UUID userId, UUID planId) {
+        return hidden.contains(userId + ">" + planId);
     }
 
     @Override

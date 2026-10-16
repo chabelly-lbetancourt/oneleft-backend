@@ -13,32 +13,39 @@ class PersonTest {
 
     @Test
     void theNameIsTrimmedAndCutToFiftyCharacters() {
-        assertThat(new Person(LUCIA, "  Lucía  ", Visibility.PRIVATE).name()).isEqualTo("Lucía");
-        assertThat(new Person(LUCIA, "x".repeat(60), Visibility.PRIVATE).name()).hasSize(Person.MAX_NAME_LENGTH);
+        assertThat(new Person(LUCIA, "  Lucía  ", Visibility.PRIVATE, FeedAudience.FOLLOWERS).name())
+                .isEqualTo("Lucía");
+        assertThat(new Person(LUCIA, "x".repeat(60), Visibility.PRIVATE, FeedAudience.FOLLOWERS).name())
+                .hasSize(Person.MAX_NAME_LENGTH);
     }
 
     @Test
-    void aPersonNeedsAnIdANameAndAVisibility() {
-        assertThatThrownBy(() -> new Person(LUCIA, " ", Visibility.PUBLIC))
+    void aPersonNeedsAnIdANameAVisibilityAndAnAudience() {
+        assertThatThrownBy(() -> new Person(LUCIA, " ", Visibility.PUBLIC, FeedAudience.FOLLOWERS))
                 .isInstanceOfSatisfying(ValidationException.class,
                         error -> assertThat(error.code()).isEqualTo("person.name"));
-        assertThatThrownBy(() -> new Person(null, "Lucía", Visibility.PUBLIC))
+        assertThatThrownBy(() -> new Person(null, "Lucía", Visibility.PUBLIC, FeedAudience.FOLLOWERS))
                 .isInstanceOf(ValidationException.class);
-        assertThatThrownBy(() -> new Person(LUCIA, "Lucía", null)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> new Person(LUCIA, "Lucía", null, FeedAudience.FOLLOWERS))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> new Person(LUCIA, "Lucía", Visibility.PRIVATE, null))
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test
     void renamingToTheSameNameKeepsTheSamePerson() {
-        var lucia = new Person(LUCIA, "Lucía", Visibility.PRIVATE);
+        var lucia = new Person(LUCIA, "Lucía", Visibility.PRIVATE, FeedAudience.FOLLOWERS);
 
         assertThat(lucia.renamed(" Lucía ")).isSameAs(lucia);
         assertThat(lucia.renamed("Lucía M.").name()).isEqualTo("Lucía M.");
         assertThat(lucia.withVisibility(Visibility.PUBLIC).visibility()).isEqualTo(Visibility.PUBLIC);
+        assertThat(lucia.sharesActivity()).isTrue();
+        assertThat(lucia.withFeedAudience(FeedAudience.NOBODY).sharesActivity()).isFalse();
     }
 
     @Test
     void thePlansAndTheNetworkOfSomeoneAreSeenByThemTheirFollowersOrEveryoneIfTheirProfileIsPublic() {
-        var closed = new Person(UUID.randomUUID(), "Ana", Visibility.PRIVATE);
+        var closed = new Person(UUID.randomUUID(), "Ana", Visibility.PRIVATE, FeedAudience.FOLLOWERS);
         var open = closed.withVisibility(Visibility.PUBLIC);
 
         assertThat(new PersonView(closed, 0, 0, Relation.NONE, false).activityVisible()).isFalse();

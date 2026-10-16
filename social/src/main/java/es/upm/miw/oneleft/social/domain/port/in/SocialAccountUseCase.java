@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.social.domain.port.in;
 
 import es.upm.miw.oneleft.social.domain.model.Caller;
+import es.upm.miw.oneleft.social.domain.model.FeedAudience;
 import es.upm.miw.oneleft.social.domain.model.PersonView;
 import es.upm.miw.oneleft.social.domain.model.SocialAccount;
 import es.upm.miw.oneleft.social.domain.model.Visibility;
@@ -15,6 +16,9 @@ public interface SocialAccountUseCase {
 
     /** Public or private. Opening a private profile accepts the requests that were waiting. */
     SocialAccount changeVisibility(Caller me, Visibility visibility);
+
+    /** Who sees my activity in their feeds (HU-059): my followers or nobody. */
+    SocialAccount changeFeedAudience(Caller me, FeedAudience audience);
 
     PersonView person(Caller me, UUID userId);
 }

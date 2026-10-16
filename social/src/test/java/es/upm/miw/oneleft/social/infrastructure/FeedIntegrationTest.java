@@ -20,15 +20,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,14 +40,17 @@ import java.util.concurrent.Callable;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * HU-051 end to end inside the service: the events arrive through a real RabbitMQ as the plans service publishes them
  * (plain JSON), the activity and the follows are in a real PostgreSQL, the first page of each feed in a real Redis, and
- * the notices leave through RabbitMQ. The people, activity, cached pages and queues created are deleted at the end.
+ * the notices leave through RabbitMQ. Privacy (HU-059): hidden plans and who sees the activity. The people, activity,
+ * hidden plans, cached pages and queues created are deleted at the end.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -109,6 +115,7 @@ class FeedIntegrationTest {
     void deleteWhatWasCreated() {
         admin.deleteQueue(notices.getName());
         jdbc.update("DELETE FROM activity WHERE actor_id IN (?, ?, ?) OR plan_id = ?", ana, lucia, diego, plan);
+        jdbc.update("DELETE FROM hidden_plan WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
         jdbc.update("DELETE FROM person WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
         redis.delete(List.of(key(ana), key(lucia), key(diego)));
     }
@@ -151,6 +158,10 @@ class FeedIntegrationTest {
 
     private ResultActions feedOf(UUID viewer) throws Exception {
         return mockMvc.perform(get(FEED).with(jwt().jwt(token -> token.subject(viewer.toString()))));
+    }
+
+    private ResultActions as(UUID id, String name, MockHttpServletRequestBuilder request) throws Exception {
+        return mockMvc.perform(request.with(jwt().jwt(token -> token.subject(id.toString()).claim("name", name))));
     }
 
     private List<JsonNode> receivedNotices() {
@@ -240,5 +251,43 @@ class FeedIntegrationTest {
         mockMvc.perform(get(FEED).param("size", "51").with(jwt().jwt(token -> token.subject(lucia.toString()))))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("page.invalid"));
         mockMvc.perform(get(FEED)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void hiddenPlansAndActivitySharedWithNobodyStayOutOfTheFeeds() throws Exception {
+        var hidden = SocialController.SOCIAL + SocialController.ME + FeedController.HIDDEN_PLAN;
+        publish(RabbitConfig.PLAN_PUBLISHED, published(ana));
+        waitUntil(() -> activities() == 1);
+        feedOf(lucia).andExpect(jsonPath("$.total").value(1));
+
+        as(ana, "Ana", put(hidden, plan)).andExpect(status().isNoContent());
+        as(ana, "Ana", put(hidden, plan)).andExpect(status().isNoContent());
+
+        // Hidden at once, also from the cached first page
+        assertThat(redis.hasKey(key(lucia))).isFalse();
+        feedOf(lucia).andExpect(jsonPath("$.total").value(0));
+        as(ana, "Ana", get(hidden, plan)).andExpect(jsonPath("$.hidden").value(true));
+        as(lucia, "Lucía", get(hidden, plan)).andExpect(jsonPath("$.hidden").value(false));
+
+        as(ana, "Ana", delete(hidden, plan)).andExpect(status().isNoContent());
+        feedOf(lucia).andExpect(jsonPath("$.total").value(1));
+
+        // With nobody: out of the feeds, and nothing new is kept
+        as(ana, "Ana", put(SocialController.SOCIAL + SocialController.MY_FEED_AUDIENCE)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"feedAudience\": \"NOBODY\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.feedAudience").value("NOBODY"));
+        feedOf(lucia).andExpect(jsonPath("$.total").value(0));
+        var other = UUID.randomUUID();
+        var joinedOther = new HashMap<>(joined(ana));
+        joinedOther.put("planId", other);
+        publish(RabbitConfig.PLAN_JOINED, joinedOther);
+        // Diego's join comes after Ana's in the same queue: once it is kept, Ana's has been handled
+        publish(RabbitConfig.PLAN_JOINED, joined(diego));
+        waitUntil(() -> activities() == 2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM activity WHERE plan_id = ?", Integer.class, other))
+                .isZero();
+        as(ana, "Ana", put(SocialController.SOCIAL + SocialController.MY_FEED_AUDIENCE)
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
     }
 }
