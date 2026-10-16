@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.social.infrastructure.rest;
 
 import es.upm.miw.oneleft.social.domain.model.ActivityType;
 import es.upm.miw.oneleft.social.domain.model.Connection;
+import es.upm.miw.oneleft.social.domain.model.FeedAudience;
 import es.upm.miw.oneleft.social.domain.model.FeedItem;
 import es.upm.miw.oneleft.social.domain.model.FollowStatus;
 import es.upm.miw.oneleft.social.domain.model.PageResult;
@@ -23,20 +24,29 @@ public final class SocialDtos {
 
     @Schema(description = "My profile in the social service and my counts")
     public record AccountResponse(UUID userId, @Schema(example = "Lucía") String name, Visibility visibility,
-                                  long followers, long following,
+                                  @Schema(description = "Who sees my activity in their feeds (HU-059)")
+                                  FeedAudience feedAudience, long followers, long following,
                                   @Schema(description = "Requests waiting for my answer") long requests,
                                   @Schema(description = "My requests waiting for an answer") long sentRequests) {
 
         static AccountResponse of(SocialAccount account) {
             var counts = account.counts();
             return new AccountResponse(account.person().userId(), account.person().name(),
-                    account.person().visibility(), counts.followers(), counts.following(), counts.requests(),
-                    counts.sentRequests());
+                    account.person().visibility(), account.person().feedAudience(), counts.followers(),
+                    counts.following(), counts.requests(), counts.sentRequests());
         }
     }
 
     @Schema(description = "Public or private profile")
     public record VisibilityRequest(@NotNull Visibility visibility) {
+    }
+
+    @Schema(description = "My followers or nobody")
+    public record FeedAudienceRequest(@NotNull FeedAudience feedAudience) {
+    }
+
+    @Schema(description = "Whether a plan is kept out of my activity (HU-059)")
+    public record HiddenPlanResponse(UUID planId, boolean hidden) {
     }
 
     @Schema(description = "Someone as I see them")

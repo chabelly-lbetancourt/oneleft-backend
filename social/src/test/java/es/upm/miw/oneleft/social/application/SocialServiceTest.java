@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.social.InMemoryFeed;
 import es.upm.miw.oneleft.social.InMemorySocial;
 import es.upm.miw.oneleft.social.domain.model.Caller;
 import es.upm.miw.oneleft.social.domain.model.Connection;
+import es.upm.miw.oneleft.social.domain.model.FeedAudience;
 import es.upm.miw.oneleft.social.domain.model.FollowStatus;
 import es.upm.miw.oneleft.social.domain.model.PageQuery;
 import es.upm.miw.oneleft.social.domain.model.Person;
@@ -46,7 +47,9 @@ class SocialServiceTest {
     void aNewPersonIsPrivateWithTheNameOfTheirAccount() {
         var account = service.myAccount(lucia);
 
-        assertThat(account.person()).isEqualTo(new Person(lucia.userId(), "Lucía", Visibility.PRIVATE));
+        // Private by default (HU-047), and the activity only for the followers it accepts (HU-059)
+        assertThat(account.person())
+                .isEqualTo(new Person(lucia.userId(), "Lucía", Visibility.PRIVATE, FeedAudience.FOLLOWERS));
         assertThat(account.counts().followers()).isZero();
         // The name follows the account, and nothing is saved when it has not changed
         service.myAccount(lucia);
@@ -198,7 +201,7 @@ class SocialServiceTest {
 
     @Test
     void whoeverStartsOrStopsFollowingSomeoneHasTheirFeedComputedAgain() {
-        social.save(new Person(ana.userId(), "Ana", Visibility.PRIVATE));
+        social.save(new Person(ana.userId(), "Ana", Visibility.PRIVATE, FeedAudience.FOLLOWERS));
         service.follow(lucia, ana.userId());
         assertThat(feed.forgotten).containsExactly(lucia.userId());
 
@@ -214,5 +217,24 @@ class SocialServiceTest {
 
         service.removeFollower(ana.userId(), lucia.userId());
         assertThat(feed.forgotten).containsExactly(lucia.userId(), lucia.userId());
+    }
+
+    @Test
+    void theActivityIsSharedWithTheFollowersByDefaultAndCanBeSharedWithNobody() {
+        assertThat(service.myAccount(lucia).person().feedAudience()).isEqualTo(FeedAudience.FOLLOWERS);
+        social.save(new Person(ana.userId(), "Ana", Visibility.PRIVATE, FeedAudience.FOLLOWERS));
+        service.follow(ana, lucia.userId());
+        service.accept(lucia.userId(), ana.userId());
+        feed.forgotten.clear();
+
+        var account = service.changeFeedAudience(lucia, FeedAudience.NOBODY);
+
+        assertThat(account.person().feedAudience()).isEqualTo(FeedAudience.NOBODY);
+        assertThat(social.people.get(lucia.userId()).sharesActivity()).isFalse();
+        // Her followers see the change at once
+        assertThat(feed.forgotten).containsExactly(ana.userId());
+        assertThatThrownBy(() -> service.changeFeedAudience(lucia, null))
+                .isInstanceOf(ValidationException.class)
+                .hasFieldOrPropertyWithValue("code", "person.feedAudience");
     }
 }

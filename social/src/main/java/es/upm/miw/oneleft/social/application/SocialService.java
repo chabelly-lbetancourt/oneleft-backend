@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.social.application;
 
 import es.upm.miw.oneleft.social.domain.model.Caller;
 import es.upm.miw.oneleft.social.domain.model.Connection;
+import es.upm.miw.oneleft.social.domain.model.FeedAudience;
 import es.upm.miw.oneleft.social.domain.model.Follow;
 import es.upm.miw.oneleft.social.domain.model.FollowStatus;
 import es.upm.miw.oneleft.social.domain.model.PageQuery;
@@ -36,6 +37,8 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
 
     /** Nobody follows a new person without their permission until they open their profile (HU-047, HU-059). */
     static final Visibility DEFAULT_VISIBILITY = Visibility.PRIVATE;
+    /** Privacy by default (HU-059): only the followers, accepted one by one while the profile is private */
+    static final FeedAudience DEFAULT_FEED_AUDIENCE = FeedAudience.FOLLOWERS;
 
     private final People people;
     private final Follows follows;
@@ -71,10 +74,21 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
     }
 
     @Override
+    public SocialAccount changeFeedAudience(Caller me, FeedAudience audience) {
+        if (audience == null) {
+            throw new ValidationException("person.feedAudience", "Choose who sees your activity");
+        }
+        var person = people.save(register(me).withFeedAudience(audience));
+        // Their activity appears in or leaves the feeds of their followers at once (HU-059)
+        feeds.forget(follows.acceptedFollowerIds(me.userId()));
+        return account(person);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public PersonView person(Caller me, UUID userId) {
         var person = people.find(userId).orElseGet(() -> userId.equals(me.userId())
-                ? new Person(me.userId(), me.name(), DEFAULT_VISIBILITY) : stranger(userId));
+                ? new Person(me.userId(), me.name(), DEFAULT_VISIBILITY, DEFAULT_FEED_AUDIENCE) : stranger(userId));
         var counts = follows.counts(userId);
         var followsMe = follows.find(userId, me.userId()).filter(follow -> !follow.isPending()).isPresent();
         return new PersonView(person, counts.followers(), counts.following(), relation(me.userId(), userId),
@@ -170,7 +184,7 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
     private Person register(Caller me) {
         var known = people.find(me.userId());
         if (known.isEmpty()) {
-            return people.save(new Person(me.userId(), me.name(), DEFAULT_VISIBILITY));
+            return people.save(new Person(me.userId(), me.name(), DEFAULT_VISIBILITY, DEFAULT_FEED_AUDIENCE));
         }
         var renamed = known.get().renamed(me.name());
         return renamed == known.get() ? renamed : people.save(renamed);
@@ -178,7 +192,7 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
 
     /** Someone the service does not know yet: their name from the users service, private until they choose. */
     private Person stranger(UUID userId) {
-        return new Person(userId, directory.nameOf(userId), DEFAULT_VISIBILITY);
+        return new Person(userId, directory.nameOf(userId), DEFAULT_VISIBILITY, DEFAULT_FEED_AUDIENCE);
     }
 
     private Relation relation(UUID me, UUID userId) {

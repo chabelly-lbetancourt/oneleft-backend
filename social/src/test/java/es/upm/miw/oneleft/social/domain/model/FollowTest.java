@@ -15,8 +15,8 @@ class FollowTest {
 
     private static final Instant NOW = Instant.parse("2026-10-13T16:00:00.123456789Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
-    private final Person lucia = new Person(UUID.randomUUID(), "Lucía", Visibility.PRIVATE);
-    private final Person ana = new Person(UUID.randomUUID(), "Ana", Visibility.PRIVATE);
+    private final Person lucia = new Person(UUID.randomUUID(), "Lucía", Visibility.PRIVATE, FeedAudience.FOLLOWERS);
+    private final Person ana = new Person(UUID.randomUUID(), "Ana", Visibility.PRIVATE, FeedAudience.FOLLOWERS);
 
     @Test
     void followingAPublicProfileIsAcceptedAtOnce() {
