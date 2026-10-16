@@ -70,6 +70,12 @@ public class InMemorySocial implements People, Follows {
     }
 
     @Override
+    public List<UUID> acceptedFollowerIds(UUID userId) {
+        return follows.values().stream().filter(follow -> follow.followeeId().equals(userId) && !follow.isPending())
+                .map(Follow::followerId).toList();
+    }
+
+    @Override
     public PageResult<Connection> followersOf(UUID userId, FollowStatus status, PageQuery page) {
         return list(follow -> follow.followeeId().equals(userId) && follow.status() == status, Follow::followerId,
                 page);

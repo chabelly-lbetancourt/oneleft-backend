@@ -16,12 +16,14 @@ import es.upm.miw.oneleft.social.domain.model.Visibility;
 import es.upm.miw.oneleft.social.domain.port.in.FollowUseCase;
 import es.upm.miw.oneleft.social.domain.port.in.SocialAccountUseCase;
 import es.upm.miw.oneleft.social.domain.port.out.Directory;
+import es.upm.miw.oneleft.social.domain.port.out.FeedCache;
 import es.upm.miw.oneleft.social.domain.port.out.Follows;
 import es.upm.miw.oneleft.social.domain.port.out.People;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -38,12 +40,14 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
     private final People people;
     private final Follows follows;
     private final Directory directory;
+    private final FeedCache feeds;
     private final Clock clock;
 
-    public SocialService(People people, Follows follows, Directory directory, Clock clock) {
+    public SocialService(People people, Follows follows, Directory directory, FeedCache feeds, Clock clock) {
         this.people = people;
         this.follows = follows;
         this.directory = directory;
+        this.feeds = feeds;
         this.clock = clock;
     }
 
@@ -60,6 +64,8 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
         var person = people.save(register(me).withVisibility(visibility));
         if (visibility == Visibility.PUBLIC) {
             follows.acceptAllRequests(me.userId(), clock.instant());
+            // Whoever was waiting now follows them: their feeds change (HU-051)
+            feeds.forget(follows.acceptedFollowerIds(me.userId()));
         }
         return account(person);
     }
@@ -84,12 +90,14 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
         var followee = people.find(userId).orElseGet(() -> people.save(stranger(userId)));
         var follow = follows.find(me.userId(), userId)
                 .orElseGet(() -> follows.save(Follow.request(follower, followee, clock)));
+        feeds.forget(List.of(me.userId()));
         return Connection.of(followee, follow);
     }
 
     @Override
     public void unfollow(UUID me, UUID userId) {
         follows.delete(me, userId);
+        feeds.forget(List.of(me));
     }
 
     @Override
@@ -98,6 +106,7 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
                 SocialException.Reason.REQUEST_NOT_FOUND, "There is no request of that person"));
         var follower = people.find(userId).orElseThrow(() -> new SocialException(
                 SocialException.Reason.PERSON_NOT_FOUND, "Unknown person"));
+        feeds.forget(List.of(userId));
         return Connection.of(follower, follows.save(request.accept(clock)));
     }
 
@@ -110,6 +119,7 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
     public void removeFollower(UUID me, UUID userId) {
         follows.find(userId, me).filter(follow -> !follow.isPending())
                 .ifPresent(follow -> follows.delete(userId, me));
+        feeds.forget(List.of(userId));
     }
 
     @Override

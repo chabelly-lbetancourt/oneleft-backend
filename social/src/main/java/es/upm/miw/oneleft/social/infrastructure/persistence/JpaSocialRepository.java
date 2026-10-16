@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -62,6 +63,11 @@ public class JpaSocialRepository implements People, Follows {
     @Override
     public void acceptAllRequests(UUID followeeId, Instant at) {
         follows.acceptAll(followeeId, at);
+    }
+
+    @Override
+    public List<UUID> acceptedFollowerIds(UUID userId) {
+        return follows.acceptedFollowerIds(userId);
     }
 
     @Override

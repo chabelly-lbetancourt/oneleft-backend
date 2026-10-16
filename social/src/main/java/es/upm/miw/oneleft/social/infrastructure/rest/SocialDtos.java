@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.social.infrastructure.rest;
 
+import es.upm.miw.oneleft.social.domain.model.ActivityType;
 import es.upm.miw.oneleft.social.domain.model.Connection;
+import es.upm.miw.oneleft.social.domain.model.FeedItem;
 import es.upm.miw.oneleft.social.domain.model.FollowStatus;
 import es.upm.miw.oneleft.social.domain.model.PageResult;
 import es.upm.miw.oneleft.social.domain.model.PersonView;
@@ -69,6 +71,29 @@ public final class SocialDtos {
 
         static PageResponse of(PageResult<Connection> result) {
             return new PageResponse(result.items().stream().map(ConnectionResponse::of).toList(), result.page(),
+                    result.size(), result.total());
+        }
+    }
+
+    @Schema(description = "Something someone I follow did in a plan (HU-051)")
+    public record FeedItemResponse(UUID actorId, @Schema(example = "Ana") String actorName,
+                                   @Schema(description = "PUBLISHED a plan, JOINED it or COMPLETED it (arrived)")
+                                   ActivityType type, UUID planId,
+                                   @Schema(example = "Padel at the club") String planTitle,
+                                   @Schema(example = "PADEL") String planActivity, Instant startsAt,
+                                   Instant occurredAt) {
+
+        static FeedItemResponse of(FeedItem item) {
+            return new FeedItemResponse(item.actorId(), item.actorName(), item.type(), item.planId(),
+                    item.planTitle(), item.planActivity(), item.startsAt(), item.occurredAt());
+        }
+    }
+
+    @Schema(description = "A page of my feed, the latest first")
+    public record FeedPageResponse(List<FeedItemResponse> items, int page, int size, long total) {
+
+        static FeedPageResponse of(PageResult<FeedItem> result) {
+            return new FeedPageResponse(result.items().stream().map(FeedItemResponse::of).toList(), result.page(),
                     result.size(), result.total());
         }
     }

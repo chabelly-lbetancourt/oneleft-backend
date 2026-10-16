@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 interface SpringDataFollowRepository extends JpaRepository<FollowEntity, FollowEntity.Key> {
@@ -35,6 +36,13 @@ interface SpringDataFollowRepository extends JpaRepository<FollowEntity, FollowE
             countQuery = "SELECT COUNT(f) FROM FollowEntity f WHERE f.id.followerId = :userId AND f.status = :status")
     Page<ConnectionRow> followedBy(@Param("userId") UUID userId, @Param("status") FollowStatus status,
                                    Pageable page);
+
+    /** Who follows someone, accepted: whose feed shows their activity (HU-051). */
+    @Query("""
+            SELECT f.id.followerId FROM FollowEntity f
+            WHERE f.id.followeeId = :userId
+              AND f.status = es.upm.miw.oneleft.social.domain.model.FollowStatus.ACCEPTED""")
+    List<UUID> acceptedFollowerIds(@Param("userId") UUID userId);
 
     @Modifying
     @Query("""
