@@ -502,7 +502,7 @@ public class Plan {
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */
     public PlanJoined joinedEvent() {
         var last = participants.getLast();
-        return new PlanJoined(id, organizer.id(), title, last.userId(), last.name(), freeSpots(),
+        return new PlanJoined(id, organizer.id(), title, activity, startsAt, last.userId(), last.name(), freeSpots(),
                 status == PlanStatus.FULL, last.joinedAt());
     }
 

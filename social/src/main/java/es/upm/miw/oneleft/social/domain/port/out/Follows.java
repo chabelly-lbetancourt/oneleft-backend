@@ -8,6 +8,7 @@ import es.upm.miw.oneleft.social.domain.model.PageQuery;
 import es.upm.miw.oneleft.social.domain.model.PageResult;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,4 +31,7 @@ public interface Follows {
     PageResult<Connection> followedBy(UUID userId, FollowStatus status, PageQuery page);
 
     FollowCounts counts(UUID userId);
+
+    /** Everyone who follows {@code userId}, accepted: whose feed shows what they do (HU-051) */
+    List<UUID> acceptedFollowerIds(UUID userId);
 }

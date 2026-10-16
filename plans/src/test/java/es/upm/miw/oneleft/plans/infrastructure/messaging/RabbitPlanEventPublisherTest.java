@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.messaging;
 
 import es.upm.miw.oneleft.plans.infrastructure.realtime.BadgeEarnedNotice;
+import es.upm.miw.oneleft.plans.infrastructure.realtime.FeedActivityNotice;
 import es.upm.miw.oneleft.plans.infrastructure.realtime.PlanNearbyNotice;
 import es.upm.miw.oneleft.plans.infrastructure.realtime.UserEventSubscriptions;
 import org.springframework.amqp.core.MessageBuilder;
@@ -150,5 +151,23 @@ class RabbitPlanEventPublisherTest {
 
         verify(subscriptions, timeout(10_000)).dispatch(new BadgeEarnedNotice.Message(lucia, "TEN_ACTIVITIES",
                 Instant.parse("2026-11-16T17:50:00Z")));
+    }
+
+    @Test
+    void theActivityOfTheFeedReachesTheStreamOfTheFollower() {
+        var lucia = UUID.randomUUID();
+        var ana = UUID.randomUUID();
+        var plan = UUID.randomUUID();
+        var json = """
+                {"userId":"%s","actorId":"%s","actorName":"Ana","type":"PUBLISHED","planId":"%s",
+                 "planTitle":"Rodaje suave","occurredAt":"2026-11-16T17:50:00Z"}""".formatted(lucia, ana, plan);
+        var properties = new MessageProperties();
+        properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+
+        rabbit.send(RabbitConfig.NOTIFICATIONS_EXCHANGE, RabbitConfig.FEED_ACTIVITY,
+                MessageBuilder.withBody(json.getBytes(StandardCharsets.UTF_8)).andProperties(properties).build());
+
+        verify(subscriptions, timeout(10_000)).dispatch(new FeedActivityNotice.Message(lucia, ana, "Ana", "PUBLISHED",
+                plan, "Rodaje suave", Instant.parse("2026-11-16T17:50:00Z")));
     }
 }

@@ -12,8 +12,9 @@ public record PlanLeft(Plan plan, Participant leaving, Participant promoted, Ins
 
     /** Event for the organizer and for whoever took the spot. */
     public PlanLeftEvent event() {
-        return new PlanLeftEvent(plan.id(), plan.organizer().id(), plan.title(), leaving.userId(), leaving.name(),
-                promoted == null ? null : promoted.userId(), promoted == null ? null : promoted.name(),
-                plan.freeSpots(), plan.status() == PlanStatus.FULL, occurredAt);
+        return new PlanLeftEvent(plan.id(), plan.organizer().id(), plan.title(), plan.activity(), plan.startsAt(),
+                leaving.userId(), leaving.name(), promoted == null ? null : promoted.userId(),
+                promoted == null ? null : promoted.name(), plan.freeSpots(), plan.status() == PlanStatus.FULL,
+                occurredAt);
     }
 }

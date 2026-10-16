@@ -32,6 +32,7 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
     static final String PLAN_ARRIVAL = "plan-arrival";
     static final String PLAN_CHECK_IN = "plan-check-in";
     static final String BADGE_EARNED = "badge-earned";
+    static final String FEED_ACTIVITY = "feed-activity";
 
     public UserEventSubscriptions(MeterRegistry meterRegistry) {
         super(meterRegistry, "oneleft.plans.user.subscriptions", "Users connected to their personal event stream");
@@ -117,6 +118,16 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
             if (userId.equals(notice.userId())) {
                 send(emitter, SseEmitter.event().name(BADGE_EARNED).id(notice.badge() + ":" + notice.userId())
                         .data(BadgeEarnedNotice.of(notice), MediaType.APPLICATION_JSON));
+            }
+        });
+    }
+
+    public void dispatch(FeedActivityNotice.Message notice) {
+        forEach((userId, emitter) -> {
+            if (userId.equals(notice.userId())) {
+                send(emitter, SseEmitter.event().name(FEED_ACTIVITY)
+                        .id(notice.type() + ":" + notice.planId() + ":" + notice.actorId())
+                        .data(FeedActivityNotice.of(notice), MediaType.APPLICATION_JSON));
             }
         });
     }
