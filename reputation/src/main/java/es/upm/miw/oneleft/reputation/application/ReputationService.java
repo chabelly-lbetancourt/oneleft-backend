@@ -26,7 +26,6 @@ import es.upm.miw.oneleft.reputation.domain.port.out.TrackRecords;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -47,7 +46,7 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
     private final Scores scores;
     private final TrackRecords trackRecords;
     private final Badges badges;
-    private final BadgeNotices notices;
+    private final BadgeAwards awards;
 
     public ReputationService(Ledger ledger, Scores scores, TrackRecords trackRecords, Badges badges,
                              BadgeNotices notices) {
@@ -55,7 +54,7 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
         this.scores = scores;
         this.trackRecords = trackRecords;
         this.badges = badges;
-        this.notices = notices;
+        this.awards = new BadgeAwards(trackRecords, badges, notices);
     }
 
     @Override
@@ -68,7 +67,7 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
         ReputationRules.attendanceClosed(attendance).forEach(this::append);
         var lines = BadgeRules.attendances(attendance);
         trackRecords.record(lines);
-        lines.forEach(line -> awardReached(line.userId(), attendance.occurredAt()));
+        lines.forEach(line -> awards.awardReached(line.userId(), attendance.occurredAt()));
     }
 
     @Override
@@ -131,13 +130,6 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
     @Override
     public int rebuildScores() {
         return scores.rebuildFromLedger();
-    }
-
-    /** The badges someone has just reached are theirs, with a notice; the ones they had change nothing */
-    private void awardReached(UUID userId, Instant at) {
-        BadgeRules.reached(trackRecords.of(userId)).stream()
-                .filter(badge -> badges.award(userId, badge, at))
-                .forEach(badge -> notices.earned(userId, badge, at));
     }
 
     private void append(LedgerEntry entry) {

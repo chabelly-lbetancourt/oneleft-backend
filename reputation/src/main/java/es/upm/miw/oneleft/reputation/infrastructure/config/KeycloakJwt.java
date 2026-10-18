@@ -19,6 +19,12 @@ public final class KeycloakJwt {
         return UUID.fromString(jwt.getSubject());
     }
 
+    /** The name shown of someone, from the token: their name, else their user name. */
+    public static String name(Jwt jwt) {
+        var name = jwt.getClaimAsString("name");
+        return name == null || name.isBlank() ? jwt.getClaimAsString("preferred_username") : name;
+    }
+
     /** Whether the realm role {@code admin} is in the token. */
     public static boolean isAdmin(Jwt jwt) {
         Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");

@@ -5,9 +5,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.NativeQuery;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 interface SpringDataLedgerRepository extends JpaRepository<LedgerEntryEntity, Long> {
@@ -23,4 +25,9 @@ interface SpringDataLedgerRepository extends JpaRepository<LedgerEntryEntity, Lo
                @Param("occurredAt") Instant occurredAt);
 
     Page<LedgerEntryEntity> findByUserIdOrderByOccurredAtDescIdDesc(UUID userId, Pageable page);
+
+    /** The title of a plan, as the entries it caused keep it (HU-060) */
+    @Query("SELECT e.planTitle FROM LedgerEntryEntity e WHERE e.sourceId = :planId AND e.planTitle IS NOT NULL "
+            + "ORDER BY e.id")
+    List<String> titlesOf(@Param("planId") UUID planId, Pageable page);
 }

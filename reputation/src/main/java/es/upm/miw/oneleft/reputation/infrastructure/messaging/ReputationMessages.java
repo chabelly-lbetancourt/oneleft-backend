@@ -50,6 +50,10 @@ final class ReputationMessages {
     record BadgeEarned(UUID userId, String badge, Instant earnedAt) {
     }
 
+    /** notification.kudos (HU-060), for the real-time stream of whoever receives it, relayed by the plans service */
+    record KudosReceived(UUID userId, String giverName, String kind, UUID planId, Instant givenAt) {
+    }
+
     /** report.confirmed (HU-033) */
     record Report(UUID reportId, UUID userId, Instant occurredAt) {
 
