@@ -26,6 +26,8 @@ public class RabbitConfig {
     public static final String BADGE_EARNED = "notification.badge-earned";
     /** New activity of someone followed (HU-051), from the social service. */
     public static final String FEED_ACTIVITY = "notification.feed-activity";
+    /** Kudos received (HU-060), from the reputation service */
+    public static final String KUDOS = "notification.kudos";
 
     @Bean
     TopicExchange plansExchange() {

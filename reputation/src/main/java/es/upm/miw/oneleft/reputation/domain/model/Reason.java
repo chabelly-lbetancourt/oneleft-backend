@@ -12,7 +12,9 @@ public enum Reason {
     /** Cancelled their own plan less than an hour before its start. */
     LATE_CANCELLATION(-10),
     /** A report against them was confirmed (HU-033). */
-    CONFIRMED_REPORT(-50);
+    CONFIRMED_REPORT(-50),
+    /** Someone of the same plan gave them a kudos (HU-060). */
+    KUDOS(5);
 
     private final int points;
 

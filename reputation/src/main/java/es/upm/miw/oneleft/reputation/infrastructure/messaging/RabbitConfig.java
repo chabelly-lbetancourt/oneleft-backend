@@ -29,6 +29,7 @@ public class RabbitConfig {
     /** Notices for the app, relayed by the plans service through each person's real-time stream (HU-044). */
     public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
     public static final String BADGE_EARNED = "notification.badge-earned";
+    public static final String KUDOS_RECEIVED = "notification.kudos";
 
     public static final String CHECK_INS_QUEUE = "reputation.check-ins";
     public static final String ATTENDANCE_QUEUE = "reputation.attendance";

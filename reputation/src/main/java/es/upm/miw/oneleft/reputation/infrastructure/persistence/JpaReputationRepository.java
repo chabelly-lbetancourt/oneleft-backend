@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -36,6 +37,11 @@ public class JpaReputationRepository implements Ledger, Scores {
         var rows = ledger.findByUserIdOrderByOccurredAtDescIdDesc(userId, PageRequest.of(page.page(), page.size()));
         return new PageResult<>(rows.map(LedgerEntryEntity::toDomain).getContent(), page.page(), page.size(),
                 rows.getTotalElements());
+    }
+
+    @Override
+    public Optional<String> planTitle(UUID planId) {
+        return ledger.titlesOf(planId, PageRequest.of(0, 1)).stream().findFirst();
     }
 
     @Override

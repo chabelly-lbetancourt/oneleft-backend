@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.reputation.infrastructure.rest;
 
+import es.upm.miw.oneleft.reputation.domain.model.KudosException;
 import es.upm.miw.oneleft.reputation.domain.model.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -23,6 +24,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ValidationException.class)
     ProblemDetail invalid(ValidationException exception) {
         return problem(HttpStatus.BAD_REQUEST, exception.getMessage(), exception.code());
+    }
+
+    @ExceptionHandler(KudosException.class)
+    ProblemDetail kudos(KudosException exception) {
+        var status = exception.reason() == KudosException.Reason.NOT_ATTENDED ? HttpStatus.FORBIDDEN
+                : HttpStatus.CONFLICT;
+        return problem(status, exception.getMessage(), exception.code());
     }
 
     @ExceptionHandler({IllegalArgumentException.class, MethodArgumentTypeMismatchException.class,

@@ -203,4 +203,18 @@ class UserEventSubscriptionsTest {
         assertThat(FeedActivityNotice.of(notice)).isEqualTo(new FeedActivityNotice(notice.actorId(), "Ana", "JOINED",
                 notice.planId(), "Pádel 2 contra 2", notice.occurredAt()));
     }
+
+    @Test
+    void aKudosIsToldOnlyToWhoeverReceivesIt() {
+        var lucia = UUID.randomUUID();
+        subscriptions.subscribe(UUID.randomUUID());
+        subscriptions.subscribe(lucia).complete();
+        var notice = new KudosNotice.Message(lucia, "Ana", "GOOD_VIBES", UUID.randomUUID(), Instant.now());
+
+        subscriptions.dispatch(notice);
+
+        assertThat(subscriptions.size()).isEqualTo(1);
+        assertThat(KudosNotice.of(notice))
+                .isEqualTo(new KudosNotice("Ana", "GOOD_VIBES", notice.planId(), notice.givenAt()));
+    }
 }
