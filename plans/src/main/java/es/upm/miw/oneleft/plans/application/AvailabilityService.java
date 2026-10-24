@@ -7,6 +7,7 @@ import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import es.upm.miw.oneleft.plans.domain.port.in.AvailabilityUseCase;
 import es.upm.miw.oneleft.plans.domain.port.out.AvailabilityRepository;
+import es.upm.miw.oneleft.plans.domain.port.out.Blocks;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,11 +28,14 @@ public class AvailabilityService implements AvailabilityUseCase {
 
     private final AvailabilityRepository availabilities;
     private final PlanRepository plans;
+    private final Blocks blocks;
     private final Clock clock;
 
-    public AvailabilityService(AvailabilityRepository availabilities, PlanRepository plans, Clock clock) {
+    public AvailabilityService(AvailabilityRepository availabilities, PlanRepository plans, Blocks blocks,
+                               Clock clock) {
         this.availabilities = availabilities;
         this.plans = plans;
+        this.blocks = blocks;
         this.clock = clock;
     }
 
@@ -65,7 +69,9 @@ public class AvailabilityService implements AvailabilityUseCase {
         return availabilities.findActiveNear(point.latitude(), point.longitude(), RADIUS_METERS, clock.instant())
                 .stream()
                 .filter(availability -> !availability.userId().equals(requesterId)
-                        && !plan.isParticipant(availability.userId()) && availability.wants(plan.activity()))
+                        && !plan.isParticipant(availability.userId()) && availability.wants(plan.activity())
+                        // Nobody blocked by the organizer, nor who blocked them (HU-033)
+                        && !blocks.between(requesterId, availability.userId()))
                 .map(availability -> FreePerson.near(availability, plan))
                 .sorted(Comparator.comparingLong(FreePerson::distanceMeters))
                 .toList();

@@ -24,6 +24,7 @@ public class ApiExceptionHandler {
         return switch (reason) {
             case PERSON_NOT_FOUND, REQUEST_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case PRIVATE -> HttpStatus.FORBIDDEN;
+            case BLOCKED -> HttpStatus.CONFLICT;
             case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }

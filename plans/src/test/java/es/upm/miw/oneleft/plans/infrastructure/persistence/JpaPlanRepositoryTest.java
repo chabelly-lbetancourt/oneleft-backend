@@ -39,6 +39,9 @@ class JpaPlanRepositoryTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    @Autowired
+    private JpaBlockRepository blocks;
+
     private final Clock clock = Clock.systemUTC();
 
     @Test
@@ -113,6 +116,38 @@ class JpaPlanRepositoryTest {
 
         assertThat(repository.findOpenNearby(search, clock.instant(), 50)).extracting(Plan::id)
                 .containsExactly(padel.id());
+    }
+
+    @Test
+    void leavesOutThePlansOfSomeoneBlockedInEitherDirection() {
+        var here = somewhere();
+        var me = UUID.randomUUID();
+        var blockedByMe = ana();
+        var blockedMe = ana();
+        var visible = plan(ana(), Activity.PADEL, here, Duration.ofHours(1));
+        plan(blockedByMe, Activity.PADEL, here, Duration.ofHours(1));
+        plan(blockedMe, Activity.PADEL, here, Duration.ofHours(1));
+        var search = new NearbySearch(here.latitude(), here.longitude(), 1_000, null, null, me);
+        try {
+            blocks.block(me, blockedByMe.id(), clock.instant());
+            blocks.block(blockedMe.id(), me, clock.instant());
+            // A repeated event changes nothing
+            blocks.block(me, blockedByMe.id(), clock.instant());
+
+            // HU-033: neither the plans of whoever I blocked nor of whoever blocked me
+            assertThat(repository.findOpenNearby(search, clock.instant(), 50)).extracting(Plan::id)
+                    .containsExactly(visible.id());
+            assertThat(blocks.between(me, blockedByMe.id())).isTrue();
+            assertThat(blocks.between(me, blockedMe.id())).isTrue();
+            assertThat(blocks.between(me, visible.organizer().id())).isFalse();
+            assertThat(blocks.between(me, me)).isFalse();
+
+            blocks.unblock(me, blockedByMe.id());
+            assertThat(repository.findOpenNearby(search, clock.instant(), 50)).hasSize(2);
+        } finally {
+            // The blocks of the test are deleted
+            jdbc.update("DELETE FROM block WHERE ? IN (blocker_id, blocked_id)", me);
+        }
     }
 
     @Test

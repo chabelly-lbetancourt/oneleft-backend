@@ -8,9 +8,11 @@ public record PersonView(Person person, long followers, long following, Relation
 
     /**
      * Whether I may see their recent plans, their followers and who they follow (HU-048): it is me, their profile is
-     * public, or I follow them. Name, photo, bio, hobbies, statistics and reputation are seen by everyone.
+     * public, or I follow them; never someone I blocked (HU-033). Name, photo, bio, hobbies, statistics and reputation
+     * are seen by everyone.
      */
     public boolean activityVisible() {
-        return relation == Relation.SELF || relation == Relation.FOLLOWING || person.visibility() == Visibility.PUBLIC;
+        return relation == Relation.SELF || relation == Relation.FOLLOWING
+                || relation != Relation.BLOCKED && person.visibility() == Visibility.PUBLIC;
     }
 }

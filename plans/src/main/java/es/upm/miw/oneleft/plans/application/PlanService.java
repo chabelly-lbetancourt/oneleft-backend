@@ -7,6 +7,7 @@ import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.QueryPlansUseCase;
+import es.upm.miw.oneleft.plans.domain.port.out.Blocks;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
 import org.springframework.stereotype.Service;
@@ -21,11 +22,13 @@ public class PlanService implements PublishPlanUseCase, QueryPlansUseCase {
 
     private final PlanRepository plans;
     private final PlanEventPublisher events;
+    private final Blocks blocks;
     private final Clock clock;
 
-    public PlanService(PlanRepository plans, PlanEventPublisher events, Clock clock) {
+    public PlanService(PlanRepository plans, PlanEventPublisher events, Blocks blocks, Clock clock) {
         this.plans = plans;
         this.events = events;
+        this.blocks = blocks;
         this.clock = clock;
     }
 
@@ -43,6 +46,18 @@ public class PlanService implements PublishPlanUseCase, QueryPlansUseCase {
     @Transactional(readOnly = true)
     public Plan plan(UUID planId) {
         return plans.findById(planId).orElseThrow(() -> new PlanNotFoundException(planId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Plan plan(UUID planId, UUID viewerId) {
+        var plan = plan(planId);
+        var inIt = plan.isMember(viewerId) || plan.isWaiting(viewerId);
+        if (!inIt && blocks.between(plan.organizer().id(), viewerId)) {
+            // As if it did not exist: the block stays private
+            throw new PlanNotFoundException(planId);
+        }
+        return plan;
     }
 
     @Override

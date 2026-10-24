@@ -129,9 +129,10 @@ class JoinPlanServiceTest {
         }
     };
     private final Availabilities availabilities = new Availabilities();
+    private final BlockedPairs blocks = new BlockedPairs();
     private final JoinPlanService service =
             new JoinPlanService(new OptimisticPlanUpdates(plans, TransactionOperations.withoutTransaction()), publisher,
-                    availabilities, CLOCK);
+                    availabilities, blocks, CLOCK);
     private final Plan plan = plans.save(Plan.publish(ana(), Activity.PADEL, "Padel match", null,
             new MeetingPoint("Courts", 40.39, -3.62), NOW.plus(Duration.ofHours(1)), 1, null, CLOCK));
 
@@ -150,6 +151,20 @@ class JoinPlanServiceTest {
             assertThat(event.organizerId()).isEqualTo(plan.organizer().id());
             assertThat(event.full()).isTrue();
         });
+    }
+
+    @Test
+    void someoneBlockedByTheOrganizerOrWhoBlockedThemCannotJoinIt() {
+        var lucia = UUID.randomUUID();
+        var diego = UUID.randomUUID();
+        blocks.block(plan.organizer().id(), lucia);
+        blocks.block(diego, plan.organizer().id());
+
+        // HU-033: for them the plan does not exist, so they are not told why
+        assertThatThrownBy(() -> service.join(plan.id(), lucia, "Lucía")).isInstanceOf(PlanNotFoundException.class);
+        assertThatThrownBy(() -> service.join(plan.id(), diego, "Diego")).isInstanceOf(PlanNotFoundException.class);
+        assertThat(plans.data.get(plan.id()).occupied()).isZero();
+        assertThat(events).isEmpty();
     }
 
     @Test

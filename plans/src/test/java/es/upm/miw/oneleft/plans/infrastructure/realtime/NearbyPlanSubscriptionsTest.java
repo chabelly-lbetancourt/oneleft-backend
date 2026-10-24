@@ -7,6 +7,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import static es.upm.miw.oneleft.plans.PlanFixtures.CLOCK;
@@ -17,7 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NearbyPlanSubscriptionsTest {
 
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private final NearbyPlanSubscriptions subscriptions = new NearbyPlanSubscriptions(CLOCK, meters);
+    private final Set<UUID> blockedOrganizers = new HashSet<>();
+    private final NearbyPlanSubscriptions subscriptions = new NearbyPlanSubscriptions(CLOCK,
+            (requesterId, organizerId) -> blockedOrganizers.contains(organizerId), meters);
     private final NearbySearch search = new NearbySearch(COURTS.latitude(), COURTS.longitude(), 1_000, null, null,
             UUID.randomUUID());
 
@@ -51,6 +55,20 @@ class NearbyPlanSubscriptionsTest {
         subscriptions.dispatch(event);
 
         assertThat(subscriptions.size()).isZero();
+    }
+
+    @Test
+    void nothingOfSomeoneBlockedIsSent() {
+        // A closed client is forgotten when something is sent to it: here nothing is (HU-033)
+        subscriptions.subscribe(search).complete();
+        var organizer = UUID.randomUUID();
+        blockedOrganizers.add(organizer);
+        var event = new PlanPublished(UUID.randomUUID(), organizer, Activity.PADEL, "Pádel", "Pistas",
+                COURTS.latitude(), COURTS.longitude(), NOW.plus(Duration.ofHours(1)), 1, null, NOW);
+
+        subscriptions.dispatch(event);
+
+        assertThat(subscriptions.size()).isEqualTo(1);
     }
 
     @Test

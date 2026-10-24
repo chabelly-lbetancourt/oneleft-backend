@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.plans.infrastructure.realtime;
 
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
+import es.upm.miw.oneleft.plans.domain.port.out.Blocks;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -19,11 +20,13 @@ public class NearbyPlanSubscriptions extends SseSubscriptions<NearbySearch> {
     static final String PLAN_PUBLISHED = "plan-published";
 
     private final Clock clock;
+    private final Blocks blocks;
 
-    public NearbyPlanSubscriptions(Clock clock, MeterRegistry meterRegistry) {
+    public NearbyPlanSubscriptions(Clock clock, Blocks blocks, MeterRegistry meterRegistry) {
         super(meterRegistry, "oneleft.plans.nearby.subscriptions",
                 "Clients connected to the real-time list of nearby plans");
         this.clock = clock;
+        this.blocks = blocks;
     }
 
     public SseEmitter subscribe(NearbySearch search) {
@@ -33,7 +36,8 @@ public class NearbyPlanSubscriptions extends SseSubscriptions<NearbySearch> {
     public void dispatch(PlanPublished event) {
         var now = clock.instant();
         forEach((search, emitter) -> {
-            if (search.matches(event, now)) {
+            // The same as the search: nothing of someone blocked by the requester, or who blocked them (HU-033)
+            if (search.matches(event, now) && !blocks.between(search.requesterId(), event.organizerId())) {
                 send(emitter, SseEmitter.event().name(PLAN_PUBLISHED).id(event.planId().toString())
                         .data(NearbyPlanEvent.of(event, search), MediaType.APPLICATION_JSON));
             }

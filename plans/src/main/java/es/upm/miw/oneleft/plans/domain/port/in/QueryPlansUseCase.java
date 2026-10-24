@@ -12,6 +12,14 @@ public interface QueryPlansUseCase {
     /** @throws es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException if it does not exist */
     Plan plan(UUID planId);
 
+    /**
+     * A plan as {@code viewerId} sees it: someone blocked by its organizer, or who blocked them, does not see it
+     * unless they are already in it (HU-033).
+     *
+     * @throws es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException if it does not exist for them
+     */
+    Plan plan(UUID planId, UUID viewerId);
+
     /** Organizer's plans that have not started yet, from the soonest to the latest. */
     List<Plan> upcomingPlansOrganizedBy(UUID organizerId);
 
