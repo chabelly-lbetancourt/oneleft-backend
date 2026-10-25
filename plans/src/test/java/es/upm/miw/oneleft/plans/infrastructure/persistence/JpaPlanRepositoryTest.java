@@ -8,6 +8,7 @@ import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
+import es.upm.miw.oneleft.plans.domain.port.in.KeepBlocksUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,6 +42,10 @@ class JpaPlanRepositoryTest {
 
     @Autowired
     private JpaBlockRepository blocks;
+
+    /** The copy of the blocks is written in its transaction, as the listener does */
+    @Autowired
+    private KeepBlocksUseCase copies;
 
     private final Clock clock = Clock.systemUTC();
 
@@ -129,10 +134,10 @@ class JpaPlanRepositoryTest {
         plan(blockedMe, Activity.PADEL, here, Duration.ofHours(1));
         var search = new NearbySearch(here.latitude(), here.longitude(), 1_000, null, null, me);
         try {
-            blocks.block(me, blockedByMe.id(), clock.instant());
-            blocks.block(blockedMe.id(), me, clock.instant());
+            copies.blocked(me, blockedByMe.id(), clock.instant());
+            copies.blocked(blockedMe.id(), me, clock.instant());
             // A repeated event changes nothing
-            blocks.block(me, blockedByMe.id(), clock.instant());
+            copies.blocked(me, blockedByMe.id(), clock.instant());
 
             // HU-033: neither the plans of whoever I blocked nor of whoever blocked me
             assertThat(repository.findOpenNearby(search, clock.instant(), 50)).extracting(Plan::id)
@@ -142,7 +147,7 @@ class JpaPlanRepositoryTest {
             assertThat(blocks.between(me, visible.organizer().id())).isFalse();
             assertThat(blocks.between(me, me)).isFalse();
 
-            blocks.unblock(me, blockedByMe.id());
+            copies.unblocked(me, blockedByMe.id());
             assertThat(repository.findOpenNearby(search, clock.instant(), 50)).hasSize(2);
         } finally {
             // The blocks of the test are deleted
