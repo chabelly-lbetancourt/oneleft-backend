@@ -114,7 +114,8 @@ class SafetyIntegrationTest {
         var reports = new TopicExchange(RabbitConfig.REPORTS_EXCHANGE, true, false);
         admin.declareExchange(social);
         admin.declareExchange(reports);
-        admin.declareQueue(new Queue(EVENTS, false, true, true));
+        // Not exclusive nor auto-deleted: it lasts the whole test, and is deleted after it
+        admin.declareQueue(new Queue(EVENTS, false, false, false));
         admin.declareBinding(new Binding(EVENTS, Binding.DestinationType.QUEUE, social.getName(), "user.*", null));
         admin.declareBinding(new Binding(EVENTS, Binding.DestinationType.QUEUE, reports.getName(),
                 RabbitConfig.REPORT_CREATED, null));
