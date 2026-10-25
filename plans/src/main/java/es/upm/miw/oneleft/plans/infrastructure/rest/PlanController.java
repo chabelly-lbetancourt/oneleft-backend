@@ -98,7 +98,8 @@ public class PlanController {
     @ApiResponse(responseCode = "200", description = "Plan")
     @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
     public PlanResponse plan(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
-        return PlanResponse.of(queryPlans.plan(planId), UUID.fromString(jwt.getSubject()));
+        var me = UUID.fromString(jwt.getSubject());
+        return PlanResponse.of(queryPlans.plan(planId, me), me);
     }
 
     @PostMapping(PARTICIPANTS)

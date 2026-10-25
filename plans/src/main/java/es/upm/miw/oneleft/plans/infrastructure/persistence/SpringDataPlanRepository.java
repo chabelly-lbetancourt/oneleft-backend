@@ -44,7 +44,8 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
 
     /**
      * Proximity search with PostGIS. {@code ST_DWithin} on {@code geography} measures in metres and uses the
-     * {@code plan_location_geography} index; the {@code <->} operator sorts from the nearest to the farthest.
+     * {@code plan_location_geography} index; the {@code <->} operator sorts from the nearest to the farthest. The plans
+     * of someone blocked by the requester, or who blocked them, are left out (HU-033).
      */
     @NativeQuery("""
             SELECT p.* FROM plan p
@@ -53,6 +54,9 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
               AND p.starts_at > :now AND p.starts_at <= :until
               AND p.activity IN (:activities)
               AND p.organizer_id <> :requester
+              AND NOT EXISTS (SELECT 1 FROM block b
+                              WHERE (b.blocker_id = p.organizer_id AND b.blocked_id = :requester)
+                                 OR (b.blocker_id = :requester AND b.blocked_id = p.organizer_id))
               AND ST_DWithin(p.location::geography,
                              ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radius)
             ORDER BY p.location::geography <-> ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography

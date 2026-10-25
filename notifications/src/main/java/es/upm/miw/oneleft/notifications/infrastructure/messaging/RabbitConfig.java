@@ -30,6 +30,11 @@ public class RabbitConfig {
 
     /** Notices for the app, relayed by the plans service through each person's real-time stream. */
     public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
+    /** Blocks of the social service (HU-033), copied through a durable queue shared by every replica */
+    public static final String SOCIAL_EXCHANGE = "oneleft.social";
+    public static final String USER_BLOCKED = "user.blocked";
+    public static final String USER_UNBLOCKED = "user.unblocked";
+    public static final String BLOCKS_QUEUE = "notifications.blocks";
     public static final String NEARBY_PLAN = "notification.nearby-plan";
 
     @Bean
@@ -60,6 +65,26 @@ public class RabbitConfig {
     @Bean
     Binding planReminderBinding(Queue planReminderQueue, TopicExchange plansExchange) {
         return BindingBuilder.bind(planReminderQueue).to(plansExchange).with(PLAN_REMINDER);
+    }
+
+    @Bean
+    TopicExchange socialExchange() {
+        return new TopicExchange(SOCIAL_EXCHANGE, true, false);
+    }
+
+    @Bean
+    Queue blocksQueue() {
+        return QueueBuilder.durable(BLOCKS_QUEUE).build();
+    }
+
+    @Bean
+    Binding blockedBinding(Queue blocksQueue, TopicExchange socialExchange) {
+        return BindingBuilder.bind(blocksQueue).to(socialExchange).with(USER_BLOCKED);
+    }
+
+    @Bean
+    Binding unblockedBinding(Queue blocksQueue, TopicExchange socialExchange) {
+        return BindingBuilder.bind(blocksQueue).to(socialExchange).with(USER_UNBLOCKED);
     }
 
     @Bean

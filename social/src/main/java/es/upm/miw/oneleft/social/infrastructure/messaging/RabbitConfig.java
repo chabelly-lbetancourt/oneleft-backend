@@ -13,7 +13,8 @@ import org.springframework.context.annotation.Configuration;
 /**
  * The events of the plans service that make the activity feed (HU-051). Each one has a durable queue shared by every
  * replica: it is handled once, and the events of while the service is down are handled when it comes back. An event
- * that keeps failing ends in {@code social.dead-letters}, to be looked at, instead of coming back forever.
+ * that keeps failing ends in {@code social.dead-letters}, to be looked at, instead of coming back forever. The service
+ * publishes its blocks and reports (HU-033) on exchanges of its own.
  */
 @Configuration
 public class RabbitConfig {
@@ -27,6 +28,13 @@ public class RabbitConfig {
     /** Notices for the app, relayed by the plans service through each person's real-time stream (HU-044). */
     public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
     public static final String FEED_ACTIVITY = "notification.feed-activity";
+    /** Blocks (HU-033), for the copies the plans and notifications services keep */
+    public static final String SOCIAL_EXCHANGE = "oneleft.social";
+    public static final String USER_BLOCKED = "user.blocked";
+    public static final String USER_UNBLOCKED = "user.unblocked";
+    /** Reports (HU-033), for the moderation (HU-011); it answers with report.confirmed (reputation, HU-009) */
+    public static final String REPORTS_EXCHANGE = "oneleft.reports";
+    public static final String REPORT_CREATED = "report.created";
 
     public static final String PUBLISHED_QUEUE = "social.published";
     public static final String JOINED_QUEUE = "social.joined";
@@ -47,6 +55,16 @@ public class RabbitConfig {
     @Bean
     TopicExchange notificationsExchange() {
         return new TopicExchange(NOTIFICATIONS_EXCHANGE, true, false);
+    }
+
+    @Bean
+    TopicExchange socialExchange() {
+        return new TopicExchange(SOCIAL_EXCHANGE, true, false);
+    }
+
+    @Bean
+    TopicExchange reportsExchange() {
+        return new TopicExchange(REPORTS_EXCHANGE, true, false);
     }
 
     @Bean

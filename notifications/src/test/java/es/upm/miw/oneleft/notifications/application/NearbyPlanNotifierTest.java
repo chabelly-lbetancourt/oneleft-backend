@@ -27,6 +27,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +51,8 @@ class NearbyPlanNotifierTest {
     private final List<NearbyPlanNotice> published = new ArrayList<>();
     private final Subscriptions subscriptions = new Subscriptions();
     private final Push push = new Push();
+    /** Who blocked whom (HU-033): "blocker>blocked" */
+    private final Set<String> blocks = new HashSet<>();
     private NearbyPlanNotifier notifier;
 
     @BeforeEach
@@ -59,6 +62,7 @@ class NearbyPlanNotifierTest {
 
     private NearbyPlanNotifier at(Instant now) {
         return new NearbyPlanNotifier(preferences, alerts, log, published::add, subscriptions, push,
+                (userId, otherId) -> blocks.contains(userId + ">" + otherId) || blocks.contains(otherId + ">" + userId),
                 Clock.fixed(now, MADRID));
     }
 
@@ -199,6 +203,22 @@ class NearbyPlanNotifierTest {
         assertThat(published).extracting(NearbyPlanNotice::userId).containsExactlyInAnyOrder(LUCIA, DIEGO);
         assertThat(published).filteredOn(notice -> notice.userId().equals(DIEGO)).singleElement()
                 .satisfies(notice -> assertThat(notice.distanceMeters()).isEqualTo(700));
+    }
+
+    @Test
+    void nobodyHearsAboutAPlanOfSomeoneTheyBlockedOrWhoBlockedThem() {
+        // Lucía blocked Ana; Ana blocked Diego, who has an alert (HU-033)
+        preferences.save(wantsEverything(LUCIA, null, 5));
+        alerts.save(afterWork(DIEGO, null));
+        blocks.add(LUCIA + ">" + ANA);
+        blocks.add(ANA + ">" + DIEGO);
+        var plan = new PublishedPlan(UUID.randomUUID(), ANA, Activity.PADEL, "Pádel 2 contra 2, falta uno",
+                "Pistas de la Albufera", 40.3964, -3.6297, NOW.plus(Duration.ofHours(1)), 1);
+
+        assertThat(notifier.notifyNearby(plan)).isZero();
+
+        assertThat(published).isEmpty();
+        assertThat(push.sent).isEmpty();
     }
 
     @Test

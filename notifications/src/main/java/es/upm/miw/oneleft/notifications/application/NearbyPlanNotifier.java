@@ -6,6 +6,7 @@ import es.upm.miw.oneleft.notifications.domain.model.NotificationPreferences;
 import es.upm.miw.oneleft.notifications.domain.model.PublishedPlan;
 import es.upm.miw.oneleft.notifications.domain.port.in.NotifyNearbyPlanUseCase;
 import es.upm.miw.oneleft.notifications.domain.port.out.AlertRepository;
+import es.upm.miw.oneleft.notifications.domain.port.out.Blocks;
 import es.upm.miw.oneleft.notifications.domain.port.out.NoticeLog;
 import es.upm.miw.oneleft.notifications.domain.port.out.NoticePublisher;
 import es.upm.miw.oneleft.notifications.domain.port.out.PreferencesRepository;
@@ -24,7 +25,8 @@ import java.util.UUID;
  * Decides who hears about a newly published plan and delivers the notices (HU-006): people with notices on, near the
  * meeting point, interested in the activity, and people with a saved alert that matches the plan (HU-036); always
  * outside their quiet hours and under their daily limit. Each person hears about a plan once, even if several alerts
- * match it, in the app if it is open and as a system notification in the browsers they subscribed.
+ * match it, in the app if it is open and as a system notification in the browsers they subscribed. Nobody hears
+ * about a plan of someone they blocked or who blocked them (HU-033).
  * <p>
  * The clock carries the local time zone: quiet hours and the daily limit follow the local day.
  */
@@ -39,18 +41,20 @@ public class NearbyPlanNotifier implements NotifyNearbyPlanUseCase {
     private final NoticePublisher publisher;
     private final PushSubscriptionRepository subscriptions;
     private final PushSender push;
+    private final Blocks blocks;
     private final Clock clock;
 
     @SuppressWarnings("java:S107")
     public NearbyPlanNotifier(PreferencesRepository preferences, AlertRepository alerts, NoticeLog notices,
                               NoticePublisher publisher, PushSubscriptionRepository subscriptions, PushSender push,
-                              Clock clock) {
+                              Blocks blocks, Clock clock) {
         this.preferences = preferences;
         this.alerts = alerts;
         this.notices = notices;
         this.publisher = publisher;
         this.subscriptions = subscriptions;
         this.push = push;
+        this.blocks = blocks;
         this.clock = clock;
     }
 
@@ -65,6 +69,7 @@ public class NearbyPlanNotifier implements NotifyNearbyPlanUseCase {
         var notified = 0;
         for (var person : preferences.findEnabledFor(plan.activity())) {
             if (person.wants(plan) && !person.isQuietAt(localTime)
+                    && !blocks.between(plan.organizerId(), person.userId())
                     && notices.countSince(person.userId(), startOfDay) < person.maxPerDay()
                     && notices.record(person.userId(), plan.planId(), now)) {
                 deliver(person.userId(), NearbyPlanNotice.of(person.userId(), plan, person.distanceTo(plan)));
@@ -76,6 +81,7 @@ public class NearbyPlanNotifier implements NotifyNearbyPlanUseCase {
             var person = preferences.findByUser(alert.userId())
                     .orElseGet(() -> NotificationPreferences.defaults(alert.userId()));
             if (alert.matches(plan, clock.getZone()) && !person.isQuietAt(localTime)
+                    && !blocks.between(plan.organizerId(), alert.userId())
                     && notices.countSince(alert.userId(), startOfDay) < person.maxPerDay()
                     && notices.record(alert.userId(), plan.planId(), now)) {
                 var distance = GeoDistance.meters(alert.latitude(), alert.longitude(), plan.latitude(),

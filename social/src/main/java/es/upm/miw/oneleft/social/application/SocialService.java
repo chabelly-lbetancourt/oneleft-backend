@@ -16,6 +16,7 @@ import es.upm.miw.oneleft.social.domain.model.ValidationException;
 import es.upm.miw.oneleft.social.domain.model.Visibility;
 import es.upm.miw.oneleft.social.domain.port.in.FollowUseCase;
 import es.upm.miw.oneleft.social.domain.port.in.SocialAccountUseCase;
+import es.upm.miw.oneleft.social.domain.port.out.Blocks;
 import es.upm.miw.oneleft.social.domain.port.out.Directory;
 import es.upm.miw.oneleft.social.domain.port.out.FeedCache;
 import es.upm.miw.oneleft.social.domain.port.out.Follows;
@@ -29,7 +30,8 @@ import java.util.UUID;
 
 /**
  * Following people (HU-047). Whoever uses the service is registered with the name of their account; someone new is
- * looked up once in the users service. A profile is private until its owner opens it.
+ * looked up once in the users service. A profile is private until its owner opens it. For someone I blocked, my
+ * profile does not exist (HU-033).
  */
 @Service
 @Transactional
@@ -42,14 +44,17 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
 
     private final People people;
     private final Follows follows;
-    private final Directory directory;
+    private final Blocks blocks;
+    private final Registration registration;
     private final FeedCache feeds;
     private final Clock clock;
 
-    public SocialService(People people, Follows follows, Directory directory, FeedCache feeds, Clock clock) {
+    public SocialService(People people, Follows follows, Blocks blocks, Directory directory, FeedCache feeds,
+                         Clock clock) {
         this.people = people;
         this.follows = follows;
-        this.directory = directory;
+        this.blocks = blocks;
+        this.registration = new Registration(people, directory);
         this.feeds = feeds;
         this.clock = clock;
     }
@@ -87,6 +92,7 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
     @Override
     @Transactional(readOnly = true)
     public PersonView person(Caller me, UUID userId) {
+        requireNotBlockedBy(userId, me.userId());
         var person = people.find(userId).orElseGet(() -> userId.equals(me.userId())
                 ? new Person(me.userId(), me.name(), DEFAULT_VISIBILITY, DEFAULT_FEED_AUDIENCE) : stranger(userId));
         var counts = follows.counts(userId);
@@ -101,7 +107,11 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
         if (follower.userId().equals(userId)) {
             throw new ValidationException("follow.self", "Nobody follows themselves");
         }
-        var followee = people.find(userId).orElseGet(() -> people.save(stranger(userId)));
+        requireNotBlockedBy(userId, me.userId());
+        if (blocks.blocked(me.userId(), userId)) {
+            throw new SocialException(SocialException.Reason.BLOCKED, "Unblock them before following them");
+        }
+        var followee = registration.known(userId);
         var follow = follows.find(me.userId(), userId)
                 .orElseGet(() -> follows.save(Follow.request(follower, followee, clock)));
         feeds.forget(List.of(me.userId()));
@@ -174,30 +184,33 @@ public class SocialService implements SocialAccountUseCase, FollowUseCase {
         return follows.followedBy(me, FollowStatus.PENDING, page);
     }
 
+    /** For someone {@code blockerId} blocked, they do not exist: the block stays private (HU-033). */
+    private void requireNotBlockedBy(UUID blockerId, UUID userId) {
+        if (!blockerId.equals(userId) && blocks.blocked(blockerId, userId)) {
+            throw new SocialException(SocialException.Reason.PERSON_NOT_FOUND, "Unknown person");
+        }
+    }
+
     private void requireActivityVisible(Caller me, UUID userId) {
         if (!person(me, userId).activityVisible()) {
             throw new SocialException(SocialException.Reason.PRIVATE, "Only their followers see their network");
         }
     }
 
-    /** The caller as a person of the service: created the first time, with the current name of their account. */
     private Person register(Caller me) {
-        var known = people.find(me.userId());
-        if (known.isEmpty()) {
-            return people.save(new Person(me.userId(), me.name(), DEFAULT_VISIBILITY, DEFAULT_FEED_AUDIENCE));
-        }
-        var renamed = known.get().renamed(me.name());
-        return renamed == known.get() ? renamed : people.save(renamed);
+        return registration.register(me);
     }
 
-    /** Someone the service does not know yet: their name from the users service, private until they choose. */
     private Person stranger(UUID userId) {
-        return new Person(userId, directory.nameOf(userId), DEFAULT_VISIBILITY, DEFAULT_FEED_AUDIENCE);
+        return registration.stranger(userId);
     }
 
     private Relation relation(UUID me, UUID userId) {
         if (me.equals(userId)) {
             return Relation.SELF;
+        }
+        if (blocks.blocked(me, userId)) {
+            return Relation.BLOCKED;
         }
         return follows.find(me, userId).map(follow -> follow.isPending() ? Relation.REQUESTED : Relation.FOLLOWING)
                 .orElse(Relation.NONE);

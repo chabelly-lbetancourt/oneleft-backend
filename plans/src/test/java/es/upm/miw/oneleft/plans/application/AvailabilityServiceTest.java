@@ -33,7 +33,8 @@ class AvailabilityServiceTest {
 
     private final JoinPlanServiceTest.Plans plans = new JoinPlanServiceTest.Plans();
     private final Availabilities availabilities = new Availabilities();
-    private final AvailabilityService service = new AvailabilityService(availabilities, plans, CLOCK);
+    private final BlockedPairs blocks = new BlockedPairs();
+    private final AvailabilityService service = new AvailabilityService(availabilities, plans, blocks, CLOCK);
     private final Plan plan = plans.save(Plan.publish(ana(), Activity.PADEL, "Padel match", null,
             new MeetingPoint("Courts", 40.3964, -3.6297), NOW.plus(Duration.ofHours(1)), 2, null, CLOCK));
 
@@ -60,7 +61,7 @@ class AvailabilityServiceTest {
         assertThat(service.mine(LUCIA)).isEmpty();
 
         service.start(DIEGO, 40.39, -3.63, 1, Set.of());
-        var later = new AvailabilityService(availabilities, plans,
+        var later = new AvailabilityService(availabilities, plans, blocks,
                 Clock.fixed(NOW.plus(Duration.ofMinutes(61)), ZoneOffset.UTC));
         assertThat(later.mine(DIEGO)).isEmpty();
         assertThat(later.purgeExpired()).isEqualTo(1);
@@ -82,6 +83,18 @@ class AvailabilityServiceTest {
         assertThat(free).containsExactly(
                 new FreePerson(500, null, Set.of()),
                 new FreePerson(2000, Level.INTERMEDIATE, Set.of(Activity.PADEL, Activity.TENNIS)));
+    }
+
+    @Test
+    void theOrganizerDoesNotSeeWhoTheyBlockedNorWhoBlockedThem() {
+        service.start(LUCIA, 40.39, -3.63, 2, Set.of());
+        service.start(DIEGO, 40.40, -3.63, 2, Set.of());
+        service.start(MARTA, 40.39, -3.63, 2, Set.of());
+        // HU-033: in both directions
+        blocks.block(plan.organizer().id(), LUCIA);
+        blocks.block(DIEGO, plan.organizer().id());
+
+        assertThat(service.freePeopleNear(plan.id(), plan.organizer().id())).hasSize(1);
     }
 
     @Test

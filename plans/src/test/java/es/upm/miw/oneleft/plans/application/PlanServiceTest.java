@@ -119,7 +119,8 @@ class PlanServiceTest {
             throw new UnsupportedOperationException();
         }
     };
-    private final PlanService service = new PlanService(repository, publisher, CLOCK);
+    private final BlockedPairs blocks = new BlockedPairs();
+    private final PlanService service = new PlanService(repository, publisher, blocks, CLOCK);
 
     @Test
     void publishingStoresThePlanAndEmitsTheEvent() {
@@ -149,6 +150,26 @@ class PlanServiceTest {
         var plan = repository.save(padelPlan(ana(), Duration.ofHours(1), CLOCK));
         assertThat(service.plan(plan.id())).isSameAs(plan);
         assertThatThrownBy(() -> service.plan(UUID.randomUUID())).isInstanceOf(PlanNotFoundException.class);
+    }
+
+    @Test
+    void forSomeoneBlockedThePlanDoesNotExistUnlessTheyAreInIt() {
+        var organizer = ana();
+        var plan = repository.save(padelPlan(organizer, Duration.ofHours(1), CLOCK));
+        var lucia = UUID.randomUUID();
+        var diego = UUID.randomUUID();
+        assertThat(service.plan(plan.id(), lucia)).isSameAs(plan);
+
+        // HU-033: in both directions, and the organizer still sees it
+        blocks.block(organizer.id(), lucia);
+        blocks.block(diego, organizer.id());
+
+        assertThatThrownBy(() -> service.plan(plan.id(), lucia)).isInstanceOf(PlanNotFoundException.class);
+        assertThatThrownBy(() -> service.plan(plan.id(), diego)).isInstanceOf(PlanNotFoundException.class);
+        assertThat(service.plan(plan.id(), organizer.id())).isSameAs(plan);
+        // Whoever was already in the plan keeps seeing it
+        var joined = repository.save(plan.join(lucia, "Lucía", CLOCK));
+        assertThat(service.plan(plan.id(), lucia)).isSameAs(joined);
     }
 
     @Test

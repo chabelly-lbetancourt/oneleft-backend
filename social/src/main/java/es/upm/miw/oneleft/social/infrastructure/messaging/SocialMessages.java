@@ -3,12 +3,13 @@ package es.upm.miw.oneleft.social.infrastructure.messaging;
 import es.upm.miw.oneleft.social.domain.model.Activity;
 import es.upm.miw.oneleft.social.domain.model.ActivityType;
 import es.upm.miw.oneleft.social.domain.model.FeedItem;
+import es.upm.miw.oneleft.social.domain.model.Report;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** The part of each event that the feed reads: the JSON fields are the contract. */
+/** The part of each event that the feed reads, and the events of the service: the JSON fields are the contract. */
 final class SocialMessages {
 
     private SocialMessages() {
@@ -54,6 +55,19 @@ final class SocialMessages {
                     .map(attendee -> new Activity(attendee, ActivityType.COMPLETED, planId, title, activity, startsAt,
                             occurredAt))
                     .toList();
+        }
+    }
+
+    /** user.blocked and user.unblocked (HU-033) */
+    record Block(UUID blockerId, UUID blockedId, Instant occurredAt) {
+    }
+
+    /** report.created (HU-033), for the moderation (HU-011) */
+    record ReportCreated(UUID reportId, UUID reporterId, String target, UUID targetId, UUID reportedUserId,
+                         String reason, String comment, Instant occurredAt) {
+        static ReportCreated of(Report report) {
+            return new ReportCreated(report.id(), report.reporterId(), report.target().name(), report.targetId(),
+                    report.reportedUserId(), report.reason().name(), report.comment(), report.reportedAt());
         }
     }
 

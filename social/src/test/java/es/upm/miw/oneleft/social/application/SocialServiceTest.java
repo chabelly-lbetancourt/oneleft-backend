@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.social.application;
 
 import es.upm.miw.oneleft.social.InMemoryFeed;
+import es.upm.miw.oneleft.social.InMemorySafety;
 import es.upm.miw.oneleft.social.InMemorySocial;
 import es.upm.miw.oneleft.social.domain.model.Caller;
 import es.upm.miw.oneleft.social.domain.model.Connection;
@@ -34,8 +35,9 @@ class SocialServiceTest {
     private final UUID diego = UUID.randomUUID();
     private final InMemorySocial social = new InMemorySocial();
     private final InMemoryFeed feed = new InMemoryFeed(social);
+    private final InMemorySafety safety = new InMemorySafety(social);
     private final List<UUID> asked = new ArrayList<>();
-    private final SocialService service = new SocialService(social, social, userId -> {
+    private final SocialService service = new SocialService(social, social, safety, userId -> {
         asked.add(userId);
         if (userId.equals(ana.userId())) {
             return "Ana";
@@ -236,5 +238,34 @@ class SocialServiceTest {
         assertThatThrownBy(() -> service.changeFeedAudience(lucia, null))
                 .isInstanceOf(ValidationException.class)
                 .hasFieldOrPropertyWithValue("code", "person.feedAudience");
+    }
+
+    @Test
+    void forSomeoneIBlockedMyProfileDoesNotExistAndTheyCannotFollowMe() {
+        service.myAccount(lucia);
+        social.save(new Person(ana.userId(), "Ana", Visibility.PUBLIC, FeedAudience.FOLLOWERS));
+        safety.block(lucia.userId(), ana.userId(), CLOCK.instant());
+
+        // Ana is not told (HU-033): for her, Lucía has no account
+        assertThatThrownBy(() -> service.person(ana, lucia.userId()))
+                .isInstanceOf(SocialException.class)
+                .hasFieldOrPropertyWithValue("reason", SocialException.Reason.PERSON_NOT_FOUND);
+        assertThatThrownBy(() -> service.follow(ana, lucia.userId()))
+                .isInstanceOf(SocialException.class)
+                .hasFieldOrPropertyWithValue("reason", SocialException.Reason.PERSON_NOT_FOUND);
+        assertThatThrownBy(() -> service.followersOf(ana, lucia.userId(), FIRST))
+                .hasFieldOrPropertyWithValue("reason", SocialException.Reason.PERSON_NOT_FOUND);
+        assertThat(social.follows).isEmpty();
+        // Lucía still sees Ana, as blocked, and not her plans although her profile is public
+        var view = service.person(lucia, ana.userId());
+        assertThat(view.relation()).isEqualTo(Relation.BLOCKED);
+        assertThat(view.activityVisible()).isFalse();
+        // She unblocks her before following her again
+        assertThatThrownBy(() -> service.follow(lucia, ana.userId()))
+                .isInstanceOf(SocialException.class)
+                .hasFieldOrPropertyWithValue("reason", SocialException.Reason.BLOCKED);
+        safety.unblock(lucia.userId(), ana.userId());
+        assertThat(service.follow(lucia, ana.userId()).status()).isEqualTo(FollowStatus.ACCEPTED);
+        assertThat(service.person(ana, lucia.userId()).followsMe()).isTrue();
     }
 }
