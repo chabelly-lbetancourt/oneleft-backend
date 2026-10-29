@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
+import es.upm.miw.oneleft.plans.domain.model.DraftUnavailableException;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.PersonActivityException;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
@@ -38,6 +39,13 @@ public class ApiExceptionHandler {
             case UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
         return problem(status, exception.getMessage(), exception.code());
+    }
+
+    /** The language model of HU-010 cannot be used: the rest of the service works as usual. */
+    @ExceptionHandler(DraftUnavailableException.class)
+    ProblemDetail draftUnavailable(DraftUnavailableException exception) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "The assistant is not available now",
+                DraftUnavailableException.CODE);
     }
 
     @ExceptionHandler(ValidationException.class)
