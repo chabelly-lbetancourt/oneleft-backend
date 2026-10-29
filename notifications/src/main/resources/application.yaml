@@ -61,6 +61,15 @@ oneleft:
   notifications:
     # Quiet hours and the daily limit of notices follow the local day
     zone: ${NOTIFICATIONS_ZONE:Europe/Madrid}
+  notices:
+    ranking:
+      # model: the people likeliest to take a spot first; distance: the nearest first (the rule it is compared with)
+      strategy: ${NOTICES_STRATEGY:model}
+      # The ranker service (HU-012); without it, or if it fails, the nearest go first
+      url: ${RANKER_URL:}
+      batch-size: ${NOTICES_BATCH_SIZE:5}
+      interval: ${NOTICES_BATCH_INTERVAL:PT3M}
+      cutoff: ${NOTICES_BATCH_CUTOFF:PT15M}
   webpush:
     # VAPID keys (tools: oneleft-infra/docker/generate-vapid-keys.sh). Without them Web Push is off
     public-key: ${VAPID_PUBLIC_KEY:}

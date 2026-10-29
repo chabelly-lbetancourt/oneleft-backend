@@ -27,6 +27,9 @@ public class RabbitConfig {
     public static final String PLAN_CANCELLED = "plan.cancelled";
     /** Durable and shared too: each cancellation (HU-039) is notified once. */
     public static final String PLAN_CANCELLED_QUEUE = "notifications.plan-cancelled";
+    public static final String PLAN_JOINED = "plan.joined";
+    /** Durable and shared too: each join (HU-012) tells whether a notice worked, once. */
+    public static final String PLAN_JOINED_QUEUE = "notifications.plan-joined";
 
     /** Notices for the app, relayed by the plans service through each person's real-time stream. */
     public static final String NOTIFICATIONS_EXCHANGE = "oneleft.notifications";
@@ -65,6 +68,16 @@ public class RabbitConfig {
     @Bean
     Binding planReminderBinding(Queue planReminderQueue, TopicExchange plansExchange) {
         return BindingBuilder.bind(planReminderQueue).to(plansExchange).with(PLAN_REMINDER);
+    }
+
+    @Bean
+    Queue planJoinedQueue() {
+        return QueueBuilder.durable(PLAN_JOINED_QUEUE).build();
+    }
+
+    @Bean
+    Binding planJoinedBinding(Queue planJoinedQueue, TopicExchange plansExchange) {
+        return BindingBuilder.bind(planJoinedQueue).to(plansExchange).with(PLAN_JOINED);
     }
 
     @Bean

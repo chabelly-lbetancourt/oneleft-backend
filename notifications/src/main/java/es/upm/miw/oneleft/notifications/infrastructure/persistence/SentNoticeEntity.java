@@ -18,13 +18,19 @@ class SentNoticeEntity {
     private Key id;
     @Column(name = "sent_at")
     private Instant sentAt;
+    @Column(name = "ranking")
+    private String ranking;
+    @Column(name = "batch")
+    private int batch;
 
     protected SentNoticeEntity() {
     }
 
-    SentNoticeEntity(UUID userId, UUID planId, Instant sentAt) {
+    SentNoticeEntity(UUID userId, UUID planId, Instant sentAt, String ranking, int batch) {
         this.id = new Key(userId, planId);
         this.sentAt = sentAt;
+        this.ranking = ranking;
+        this.batch = batch;
     }
 
     @Embeddable

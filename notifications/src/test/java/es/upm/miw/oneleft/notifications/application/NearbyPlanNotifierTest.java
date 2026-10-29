@@ -1,16 +1,21 @@
 package es.upm.miw.oneleft.notifications.application;
 
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
+import es.upm.miw.oneleft.notifications.domain.model.BatchedPlan;
 import es.upm.miw.oneleft.notifications.domain.model.Level;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
+import es.upm.miw.oneleft.notifications.domain.model.NoticeHistory;
 import es.upm.miw.oneleft.notifications.domain.model.NotificationPreferences;
 import es.upm.miw.oneleft.notifications.domain.model.PlanCancellation;
 import es.upm.miw.oneleft.notifications.domain.model.PlanReminder;
 import es.upm.miw.oneleft.notifications.domain.model.PublishedPlan;
 import es.upm.miw.oneleft.notifications.domain.model.PushSubscription;
+import es.upm.miw.oneleft.notifications.domain.model.RankedCandidate;
+import es.upm.miw.oneleft.notifications.domain.model.RankingSettings;
 import es.upm.miw.oneleft.notifications.domain.model.QuietHours;
 import es.upm.miw.oneleft.notifications.domain.model.SavedAlert;
 import es.upm.miw.oneleft.notifications.domain.port.out.AlertRepository;
+import es.upm.miw.oneleft.notifications.domain.port.out.NoticeBatches;
 import es.upm.miw.oneleft.notifications.domain.port.out.NoticeLog;
 import es.upm.miw.oneleft.notifications.domain.port.out.PreferencesRepository;
 import es.upm.miw.oneleft.notifications.domain.port.out.PushSender;
@@ -25,6 +30,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,8 +67,11 @@ class NearbyPlanNotifierTest {
     }
 
     private NearbyPlanNotifier at(Instant now) {
-        return new NearbyPlanNotifier(preferences, alerts, log, published::add, subscriptions, push,
+        // Before HU-012: everyone at once, nearest first
+        var settings = RankingSettings.everyoneAtOnce();
+        return new NearbyPlanNotifier(preferences, alerts, log, new NoticeDelivery(published::add, subscriptions, push),
                 (userId, otherId) -> blocks.contains(userId + ">" + otherId) || blocks.contains(otherId + ">" + userId),
+                new CandidateRanker((plan, candidates, at) -> Optional.empty(), settings), new Batches(), settings,
                 Clock.fixed(now, MADRID));
     }
 
@@ -283,7 +292,7 @@ class NearbyPlanNotifierTest {
         }
     }
 
-    private static final class Preferences implements PreferencesRepository {
+    static final class Preferences implements PreferencesRepository {
         private final Map<UUID, NotificationPreferences> all = new HashMap<>();
 
         @Override
@@ -304,12 +313,38 @@ class NearbyPlanNotifierTest {
         }
     }
 
-    private static final class Log implements NoticeLog {
+    /** Also used by the tests of the batches (HU-012). */
+    static final class Log implements NoticeLog {
         private final Map<String, Instant> sent = new HashMap<>();
+        final Map<String, String> ranking = new HashMap<>();
+        final Map<String, Instant> acceptedAt = new HashMap<>();
 
         @Override
-        public boolean record(UUID userId, UUID planId, Instant at) {
+        public boolean record(UUID userId, UUID planId, Instant at, String how, int batch) {
+            ranking.putIfAbsent(userId + ":" + planId, how + "#" + batch);
             return sent.putIfAbsent(userId + ":" + planId, at) == null;
+        }
+
+        @Override
+        public void accepted(UUID userId, UUID planId, Instant at) {
+            if (sent.containsKey(userId + ":" + planId)) {
+                acceptedAt.putIfAbsent(userId + ":" + planId, at);
+            }
+        }
+
+        @Override
+        public Map<UUID, NoticeHistory> historyOf(Collection<UUID> userIds, Instant since, Instant startOfDay) {
+            var history = new HashMap<UUID, NoticeHistory>();
+            for (var userId : userIds) {
+                var mine = sent.entrySet().stream()
+                        .filter(e -> e.getKey().startsWith(userId + ":") && !e.getValue().isBefore(since)).toList();
+                if (!mine.isEmpty()) {
+                    history.put(userId, new NoticeHistory(mine.size(),
+                            mine.stream().filter(e -> acceptedAt.containsKey(e.getKey())).count(),
+                            mine.stream().filter(e -> !e.getValue().isBefore(startOfDay)).count()));
+                }
+            }
+            return history;
         }
 
         @Override
@@ -344,6 +379,50 @@ class NearbyPlanNotifierTest {
             if (subscription != null && subscription.userId().equals(userId)) {
                 all.remove(endpoint);
             }
+        }
+    }
+
+    /** The people still to be notified of each plan, in memory. */
+    static final class Batches implements NoticeBatches {
+        record Waiting(BatchedPlan batched, Instant nextAt, List<UUID> people) {
+        }
+
+        final Map<UUID, Waiting> plans = new HashMap<>();
+
+        @Override
+        public void schedule(PublishedPlan plan, String ranking, List<RankedCandidate> rest, Instant nextBatchAt) {
+            plans.put(plan.planId(), new Waiting(new BatchedPlan(plan, ranking, 1), nextBatchAt,
+                    new ArrayList<>(rest.stream().map(r -> r.candidate().userId()).toList())));
+        }
+
+        @Override
+        public List<BatchedPlan> due(Instant now) {
+            return plans.values().stream().filter(w -> !w.nextAt().isAfter(now)).map(Waiting::batched).toList();
+        }
+
+        @Override
+        public List<UUID> takeNext(UUID planId, int limit) {
+            var people = plans.get(planId).people();
+            var next = new ArrayList<>(people.subList(0, Math.min(limit, people.size())));
+            people.removeAll(next);
+            return next;
+        }
+
+        @Override
+        public void rescheduleOrFinish(UUID planId, Instant nextBatchAt) {
+            var waiting = plans.get(planId);
+            if (waiting.people().isEmpty()) {
+                plans.remove(planId);
+            } else {
+                var batched = waiting.batched();
+                plans.put(planId, new Waiting(new BatchedPlan(batched.plan(), batched.ranking(),
+                        batched.nextBatch() + 1), nextBatchAt, waiting.people()));
+            }
+        }
+
+        @Override
+        public void close(UUID planId) {
+            plans.remove(planId);
         }
     }
 
