@@ -27,7 +27,9 @@ public class JdbcPersonalData implements PersonalData {
         EXPORT.put("pushSubscriptions",
                 "SELECT endpoint FROM push_subscription WHERE user_id = :userId");
         EXPORT.put("sentNotices",
-                "SELECT plan_id, sent_at FROM sent_notice WHERE user_id = :userId");
+                "SELECT plan_id, sent_at, ranking, batch, accepted_at FROM sent_notice WHERE user_id = :userId");
+        EXPORT.put("pendingNotices",
+                "SELECT plan_id, position FROM pending_notice WHERE user_id = :userId");
         EXPORT.put("savedAlerts",
                 "SELECT * FROM saved_alert WHERE user_id = :userId");
         EXPORT.put("blocks",
@@ -35,6 +37,7 @@ public class JdbcPersonalData implements PersonalData {
     }
 
     private static final List<String> ERASE = List.of(
+            "DELETE FROM pending_notice WHERE user_id = :userId",
             "DELETE FROM sent_notice WHERE user_id = :userId",
             "DELETE FROM saved_alert WHERE user_id = :userId",
             "DELETE FROM push_subscription WHERE user_id = :userId",
