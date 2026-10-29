@@ -21,7 +21,7 @@ class RankingConfig {
     }
 
     @Bean
-    RestClient rankerClient(RankingProperties properties) {
+    RestClient rankerRestClient(RankingProperties properties) {
         var timeouts = new SimpleClientHttpRequestFactory();
         timeouts.setConnectTimeout(Duration.ofSeconds(1));
         timeouts.setReadTimeout(Duration.ofSeconds(2));

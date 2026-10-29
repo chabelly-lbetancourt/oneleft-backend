@@ -29,8 +29,8 @@ class RankerClient implements AcceptanceModel {
     private final RestClient client;
     private final RankingProperties properties;
 
-    RankerClient(RestClient rankerClient, RankingProperties properties) {
-        this.client = rankerClient;
+    RankerClient(RestClient rankerRestClient, RankingProperties properties) {
+        this.client = rankerRestClient;
         this.properties = properties;
     }
 
