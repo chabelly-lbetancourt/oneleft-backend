@@ -29,7 +29,7 @@ python -m pytest -q
 ```
 
 ```bash
-python -m ranker.train && uvicorn ranker.main:app --port 8086
+python -m ranker.train && uvicorn ranker.main:app --port 8087
 ```
 
 ## Simulador: modelo contra regla de distancia
