@@ -14,6 +14,11 @@ spring:
     hibernate:
       # Flyway owns the schema; Hibernate only checks that it matches
       ddl-auto: validate
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:oneleft}
+    password: ${RABBITMQ_PASSWORD:oneleft-dev}
   security:
     oauth2:
       resourceserver:
@@ -25,6 +30,19 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWKS:${KEYCLOAK_ISSUER:http://localhost:8180/realms/oneleft}/protocol/openid-connect/certs}
 
 oneleft:
+  # Deleting an account (HU-045): the account of Keycloak is deleted with a client of its own (client credentials), and
+  # the data of the other services is asked, for the download, at their internal addresses
+  accounts:
+    keycloak-url: ${KEYCLOAK_ADMIN_URL:http://localhost:8180}
+    realm: ${KEYCLOAK_REALM:oneleft}
+    client-id: ${ACCOUNTS_CLIENT_ID:oneleft-accounts}
+    client-secret: ${ACCOUNTS_CLIENT_SECRET:oneleft-accounts-dev}
+  services:
+    plans: ${PLANS_URL:http://localhost:8082}
+    social: ${SOCIAL_URL:http://localhost:8085}
+    reputation: ${REPUTATION_URL:http://localhost:8086}
+    notifications: ${NOTIFICATIONS_URL:http://localhost:8083}
+    chat: ${CHAT_URL:http://localhost:8084}
   storage:
     # Profile photos (HU-020) in an S3-compatible storage: Versity S3 Gateway in Docker, S3 or a Lightsail bucket when
     # deployed. Photos go from the device to the storage with signed links: they never go through this service

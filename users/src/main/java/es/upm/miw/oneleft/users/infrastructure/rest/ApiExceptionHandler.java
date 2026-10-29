@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.users.infrastructure.rest;
 
+import es.upm.miw.oneleft.users.domain.model.AccountException;
 import es.upm.miw.oneleft.users.domain.model.PhotoStorageUnavailableException;
 import es.upm.miw.oneleft.users.domain.model.ProfileNotFoundException;
 import es.upm.miw.oneleft.users.domain.model.ValidationException;
@@ -26,6 +27,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(PhotoStorageUnavailableException.class)
     ProblemDetail unavailable(PhotoStorageUnavailableException exception) {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), PhotoStorageUnavailableException.CODE);
+    }
+
+    @ExceptionHandler(AccountException.class)
+    ProblemDetail accountUnavailable(AccountException exception) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), exception.code());
     }
 
     @ExceptionHandler(ValidationException.class)
