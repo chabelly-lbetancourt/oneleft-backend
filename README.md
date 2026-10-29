@@ -26,7 +26,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 | Módulo | Puerto | Estado |
 |---|---|---|
 | `gateway` | 8080 | Enruta `/api/v1/users/**` a `users`, `/api/v1/plans/**` y `/api/v1/places/**` a `plans`, `/api/v1/notifications/**` a `notifications`, `/api/v1/chats/**` a `chat`, `/api/v1/social/**` a `social` y `/api/v1/reputation/**` a `reputation`. Hace de relé del WebSocket `/ws/chat` (el token va en el subprotocolo `oneleft.bearer`) |
-| `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones · HU-020 foto de perfil en un almacenamiento compatible con S3, con enlaces firmados · HU-048 bio del perfil social |
+| `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones · HU-020 foto de perfil en un almacenamiento compatible con S3, con enlaces firmados · HU-048 bio del perfil social · HU-045 descargar mis datos y borrar mi cuenta (ver más abajo) |
 | `plans` | 8082 | HU-003 publicar un plan (evento `plan.published` en RabbitMQ) · HU-004 planes cercanos y avisos en tiempo real (SSE) · HU-025 check-in en el punto de encuentro (geocerca de 150 m con PostGIS; la ubicación no se guarda) y, al cerrarse, quién llegó (`plan.attendance-closed`) · HU-048 los 5 últimos planes celebrados de una persona, si `social` dice que se pueden ver · HU-051 reenvía por SSE los avisos de actividad nueva del feed (`feed-activity`) y HU-060 los de kudos (`kudos`) · HU-033 copia los bloqueos de `social` (cola duradera `plans.blocks`) y deja fuera, en los dos sentidos, los planes cercanos y su tiempo real, el detalle de un plan (salvo para quien ya está en él), unirse y las personas libres cerca |
 | `notifications` | 8083 | HU-006 avisos de planes cercanos: escucha `plan.published`, elige a quién avisar (zona, radio, actividades, horario sin avisos y máximo diario) y avisa en la app y por Web Push · HU-033 nadie recibe avisos de planes de alguien a quien bloqueó o que le bloqueó (copia de los bloqueos en la cola `notifications.blocks`) |
 | `chat` | 8084 | HU-008 chat de cada plan: solo su organizador y participantes (se pregunta a `plans`), de solo lectura cuando el plan termina, mensajes entre réplicas por RabbitMQ y borrados 24 h después |
@@ -131,6 +131,26 @@ backend:
 | `STORAGE_CREATE_BUCKET` | Crea el bucket al arrancar (desarrollo); desplegado, `false` | `true` |
 
 Si el almacenamiento no responde, el servicio arranca igual y solo fallan las fotos (`503`, `photo.unavailable`).
+
+### Mis datos y borrar la cuenta (HU-045)
+
+- **Descargar:** `GET /api/v1/users/me/data` devuelve un único JSON con lo de `users` y lo que cada servicio da en su
+  `GET /api/v1/{plans,social,reputation,notifications,chats}/me/data` (el mismo token, una llamada por servicio). Si uno
+  no responde, no hay fichero: `503 data.unavailable`.
+- **Consentimiento:** `GET` y `PUT /api/v1/users/me/consent`; el texto vigente es `PrivacyPolicy.CURRENT_VERSION`.
+- **Borrar:** `DELETE /api/v1/users/me/account` borra lo de `users`, las fotos y la cuenta en Keycloak (cliente
+  `oneleft-accounts`, *client credentials*, solo gestiona usuarios) y publica `user.deleted` en el exchange
+  `oneleft.accounts`, tras el commit. Cada servicio la recibe en su cola duradera `<servicio>.account-deleted`.
+- **Qué se borra y qué se anonimiza:** `plans` libera su plaza en los planes futuros, cancela los que organizaba y deja
+  «Persona eliminada» en los pasados; `chat` deja sus mensajes con una persona anónima; los kudos que dio pierden su
+  autor; el libro de `reputation` se borra con una excepción explícita de su trigger. El resto se borra.
+- **Repetible:** cada borrado puede recibirse dos veces sin efecto. No hay *outbox*: si `users` cae entre el commit y la
+  publicación, hay que volver a pedir el borrado.
+
+| Variable | Para qué |
+|---|---|
+| `KEYCLOAK_ADMIN_URL` | Dónde `users` llama al API de administración de Keycloak |
+| `ACCOUNTS_CLIENT_SECRET` | Secreto del cliente `oneleft-accounts` (en producción, obligatorio) |
 
 Imágenes Docker:
 
