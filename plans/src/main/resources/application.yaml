@@ -13,6 +13,24 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+  ai:
+    model:
+      # The language model of HU-010 is off until a key is configured: Compose sets this to «anthropic» and the client
+      # to «true» only when ANTHROPIC_API_KEY has a value. Without it the draft of a plan answers «not available» (503)
+      chat: none
+    chat:
+      client:
+        enabled: false
+    anthropic:
+      # Only from the environment, never in the repository
+      api-key: ${ANTHROPIC_API_KEY:}
+      timeout: PT15S
+      max-retries: 1
+      chat:
+        options:
+          model: ${PLAN_DRAFT_MODEL:claude-haiku-5-5}
+          max-tokens: 500
+          temperature: 0.0
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     username: ${RABBITMQ_USER:oneleft}

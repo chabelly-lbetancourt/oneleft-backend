@@ -36,6 +36,8 @@
         <loki4j.version>2.1.0</loki4j.version>
         <bucket4j.version>8.20.0</bucket4j.version>
         <springdoc.version>3.1.1</springdoc.version>
+        <!-- LLM that turns a sentence into a plan (HU-010) -->
+        <spring-ai.version>2.0.2</spring-ai.version>
         <!-- S3 client of the profile photos (HU-020) -->
         <aws-sdk.version>2.55.10</aws-sdk.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
@@ -57,6 +59,13 @@
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

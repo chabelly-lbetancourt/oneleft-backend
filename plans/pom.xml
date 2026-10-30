@@ -58,6 +58,11 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
         </dependency>
+        <!-- A plan from a sentence (HU-010): Anthropic through Spring AI. Off until a key is configured -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-anthropic</artifactId>
+        </dependency>
         <!-- Weather forecast (HU-026): cached in Redis and protected with a circuit breaker -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
