@@ -49,7 +49,7 @@ public class JpaPlanRepository implements PlanRepository {
         var waitlist = plan.waitlist().stream().map(JpaPlanRepository::toEmbeddable).toList();
         var minimum = plan.minimum();
         var entity = new PlanEntity(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
-                plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
+                plan.activityOther(), plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
                 plan.occupied(), plan.level(), plan.status(), plan.publishedAt(), participants, waitlist,
                 plan.remindedAt(), minimum == null ? null : minimum.participants(),
                 minimum == null ? null : minimum.deadline(), minimum == null ? null : minimum.confirmedAt(),
@@ -104,7 +104,7 @@ public class JpaPlanRepository implements PlanRepository {
         var participants = e.getParticipants().stream().map(JpaPlanRepository::toParticipant).toList();
         var waitlist = e.getWaitlist().stream().map(JpaPlanRepository::toParticipant).toList();
         return new Plan(e.getId(), new Organizer(e.getOrganizerId(), e.getOrganizerName()), e.getActivity(),
-                e.getTitle(), e.getDescription(), meetingPoint, e.getStartsAt(), e.getSpots(), e.getOccupied(),
+                e.getActivityOther(), e.getTitle(), e.getDescription(), meetingPoint, e.getStartsAt(), e.getSpots(), e.getOccupied(),
                 e.getLevel(), e.getStatus(), e.getPublishedAt(), participants, waitlist, e.getRemindedAt(),
                 e.getMinParticipants() == null ? null
                         : new Minimum(e.getMinParticipants(), e.getMinimumDeadline(), e.getConfirmedAt()),

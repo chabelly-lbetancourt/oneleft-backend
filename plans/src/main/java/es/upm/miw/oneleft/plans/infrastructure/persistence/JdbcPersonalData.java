@@ -21,7 +21,7 @@ public class JdbcPersonalData implements PersonalData {
 
     static {
         EXPORT.put("plansOrganized",
-                "SELECT id, activity, title, description, meeting_point, starts_at, spots, occupied, level, status, "
+                "SELECT id, activity, activity_other, title, description, meeting_point, starts_at, spots, occupied, level, status, "
                 + "published_at FROM plan WHERE organizer_id = :userId ORDER BY starts_at");
         EXPORT.put("participations",
                 "SELECT plan_id, name, joined_at FROM plan_participant WHERE user_id = :userId");

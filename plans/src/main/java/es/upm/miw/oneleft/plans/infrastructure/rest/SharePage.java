@@ -19,17 +19,36 @@ import java.util.UUID;
 @Component
 class SharePage {
 
-    private static final Map<Activity, String[]> ACTIVITIES = Map.of(
-            Activity.PADEL, new String[]{"Pádel", "Padel"},
-            Activity.FOOTBALL, new String[]{"Fútbol", "Football"},
-            Activity.BASKETBALL, new String[]{"Baloncesto", "Basketball"},
-            Activity.TENNIS, new String[]{"Tenis", "Tennis"},
-            Activity.RUNNING, new String[]{"Running", "Running"},
-            Activity.CYCLING, new String[]{"Ciclismo", "Cycling"},
-            Activity.HIKING, new String[]{"Senderismo", "Hiking"},
-            Activity.BOARD_GAMES, new String[]{"Juegos de mesa", "Board games"},
-            Activity.CINEMA, new String[]{"Cine", "Cinema"},
-            Activity.CONCERTS, new String[]{"Conciertos", "Concerts"});
+    private static final Map<Activity, String[]> ACTIVITIES = Map.ofEntries(
+            Map.entry(Activity.PADEL, new String[]{"Pádel", "Padel"}),
+            Map.entry(Activity.FOOTBALL, new String[]{"Fútbol", "Football"}),
+            Map.entry(Activity.BASKETBALL, new String[]{"Baloncesto", "Basketball"}),
+            Map.entry(Activity.TENNIS, new String[]{"Tenis", "Tennis"}),
+            Map.entry(Activity.RUNNING, new String[]{"Running", "Running"}),
+            Map.entry(Activity.CYCLING, new String[]{"Ciclismo", "Cycling"}),
+            Map.entry(Activity.HIKING, new String[]{"Senderismo", "Hiking"}),
+            Map.entry(Activity.VOLLEYBALL, new String[]{"Vóley", "Volleyball"}),
+            Map.entry(Activity.SWIMMING, new String[]{"Natación", "Swimming"}),
+            Map.entry(Activity.CLIMBING, new String[]{"Escalada", "Climbing"}),
+            Map.entry(Activity.GYM, new String[]{"Gimnasio", "Gym"}),
+            Map.entry(Activity.YOGA, new String[]{"Yoga", "Yoga"}),
+            Map.entry(Activity.SKATING, new String[]{"Patinaje", "Skating"}),
+            Map.entry(Activity.PADEL_SURF, new String[]{"Pádel surf", "Padel surf"}),
+            Map.entry(Activity.PING_PONG, new String[]{"Pin-pon", "Ping-pong"}),
+            Map.entry(Activity.PETANQUE, new String[]{"Petanca", "Petanque"}),
+            Map.entry(Activity.CINEMA, new String[]{"Cine", "Cinema"}),
+            Map.entry(Activity.CONCERTS, new String[]{"Conciertos", "Concerts"}),
+            Map.entry(Activity.THEATER, new String[]{"Teatro", "Theatre"}),
+            Map.entry(Activity.MUSEUMS_EXHIBITIONS, new String[]{"Museos y exposiciones", "Museums and exhibitions"}),
+            Map.entry(Activity.BOARD_GAMES, new String[]{"Juegos de mesa", "Board games"}),
+            Map.entry(Activity.VIDEO_GAMES, new String[]{"Videojuegos", "Video games"}),
+            Map.entry(Activity.DANCING, new String[]{"Baile", "Dancing"}),
+            Map.entry(Activity.LANGUAGE_EXCHANGE, new String[]{"Intercambio de idiomas", "Language exchange"}),
+            Map.entry(Activity.ESCAPE_ROOM, new String[]{"Escape room", "Escape room"}),
+            Map.entry(Activity.TAPAS, new String[]{"Tapas", "Tapas"}),
+            Map.entry(Activity.MEAL, new String[]{"Comida o cena", "Meal"}),
+            Map.entry(Activity.COFFEE, new String[]{"Café", "Coffee"}),
+            Map.entry(Activity.OTHER, new String[]{"Otra actividad", "Other activity"}));
 
     private final ShareProperties properties;
 
@@ -40,7 +59,8 @@ class SharePage {
     /** Preview of a plan, in Spanish or English. */
     String of(Plan plan, Locale locale) {
         var english = isEnglish(locale);
-        var activity = ACTIVITIES.get(plan.activity())[english ? 1 : 0];
+        var activity = plan.activityOther() != null ? plan.activityOther()
+                : ACTIVITIES.get(plan.activity())[english ? 1 : 0];
         var time = DateTimeFormatter.ofPattern("HH:mm").withZone(properties.zone()).format(plan.startsAt());
         var spots = switch (plan.freeSpots()) {
             case 0 -> english ? "Full" : "Completo";

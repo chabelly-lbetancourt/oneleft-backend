@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.ActivityCategory;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.port.in.JoinPlanUseCase;
@@ -88,7 +89,7 @@ public class PlanController {
         var organizer = new Organizer(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name"));
         var plan = publishPlan.publish(new PublishPlanCommand(organizer, request.activity(), request.title(),
                 request.description(), request.meetingPoint().toDomain(), request.startsAt(), request.spots(),
-                request.level(), request.minParticipants(), request.minimumDeadline()));
+                request.level(), request.minParticipants(), request.minimumDeadline(), request.activityOther()));
         var location = ServletUriComponentsBuilder.fromCurrentRequest().path(PLAN).buildAndExpand(plan.id()).toUri();
         return ResponseEntity.created(location).body(PlanResponse.of(plan));
     }
@@ -191,9 +192,13 @@ public class PlanController {
                                            @RequestParam(defaultValue = "5000") int radius,
                                            @Parameter(description = "Activities; all of them if omitted")
                                            @RequestParam(name = "activity", required = false) List<Activity> activities,
+                                           @Parameter(description = "Categories of activities (HU-068), added to the "
+                                                   + "activities; all of them if neither is given")
+                                           @RequestParam(name = "category", required = false)
+                                           List<ActivityCategory> categories,
                                            @Parameter(description = "Starting within the next hours (1 to 12)")
                                            @RequestParam(defaultValue = "12") int withinHours) {
-        var search = search(jwt, latitude, longitude, radius, activities, withinHours);
+        var search = search(jwt, latitude, longitude, radius, activities, categories, withinHours);
         return queryPlans.nearbyPlans(search).stream().map(NearbyPlanResponse::of).toList();
     }
 
@@ -209,13 +214,26 @@ public class PlanController {
                                    @RequestParam double latitude, @RequestParam double longitude,
                                    @RequestParam(defaultValue = "5000") int radius,
                                    @RequestParam(name = "activity", required = false) List<Activity> activities,
+                                   @RequestParam(name = "category", required = false)
+                                   List<ActivityCategory> categories,
                                    @RequestParam(defaultValue = "12") int withinHours) {
-        return nearbySubscriptions.subscribe(search(jwt, latitude, longitude, radius, activities, withinHours));
+        return nearbySubscriptions.subscribe(search(jwt, latitude, longitude, radius, activities, categories,
+                withinHours));
     }
 
+    /** The activities asked for, plus every activity of the categories asked for (HU-068); none means all. */
+    @SuppressWarnings("java:S107")
     private static NearbySearch search(Jwt jwt, double latitude, double longitude, int radius,
-                                       List<Activity> activities, int withinHours) {
-        return new NearbySearch(latitude, longitude, radius, activities == null ? null : new HashSet<>(activities),
-                Duration.ofHours(withinHours), UUID.fromString(jwt.getSubject()));
+                                       List<Activity> activities, List<ActivityCategory> categories,
+                                       int withinHours) {
+        var wanted = new HashSet<Activity>();
+        if (activities != null) {
+            wanted.addAll(activities);
+        }
+        if (categories != null) {
+            wanted.addAll(ActivityCategory.activitiesOf(categories));
+        }
+        return new NearbySearch(latitude, longitude, radius, wanted, Duration.ofHours(withinHours),
+                UUID.fromString(jwt.getSubject()));
     }
 }

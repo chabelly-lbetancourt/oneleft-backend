@@ -7,5 +7,8 @@ public record Interest(Activity activity, Level level) {
         if (activity == null) {
             throw new ValidationException("availability.activity", "An interest needs an activity");
         }
+        if (activity == Activity.OTHER) {
+            throw new ValidationException("availability.activity", "«Other» cannot be an interest");
+        }
     }
 }

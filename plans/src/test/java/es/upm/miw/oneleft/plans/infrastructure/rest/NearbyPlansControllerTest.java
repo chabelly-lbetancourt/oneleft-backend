@@ -123,4 +123,58 @@ class NearbyPlansControllerTest {
         assertThat(stream.split("event:plan-published", -1)).hasSize(2);
         assertThat(stream).contains("\"activity\":\"PADEL\"").contains("\"distanceMeters\":556");
     }
+
+    @Test
+    void filtersByCategoryAndByActivityAndKeepsTheNameOfAnotherActivity() throws Exception {
+        var organizer = UUID.randomUUID().toString();
+        publish(organizer, "YOGA", 0, Duration.ofHours(1));
+        publish(organizer, "PADEL", 0.001, Duration.ofHours(1));
+        publish(organizer, "TAPAS", 0.002, Duration.ofHours(1));
+        var other = """
+                {"activity": "OTHER", "activityOther": "  Taller de cerámica ", "title": "Test plan",
+                 "startsAt": "%s", "spots": 2,
+                 "meetingPoint": {"name": "Test point", "latitude": %s, "longitude": %s}}"""
+                .formatted(Instant.now().plus(Duration.ofHours(1)), latitude + 0.003, longitude);
+        mockMvc.perform(post(PlanController.PLANS).with(user(organizer)).contentType(MediaType.APPLICATION_JSON)
+                        .content(other))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.activity").value("OTHER"))
+                .andExpect(jsonPath("$.activityOther").value("Taller de cerámica"));
+        var viewer = user(UUID.randomUUID().toString());
+
+        mockMvc.perform(get(nearbyUrl("&radius=2000&category=SPORT")).with(viewer))
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].plan.activity").value("YOGA"))
+                .andExpect(jsonPath("$[1].plan.activity").value("PADEL"));
+        // A category and an activity together are added
+        mockMvc.perform(get(nearbyUrl("&radius=2000&category=FOOD_DRINK&activity=YOGA")).with(viewer))
+                .andExpect(jsonPath("$", hasSize(2)));
+        mockMvc.perform(get(nearbyUrl("&radius=2000&category=OTHER")).with(viewer))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].plan.activityOther").value("Taller de cerámica"));
+        mockMvc.perform(get(nearbyUrl("&radius=2000")).with(viewer)).andExpect(jsonPath("$", hasSize(4)));
+    }
+
+    @Test
+    void anotherActivityWithoutANameIsRejectedAndAnyOtherActivityIgnoresIt() throws Exception {
+        var organizer = UUID.randomUUID().toString();
+        for (var invalid : new String[]{"", ", \"activityOther\": \" \"", ", \"activityOther\": \"" + "x".repeat(31)
+                + "\""}) {
+            var body = """
+                    {"activity": "OTHER", "title": "Test plan", "startsAt": "%s", "spots": 2,
+                     "meetingPoint": {"name": "Test point", "latitude": %s, "longitude": %s}%s}"""
+                    .formatted(Instant.now().plus(Duration.ofHours(1)), latitude, longitude, invalid);
+            mockMvc.perform(post(PlanController.PLANS).with(user(organizer)).contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest());
+        }
+        var padel = """
+                {"activity": "PADEL", "activityOther": "Cerámica", "title": "Test plan", "startsAt": "%s",
+                 "spots": 2, "meetingPoint": {"name": "Test point", "latitude": %s, "longitude": %s}}"""
+                .formatted(Instant.now().plus(Duration.ofHours(1)), latitude, longitude);
+        mockMvc.perform(post(PlanController.PLANS).with(user(organizer)).contentType(MediaType.APPLICATION_JSON)
+                        .content(padel))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.activityOther").doesNotExist());
+    }
 }

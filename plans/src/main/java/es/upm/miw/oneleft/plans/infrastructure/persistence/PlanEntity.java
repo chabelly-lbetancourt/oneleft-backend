@@ -42,6 +42,10 @@ public class PlanEntity {
     @Column(nullable = false, length = 30)
     private Activity activity;
 
+    /** The name of the activity when it is «other» (HU-068). */
+    @Column(name = "activity_other", length = 30)
+    private String activityOther;
+
     @Column(nullable = false, length = 80)
     private String title;
 
@@ -119,7 +123,8 @@ public class PlanEntity {
     }
 
     @SuppressWarnings("java:S107")
-    PlanEntity(UUID id, UUID organizerId, String organizerName, Activity activity, String title, String description,
+    PlanEntity(UUID id, UUID organizerId, String organizerName, Activity activity, String activityOther, String title,
+               String description,
                String meetingPoint, Point location, Instant startsAt, int spots, int occupied, Level level,
                PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants,
                List<ParticipantEmbeddable> waitlist, Instant remindedAt, Integer minParticipants,
@@ -128,6 +133,7 @@ public class PlanEntity {
         this.organizerId = organizerId;
         this.organizerName = organizerName;
         this.activity = activity;
+        this.activityOther = activityOther;
         this.title = title;
         this.description = description;
         this.meetingPoint = meetingPoint;
@@ -152,6 +158,7 @@ public class PlanEntity {
     UUID getOrganizerId() { return organizerId; }
     String getOrganizerName() { return organizerName; }
     Activity getActivity() { return activity; }
+    String getActivityOther() { return activityOther; }
     String getTitle() { return title; }
     String getDescription() { return description; }
     String getMeetingPoint() { return meetingPoint; }

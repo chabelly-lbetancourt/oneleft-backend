@@ -26,6 +26,9 @@ public record NotificationPreferences(UUID userId, boolean enabled, Double latit
 
     public NotificationPreferences {
         activities = activities == null || activities.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(activities));
+        if (activities.stream().anyMatch(activity -> !activity.isOfInterest())) {
+            throw new ValidationException("notifications.activity", "«Other» cannot be an interest of the notices");
+        }
         if (enabled && (latitude == null || longitude == null)) {
             throw new ValidationException("notifications.zoneRequired", "Notices need a zone to look for plans around");
         }

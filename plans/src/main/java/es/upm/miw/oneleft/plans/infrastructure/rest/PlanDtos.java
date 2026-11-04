@@ -49,6 +49,9 @@ public final class PlanDtos {
     @Schema(description = "Plan to publish")
     public record PublishPlanRequest(
             @NotNull @Schema(example = "PADEL") Activity activity,
+            @Size(max = Plan.MAX_ACTIVITY_OTHER_LENGTH)
+            @Schema(description = "The name of the activity, only (and required) when it is OTHER (HU-068)",
+                    example = "Taller de cerámica") String activityOther,
             @NotBlank @Size(min = Plan.MIN_TITLE_LENGTH, max = Plan.MAX_TITLE_LENGTH)
             @Schema(example = "Padel match, one player missing") String title,
             @Size(max = Plan.MAX_DESCRIPTION_LENGTH) @Schema(example = "Intermediate level, indoor court") String description,
@@ -120,7 +123,9 @@ public final class PlanDtos {
 
     @Schema(description = "Published plan")
     public record PlanResponse(UUID id, UUID organizerId, @Schema(example = "Ana") String organizerName,
-                               Activity activity, String title, String description, MeetingPointDto meetingPoint,
+                               Activity activity,
+                               @Schema(description = "The name of the activity when it is OTHER (HU-068)")
+                               String activityOther, String title, String description, MeetingPointDto meetingPoint,
                                Instant startsAt,
                                @Schema(description = "When it is over and its chat closes (HU-008)") Instant endsAt,
                                int spots, int occupied, int freeSpots, Level level, PlanStatus status, Instant publishedAt, List<ParticipantDto> participants,
@@ -140,7 +145,7 @@ public final class PlanDtos {
             var arrivals = viewer != null && plan.isMember(viewer)
                     ? plan.arrivals().stream().map(ArrivalDto::of).toList() : List.<ArrivalDto>of();
             return new PlanResponse(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
-                    plan.title(), plan.description(), MeetingPointDto.of(plan.meetingPoint()), plan.startsAt(),
+                    plan.activityOther(), plan.title(), plan.description(), MeetingPointDto.of(plan.meetingPoint()), plan.startsAt(),
                     plan.endsAt(), plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt(),
                     plan.participants().stream().map(ParticipantDto::of).toList(),
                     plan.waitlist().stream().map(ParticipantDto::of).toList(), MinimumDto.of(plan.minimum()),
@@ -153,7 +158,7 @@ public final class PlanDtos {
      * meeting point rounded to about 100 m, like in the nearby search.
      */
     @Schema(description = "Plan as seen without a session, from a shared link")
-    public record PublicPlanResponse(UUID id, Activity activity, String title, String description,
+    public record PublicPlanResponse(UUID id, Activity activity, String activityOther, String title, String description,
                                      MeetingPointDto meetingPoint, Instant startsAt, int spots, int occupied,
                                      int freeSpots, Level level, PlanStatus status, MinimumDto minimum) {
 
@@ -162,7 +167,8 @@ public final class PlanDtos {
 
         static PublicPlanResponse of(Plan plan) {
             var point = plan.meetingPoint();
-            return new PublicPlanResponse(plan.id(), plan.activity(), plan.title(), plan.description(),
+            return new PublicPlanResponse(plan.id(), plan.activity(), plan.activityOther(), plan.title(),
+                    plan.description(),
                     new MeetingPointDto(point.name(), Math.round(point.latitude() * PRECISION) / PRECISION,
                             Math.round(point.longitude() * PRECISION) / PRECISION),
                     plan.startsAt(), plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(),

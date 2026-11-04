@@ -80,7 +80,7 @@ class AnthropicPlanInterpreter implements PlanInterpreter {
 
     static String system(Instant now, ZoneId zone) {
         var local = now.atZone(zone).truncatedTo(ChronoUnit.MINUTES);
-        var activities = Arrays.stream(Activity.values()).map(Activity::name).collect(Collectors.joining(", "));
+        var activities = Arrays.stream(Activity.values()).filter(activity -> activity != Activity.OTHER).map(Activity::name).collect(Collectors.joining(", "));
         return SYSTEM.formatted(local.toLocalDate(), local.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH),
                 local.toLocalTime(), zone, activities, Plan.MAX_TITLE_LENGTH, Plan.MAX_DESCRIPTION_LENGTH);
     }
