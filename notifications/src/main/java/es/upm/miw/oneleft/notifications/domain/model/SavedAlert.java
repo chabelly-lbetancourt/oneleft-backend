@@ -47,6 +47,9 @@ public record SavedAlert(UUID id, UUID userId, String name, Set<Activity> activi
         }
         name = name.strip();
         activities = activities == null || activities.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(activities));
+        if (activities.stream().anyMatch(activity -> !activity.isOfInterest())) {
+            throw new ValidationException("alerts.activity", "«Other» cannot be an interest of an alert");
+        }
         days = days == null || days.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(days));
         latitude = Math.round(latitude * 100) / 100.0;
         longitude = Math.round(longitude * 100) / 100.0;

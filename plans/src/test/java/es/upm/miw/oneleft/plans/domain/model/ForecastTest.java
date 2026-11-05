@@ -18,8 +18,9 @@ class ForecastTest {
 
     @Test
     void onlyOutdoorActivitiesShowTheWeather() {
-        assertThat(Activity.values()).filteredOn(Activity::outdoor).containsExactly(Activity.PADEL,
-                Activity.FOOTBALL, Activity.BASKETBALL, Activity.TENNIS, Activity.RUNNING, Activity.CYCLING,
-                Activity.HIKING);
+        // The whole list of outdoor activities (HU-068) is checked in ActivityTest
+        assertThat(Activity.values()).filteredOn(Activity::outdoor).contains(Activity.PADEL, Activity.FOOTBALL,
+                Activity.BASKETBALL, Activity.TENNIS, Activity.RUNNING, Activity.CYCLING, Activity.HIKING)
+                .doesNotContain(Activity.BOARD_GAMES, Activity.CINEMA, Activity.CONCERTS, Activity.OTHER);
     }
 }

@@ -13,10 +13,18 @@ import java.time.Instant;
  */
 public record PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                                  MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
-                                 Integer minParticipants, Instant minimumDeadline) {
+                                 Integer minParticipants, Instant minimumDeadline, String activityOther) {
+
+    /** Without the name of an activity that is «other». */
+    public PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
+                              MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
+                              Integer minParticipants, Instant minimumDeadline) {
+        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, minParticipants,
+                minimumDeadline, null);
+    }
 
     public PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                               MeetingPoint meetingPoint, Instant startsAt, int spots, Level level) {
-        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, null, null);
+        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, null, null, null);
     }
 }

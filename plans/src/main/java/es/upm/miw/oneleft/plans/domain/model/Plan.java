@@ -22,6 +22,7 @@ public class Plan {
     public static final int MAX_TITLE_LENGTH = 80;
     public static final int MAX_DESCRIPTION_LENGTH = 280;
     public static final int MAX_SPOTS = 20;
+    public static final int MAX_ACTIVITY_OTHER_LENGTH = 30;
     /** People who can wait for a spot of a full plan (HU-023). */
     public static final int MAX_WAITLIST = 10;
     /** Plans have no end time: they are over this long after they start (HU-007, «in progress» → «finished»). */
@@ -32,6 +33,8 @@ public class Plan {
     private final UUID id;
     private final Organizer organizer;
     private final Activity activity;
+    /** The name of the activity when it is {@link Activity#OTHER} (HU-068); null for any other. */
+    private final String activityOther;
     private final String title;
     private final String description;
     private final MeetingPoint meetingPoint;
@@ -96,9 +99,18 @@ public class Plan {
                 publishedAt, participants, waitlist, remindedAt, minimum, List.of(), version);
     }
 
-    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    @SuppressWarnings("java:S107")
     public Plan(UUID id, Organizer organizer, Activity activity, String title, String description,
                 MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
+                Instant remindedAt, Minimum minimum, List<Arrival> arrivals, long version) {
+        this(id, organizer, activity, null, title, description, meetingPoint, startsAt, spots, occupied, level, status,
+                publishedAt, participants, waitlist, remindedAt, minimum, arrivals, version);
+    }
+
+    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    public Plan(UUID id, Organizer organizer, Activity activity, String activityOther, String title,
+                String description, MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
                 PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
                 Instant remindedAt, Minimum minimum, List<Arrival> arrivals, long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
@@ -130,6 +142,7 @@ public class Plan {
         this.id = id;
         this.organizer = organizer;
         this.activity = activity;
+        this.activityOther = activityOther(activity, activityOther);
         this.title = title.strip();
         this.description = description == null || description.isBlank() ? null : description.strip();
         this.meetingPoint = meetingPoint;
@@ -145,6 +158,23 @@ public class Plan {
         this.minimum = minimum;
         this.arrivals = arrivals == null ? List.of() : List.copyOf(arrivals);
         this.version = version;
+    }
+
+    /**
+     * The name of an activity that is «other» (HU-068): required, at most {@link #MAX_ACTIVITY_OTHER_LENGTH}
+     * characters and no control characters. For any other activity it is not kept. Moderation of the text (HU-011)
+     * is still to be plugged in here.
+     */
+    private static String activityOther(Activity activity, String text) {
+        if (activity != Activity.OTHER) {
+            return null;
+        }
+        var name = text == null ? "" : text.strip();
+        if (name.isEmpty() || name.length() > MAX_ACTIVITY_OTHER_LENGTH || name.chars().anyMatch(Character::isISOControl)) {
+            throw new ValidationException("plan.activityOther", "«Other» needs a name of up to "
+                    + MAX_ACTIVITY_OTHER_LENGTH + " characters");
+        }
+        return name;
     }
 
     /**
@@ -167,6 +197,15 @@ public class Plan {
     public static Plan publish(Organizer organizer, Activity activity, String title, String description,
                                MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
                                Integer minParticipants, Instant minimumDeadline, Clock clock) {
+        return publish(organizer, activity, null, title, description, meetingPoint, startsAt, spots, level,
+                minParticipants, minimumDeadline, clock);
+    }
+
+    /** The same, for an activity that may be «other» (HU-068) and then carries its own name. */
+    @SuppressWarnings("java:S107")
+    public static Plan publish(Organizer organizer, Activity activity, String activityOther, String title,
+                               String description, MeetingPoint meetingPoint, Instant startsAt, int spots,
+                               Level level, Integer minParticipants, Instant minimumDeadline, Clock clock) {
         var now = clock.instant();
         if (startsAt == null || startsAt.isBefore(now.plus(MIN_LEAD_TIME))) {
             throw new ValidationException("plan.startsTooSoon", "The plan must start in at least "
@@ -178,9 +217,9 @@ public class Plan {
         }
         // A plan published with less than the reminder lead needs no reminder: everyone is just finding out about it
         var remindedAt = startsAt.minus(REMINDER_LEAD).isAfter(now) ? null : now;
-        return new Plan(UUID.randomUUID(), organizer, activity, title, description, meetingPoint, startsAt, spots,
-                0, level, PlanStatus.OPEN, now, List.of(), List.of(), remindedAt,
-                minimum(minParticipants, minimumDeadline, now), 0);
+        return new Plan(UUID.randomUUID(), organizer, activity, activityOther, title, description, meetingPoint,
+                startsAt, spots, 0, level, PlanStatus.OPEN, now, List.of(), List.of(), remindedAt,
+                minimum(minParticipants, minimumDeadline, now), List.of(), 0);
     }
 
     private static Minimum minimum(Integer participants, Instant deadline, Instant now) {
@@ -494,9 +533,9 @@ public class Plan {
     private Plan with(int newOccupied, PlanStatus newStatus, List<Participant> newParticipants,
                       List<Participant> newWaitlist, Instant newRemindedAt, Minimum newMinimum,
                       List<Arrival> newArrivals) {
-        return new Plan(id, organizer, activity, title, description, meetingPoint, startsAt, spots, newOccupied, level,
-                newStatus, publishedAt, newParticipants, newWaitlist, newRemindedAt, newMinimum, newArrivals,
-                version);
+        return new Plan(id, organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots,
+                newOccupied, level, newStatus, publishedAt, newParticipants, newWaitlist, newRemindedAt, newMinimum,
+                newArrivals, version);
     }
 
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */
@@ -542,6 +581,11 @@ public class Plan {
 
     public Organizer organizer() {
         return organizer;
+    }
+
+    /** The name of the activity when it is «other», or null. */
+    public String activityOther() {
+        return activityOther;
     }
 
     public Activity activity() {

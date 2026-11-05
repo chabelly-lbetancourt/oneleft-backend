@@ -66,10 +66,12 @@ class ProfileTest {
 
     @Test
     void atMostTenHobbies() {
-        var all = Arrays.stream(Activity.values()).map(a -> new Hobby(a, Level.INTERMEDIATE)).toList();
+        // The catalog has more activities than hobbies a profile can have (HU-068): the first ten, and one more
+        var all = Arrays.stream(Activity.values()).limit(Profile.MAX_HOBBIES)
+                .map(a -> new Hobby(a, Level.INTERMEDIATE)).toList();
         assertThat(new Profile(ID, "Ana", null, all).hobbies()).hasSize(Profile.MAX_HOBBIES);
         var eleven = new java.util.ArrayList<>(all);
-        eleven.add(new Hobby(Activity.PADEL, Level.ADVANCED));
+        eleven.add(new Hobby(Activity.values()[Profile.MAX_HOBBIES], Level.ADVANCED));
         assertThatThrownBy(() -> new Profile(ID, "Ana", null, eleven)).isInstanceOf(IllegalArgumentException.class);
     }
 

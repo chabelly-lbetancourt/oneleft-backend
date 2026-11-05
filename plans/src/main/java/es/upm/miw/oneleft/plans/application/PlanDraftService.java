@@ -95,7 +95,9 @@ public class PlanDraftService implements DraftPlanUseCase {
             return null;
         }
         try {
-            return Activity.valueOf(value.strip().toUpperCase(Locale.ROOT));
+            var activity = Activity.valueOf(value.strip().toUpperCase(Locale.ROOT));
+            // «Other» needs a name the draft does not have: the person chooses it in the form
+            return activity == Activity.OTHER ? null : activity;
         } catch (IllegalArgumentException e) {
             return null;
         }

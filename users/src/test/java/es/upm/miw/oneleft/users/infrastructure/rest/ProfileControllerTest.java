@@ -10,7 +10,9 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -129,8 +131,11 @@ class ProfileControllerTest {
     void catalogListsActivitiesAndLevels() throws Exception {
         mockMvc.perform(get(BASE + ProfileController.ACTIVITIES).with(user(UUID.randomUUID().toString(), "A")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.activities", hasSize(10)))
+                // The catalog of HU-068, without «other», which only a plan can be
+                .andExpect(jsonPath("$.activities", hasSize(28)))
                 .andExpect(jsonPath("$.activities[0]").value("PADEL"))
+                .andExpect(jsonPath("$.activities", hasItem("YOGA")))
+                .andExpect(jsonPath("$.activities", not(hasItem("OTHER"))))
                 .andExpect(jsonPath("$.levels", hasSize(3)));
     }
 }

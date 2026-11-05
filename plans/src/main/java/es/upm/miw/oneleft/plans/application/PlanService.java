@@ -35,9 +35,9 @@ public class PlanService implements PublishPlanUseCase, QueryPlansUseCase {
     @Override
     @Transactional
     public Plan publish(PublishPlanCommand command) {
-        var plan = plans.save(Plan.publish(command.organizer(), command.activity(), command.title(),
-                command.description(), command.meetingPoint(), command.startsAt(), command.spots(), command.level(),
-                command.minParticipants(), command.minimumDeadline(), clock));
+        var plan = plans.save(Plan.publish(command.organizer(), command.activity(), command.activityOther(),
+                command.title(), command.description(), command.meetingPoint(), command.startsAt(), command.spots(),
+                command.level(), command.minParticipants(), command.minimumDeadline(), clock));
         events.publish(plan.publishedEvent());
         return plan;
     }
