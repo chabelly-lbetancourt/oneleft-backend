@@ -60,11 +60,11 @@ public class DemographicsController {
     /** What the plans service asks to decide whether I fit a plan: gender and age, never the date (HU-070). */
     @GetMapping("/audience")
     @Operation(summary = "What a plan needs to know about me (HU-070)",
-            description = "Gender and age in years: the minimum to decide whether I fit the audience of a plan. 404 "
+            description = "Gender, age in years and age band: the minimum to decide whether I fit the audience of a plan. 404 "
                     + "while they are not set.")
     public AudienceResponse audience(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return demographics.mine(UUID.fromString(jwt.getSubject()))
-                .map(found -> new AudienceResponse(found.gender(), found.age(clock)))
+                .map(found -> new AudienceResponse(found.gender(), found.age(clock), found.ageBand(clock).label()))
                 .orElseThrow(DemographicsNotSetException::new);
     }
 
@@ -94,7 +94,7 @@ public class DemographicsController {
     }
 
     @Schema(description = "Gender and age, for the plans service")
-    public record AudienceResponse(Gender gender, int age) {
+    public record AudienceResponse(Gender gender, int age, String ageBand) {
     }
 
     /** Nothing set yet. */

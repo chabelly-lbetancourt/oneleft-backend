@@ -88,4 +88,44 @@ class NearbySearchTest {
         assertThat(search.matches(event(Activity.PADEL, other, LAT + 0.02, Duration.ofHours(1), 1), NOW))
                 .as("2.2 km away").isFalse();
     }
+
+    private static PlanPublished eventFor(Audience audience) {
+        return new PlanPublished(UUID.randomUUID(), UUID.randomUUID(), Activity.PADEL, "Plan", "Place", LAT, LON,
+                NOW.plus(Duration.ofHours(2)), 1, null, NOW, audience);
+    }
+
+    private static NearbySearch searchBy(String gender, Integer age) {
+        return new NearbySearch(LAT, LON, 2_000, Set.of(), null, ME, gender, age);
+    }
+
+    @Test
+    void showsEverythingForEveryoneEvenIfTheViewerIsUnknown() {
+        assertThat(search(Set.of(), null).matches(eventFor(Audience.EVERYONE), NOW)).isTrue();
+        assertThat(search(Set.of(), null).matches(eventFor(null), NOW)).isTrue();
+    }
+
+    @Test
+    void leavesOutThePlansOfAnotherGenderOrOutsideTheAgesInTheRealTimeSearch() {
+        var women = new Audience(AudienceGender.WOMAN, 25, 40);
+
+        assertThat(searchBy("WOMAN", 30).matches(eventFor(women), NOW)).isTrue();
+        assertThat(searchBy("MAN", 30).matches(eventFor(women), NOW)).isFalse();
+        assertThat(searchBy("NON_BINARY", 30).matches(eventFor(women), NOW)).isFalse();
+        assertThat(searchBy("WOMAN", 24).matches(eventFor(women), NOW)).isFalse();
+        assertThat(searchBy("WOMAN", 41).matches(eventFor(women), NOW)).isFalse();
+    }
+
+    @Test
+    void showsOnlyThePlansForEveryoneToWhoIsUnknown() {
+        assertThat(search(Set.of(), null).matches(eventFor(new Audience(AudienceGender.MAN, null, null)), NOW))
+                .isFalse();
+        assertThat(search(Set.of(), null).matches(eventFor(new Audience(AudienceGender.ALL, 30, null)), NOW))
+                .isFalse();
+    }
+
+    @Test
+    void appliesAnAgeLimitWithoutGenderToAnyGender() {
+        assertThat(searchBy("PREFER_NOT_TO_SAY", 30).matches(eventFor(new Audience(AudienceGender.ALL, 25, 40)), NOW))
+                .isTrue();
+    }
 }

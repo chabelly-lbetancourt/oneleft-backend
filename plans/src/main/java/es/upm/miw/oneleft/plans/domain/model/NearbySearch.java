@@ -77,6 +77,22 @@ public record NearbySearch(double latitude, double longitude, int radiusMeters, 
                 && event.freeSpots() > 0
                 && event.startsAt().isAfter(now)
                 && !event.startsAt().isAfter(until(now))
-                && distanceTo(event.latitude(), event.longitude()) <= radiusMeters;
+                && distanceTo(event.latitude(), event.longitude()) <= radiusMeters
+                && isForViewer(event.audience());
+    }
+
+    /**
+     * Whether the plan is for who searches (HU-070), as the database query decides: a plan for everyone always is;
+     * otherwise the gender must match and, for an age limit, the age must be known and inside it. Who is unknown
+     * only sees the plans for everyone.
+     */
+    boolean isForViewer(Audience audience) {
+        if (audience.isEveryone()) {
+            return true;
+        }
+        var genderFits = audience.gender() == AudienceGender.ALL || audience.gender().name().equals(viewerGender);
+        var minFits = audience.minAge() == null || viewerAge != null && viewerAge >= audience.minAge();
+        var maxFits = audience.maxAge() == null || viewerAge != null && viewerAge <= audience.maxAge();
+        return genderFits && minFits && maxFits;
     }
 }

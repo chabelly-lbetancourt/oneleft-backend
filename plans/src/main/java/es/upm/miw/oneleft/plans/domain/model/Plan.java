@@ -359,6 +359,11 @@ public class Plan {
      * ask again; whoever withdrew can.
      */
     public Plan request(UUID userId, String name, String message, Clock clock) {
+        return request(userId, name, message, null, clock);
+    }
+
+    /** The same, with the age band of the person for the organizer to see (HU-070). */
+    public Plan request(UUID userId, String name, String message, String ageBand, Clock clock) {
         var now = clock.instant();
         if (!requiresApproval) {
             throw new JoinRejectedException("plan.approvalNotRequired", "This plan is joined directly");
@@ -386,7 +391,7 @@ public class Plan {
             throw new JoinRejectedException("plan.requestRejected", "Your request for this plan was rejected");
         }
         var all = new ArrayList<>(requests.stream().filter(request -> !request.userId().equals(userId)).toList());
-        all.add(JoinRequest.pending(userId, name, message, now));
+        all.add(JoinRequest.pending(userId, name, message, ageBand, now));
         return withRequests(all);
     }
 
@@ -754,7 +759,7 @@ public class Plan {
     public PlanPublished publishedEvent() {
         return new PlanPublished(id, organizer.id(), activity, title, meetingPoint.name(), meetingPoint.latitude(),
                 meetingPoint.longitude(),
-                startsAt, freeSpots(), level, publishedAt);
+                startsAt, freeSpots(), level, publishedAt, audience);
     }
 
     public UUID id() {

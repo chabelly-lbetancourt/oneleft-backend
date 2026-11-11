@@ -36,7 +36,7 @@ class RestAudienceDirectory implements AudienceDirectory {
             if (audience == null || audience.gender() == null) {
                 throw new RestClientException("Empty answer");
             }
-            return Optional.of(new AudienceMember(audience.gender(), audience.age()));
+            return Optional.of(new AudienceMember(audience.gender(), audience.age(), audience.ageBand()));
         } catch (HttpClientErrorException error) {
             if (error.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
@@ -54,7 +54,7 @@ class RestAudienceDirectory implements AudienceDirectory {
         throw new AudienceUnavailableException("The users service is only asked with a Keycloak token", null);
     }
 
-    /** What the users service answers: gender and age in years. */
-    record Audience(PersonGender gender, int age) {
+    /** What the users service answers: gender, age in years and age band. */
+    record Audience(PersonGender gender, int age, String ageBand) {
     }
 }
