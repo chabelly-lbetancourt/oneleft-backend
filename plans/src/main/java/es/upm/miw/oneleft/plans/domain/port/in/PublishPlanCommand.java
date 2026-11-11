@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.domain.port.in;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.Audience;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
@@ -14,14 +15,14 @@ import java.time.Instant;
 public record PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                                  MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
                                  Integer minParticipants, Instant minimumDeadline, String activityOther,
-                                 boolean requiresApproval) {
+                                 boolean requiresApproval, Audience audience) {
 
     /** Without the choice of who comes (HU-069): everyone joins directly. */
     public PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                               MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
                               Integer minParticipants, Instant minimumDeadline, String activityOther) {
         this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, minParticipants,
-                minimumDeadline, activityOther, false);
+                minimumDeadline, activityOther, false, Audience.EVERYONE);
     }
 
     /** Without the name of an activity that is «other». */
@@ -29,11 +30,11 @@ public record PublishPlanCommand(Organizer organizer, Activity activity, String 
                               MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
                               Integer minParticipants, Instant minimumDeadline) {
         this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, minParticipants,
-                minimumDeadline, null, false);
+                minimumDeadline, null, false, Audience.EVERYONE);
     }
 
     public PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                               MeetingPoint meetingPoint, Instant startsAt, int spots, Level level) {
-        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, null, null, null, false);
+        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, null, null, null, false, Audience.EVERYONE);
     }
 }

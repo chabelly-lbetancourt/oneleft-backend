@@ -54,6 +54,9 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
               AND p.starts_at > :now AND p.starts_at <= :until
               AND p.activity IN (:activities)
               AND p.organizer_id <> :requester
+              AND (p.audience_gender = 'ALL' OR p.audience_gender = CAST(:viewerGender AS varchar))
+              AND (p.min_age IS NULL OR p.min_age <= CAST(:viewerAge AS integer))
+              AND (p.max_age IS NULL OR p.max_age >= CAST(:viewerAge AS integer))
               AND NOT EXISTS (SELECT 1 FROM block b
                               WHERE (b.blocker_id = p.organizer_id AND b.blocked_id = :requester)
                                  OR (b.blocker_id = :requester AND b.blocked_id = p.organizer_id))
@@ -66,7 +69,9 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
                                     @Param("radius") double radiusMeters,
                                     @Param("activities") Collection<String> activities,
                                     @Param("requester") UUID requester, @Param("now") Instant now,
-                                    @Param("until") Instant until, @Param("limit") int limit);
+                                    @Param("until") Instant until, @Param("limit") int limit,
+                                    @Param("viewerGender") String viewerGender,
+                                    @Param("viewerAge") Integer viewerAge);
 
     /** Plans not cancelled whose check-in has closed and whose attendance is still open, the oldest first. */
     @NativeQuery("""

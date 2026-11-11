@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.AudienceGender;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import jakarta.persistence.CollectionTable;
@@ -118,6 +119,17 @@ public class PlanEntity {
     @Column(name = "requires_approval", nullable = false)
     private boolean requiresApproval;
 
+    /** For whom the plan is (HU-070): gender ALL, WOMAN or MAN, and optional ages */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "audience_gender", nullable = false, length = 5)
+    private AudienceGender audienceGender = AudienceGender.ALL;
+
+    @Column(name = "min_age")
+    private Integer minAge;
+
+    @Column(name = "max_age")
+    private Integer maxAge;
+
     /** Requests for a spot (HU-069) */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "plan_join_request", joinColumns = @JoinColumn(name = "plan_id"))
@@ -141,7 +153,8 @@ public class PlanEntity {
                PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants,
                List<ParticipantEmbeddable> waitlist, Instant remindedAt, Integer minParticipants,
                Instant minimumDeadline, Instant confirmedAt, List<ArrivalEmbeddable> arrivals, boolean requiresApproval,
-               List<JoinRequestEmbeddable> requests, long version) {
+               List<JoinRequestEmbeddable> requests, AudienceGender audienceGender, Integer minAge, Integer maxAge,
+               long version) {
         this.id = id;
         this.organizerId = organizerId;
         this.organizerName = organizerName;
@@ -166,6 +179,9 @@ public class PlanEntity {
         this.arrivals = new ArrayList<>(arrivals);
         this.requiresApproval = requiresApproval;
         this.requests = new ArrayList<>(requests);
+        this.audienceGender = audienceGender;
+        this.minAge = minAge;
+        this.maxAge = maxAge;
         this.version = version;
     }
 
@@ -188,6 +204,9 @@ public class PlanEntity {
     List<ParticipantEmbeddable> getWaitlist() { return waitlist; }
     boolean isRequiresApproval() { return requiresApproval; }
     List<JoinRequestEmbeddable> getRequests() { return requests; }
+    AudienceGender getAudienceGender() { return audienceGender; }
+    Integer getMinAge() { return minAge; }
+    Integer getMaxAge() { return maxAge; }
     Instant getRemindedAt() { return remindedAt; }
     Integer getMinParticipants() { return minParticipants; }
     Instant getMinimumDeadline() { return minimumDeadline; }

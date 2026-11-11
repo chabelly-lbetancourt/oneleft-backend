@@ -1,9 +1,11 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.Audience;
 import es.upm.miw.oneleft.plans.domain.model.ActivityCategory;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
+import es.upm.miw.oneleft.plans.domain.port.in.AudienceQueryUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.JoinPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.ParticipationUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
@@ -58,6 +60,7 @@ public class PlanController {
     public static final String WAITLIST = PLAN + "/waitlist";
     public static final String EVENTS_STREAM = "/events/stream";
 
+    private final AudienceQueryUseCase audiences;
     private final PublishPlanUseCase publishPlan;
     private final QueryPlansUseCase queryPlans;
     private final JoinPlanUseCase joinPlan;
@@ -67,7 +70,8 @@ public class PlanController {
 
     public PlanController(PublishPlanUseCase publishPlan, QueryPlansUseCase queryPlans, JoinPlanUseCase joinPlan,
                           ParticipationUseCase participation, NearbyPlanSubscriptions nearbySubscriptions,
-                          UserEventSubscriptions userEvents) {
+                          UserEventSubscriptions userEvents, AudienceQueryUseCase audiences) {
+        this.audiences = audiences;
         this.publishPlan = publishPlan;
         this.queryPlans = queryPlans;
         this.joinPlan = joinPlan;
@@ -90,7 +94,8 @@ public class PlanController {
         var plan = publishPlan.publish(new PublishPlanCommand(organizer, request.activity(), request.title(),
                 request.description(), request.meetingPoint().toDomain(), request.startsAt(), request.spots(),
                 request.level(), request.minParticipants(), request.minimumDeadline(), request.activityOther(),
-                Boolean.TRUE.equals(request.chooseCompanion())));
+                Boolean.TRUE.equals(request.chooseCompanion()),
+                request.audience() == null ? Audience.EVERYONE : request.audience().toDomain()));
         var location = ServletUriComponentsBuilder.fromCurrentRequest().path(PLAN).buildAndExpand(plan.id()).toUri();
         return ResponseEntity.created(location).body(PlanResponse.of(plan));
     }
@@ -224,7 +229,7 @@ public class PlanController {
 
     /** The activities asked for, plus every activity of the categories asked for (HU-068); none means all. */
     @SuppressWarnings("java:S107")
-    private static NearbySearch search(Jwt jwt, double latitude, double longitude, int radius,
+    private NearbySearch search(Jwt jwt, double latitude, double longitude, int radius,
                                        List<Activity> activities, List<ActivityCategory> categories,
                                        int withinHours) {
         var wanted = new HashSet<Activity>();
@@ -234,7 +239,9 @@ public class PlanController {
         if (categories != null) {
             wanted.addAll(ActivityCategory.activitiesOf(categories));
         }
-        return new NearbySearch(latitude, longitude, radius, wanted, Duration.ofHours(withinHours),
-                UUID.fromString(jwt.getSubject()));
+        var requester = UUID.fromString(jwt.getSubject());
+        var search = new NearbySearch(latitude, longitude, radius, wanted, Duration.ofHours(withinHours), requester);
+        // The plans that are not for the person are left out (HU-070); if they cannot be known, only those for everyone
+        return audiences.viewer(requester).map(search::forViewer).orElse(search);
     }
 }

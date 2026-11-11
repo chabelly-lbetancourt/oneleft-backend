@@ -38,7 +38,7 @@ public class PlanService implements PublishPlanUseCase, QueryPlansUseCase {
         var plan = plans.save(Plan.publish(command.organizer(), command.activity(), command.activityOther(),
                 command.title(), command.description(), command.meetingPoint(), command.startsAt(), command.spots(),
                 command.level(), command.minParticipants(), command.minimumDeadline(), command.requiresApproval(),
-                clock));
+                command.audience(), clock));
         events.publish(plan.publishedEvent());
         return plan;
     }

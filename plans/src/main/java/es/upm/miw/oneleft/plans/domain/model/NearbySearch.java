@@ -11,9 +11,23 @@ import java.util.UUID;
  *
  * @param activities activities of interest; empty means all of them
  * @param requesterId who is searching, or {@code null} if unknown
+ * @param viewerGender gender of who searches, or {@code null} if unknown: without it only the plans for everyone
+ * @param viewerAge age of who searches, or {@code null} if unknown: without it only the plans with no age range
  */
 public record NearbySearch(double latitude, double longitude, int radiusMeters, Set<Activity> activities,
-                           Duration startsWithin, UUID requesterId) {
+                           Duration startsWithin, UUID requesterId, String viewerGender, Integer viewerAge) {
+
+    /** A search that does not know who the viewer is: only the plans for everyone (HU-070). */
+    public NearbySearch(double latitude, double longitude, int radiusMeters, Set<Activity> activities,
+                        Duration startsWithin, UUID requesterId) {
+        this(latitude, longitude, radiusMeters, activities, startsWithin, requesterId, null, null);
+    }
+
+    /** The same search for a person with this gender and age: the plans that are not for them are left out (HU-070). */
+    public NearbySearch forViewer(AudienceMember viewer) {
+        return new NearbySearch(latitude, longitude, radiusMeters, activities, startsWithin, requesterId,
+                viewer.gender().name(), viewer.age());
+    }
 
     public static final int MIN_RADIUS_METERS = 500;
     public static final int MAX_RADIUS_METERS = 25_000;

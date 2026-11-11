@@ -57,6 +57,8 @@ public class Plan {
     private final boolean requiresApproval;
     /** Requests for a spot, oldest first (HU-069); only for plans that require approval. */
     private final List<JoinRequest> requests;
+    /** For whom the plan is, by gender and age (HU-070). */
+    private final Audience audience;
     /** Concurrency token of the persisted aggregate (optimistic locking). */
     private final long version;
 
@@ -128,6 +130,17 @@ public class Plan {
                 PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
                 Instant remindedAt, Minimum minimum, List<Arrival> arrivals, boolean requiresApproval,
                 List<JoinRequest> requests, long version) {
+        this(id, organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots, occupied,
+                level, status, publishedAt, participants, waitlist, remindedAt, minimum, arrivals, requiresApproval,
+                requests, Audience.EVERYONE, version);
+    }
+
+    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    public Plan(UUID id, Organizer organizer, Activity activity, String activityOther, String title,
+                String description, MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
+                Instant remindedAt, Minimum minimum, List<Arrival> arrivals, boolean requiresApproval,
+                List<JoinRequest> requests, Audience audience, long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
                 || status == null || publishedAt == null) {
             throw new ValidationException("plan.missingData", "Required plan data is missing");
@@ -174,6 +187,7 @@ public class Plan {
         this.arrivals = arrivals == null ? List.of() : List.copyOf(arrivals);
         this.requiresApproval = requiresApproval;
         this.requests = requests == null ? List.of() : List.copyOf(requests);
+        this.audience = audience == null ? Audience.EVERYONE : audience;
         this.version = version;
     }
 
@@ -233,6 +247,16 @@ public class Plan {
                                String description, MeetingPoint meetingPoint, Instant startsAt, int spots,
                                Level level, Integer minParticipants, Instant minimumDeadline,
                                boolean requiresApproval, Clock clock) {
+        return publish(organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots, level,
+                minParticipants, minimumDeadline, requiresApproval, Audience.EVERYONE, clock);
+    }
+
+    /** The same, for a plan that is for some people only (HU-070). */
+    @SuppressWarnings("java:S107")
+    public static Plan publish(Organizer organizer, Activity activity, String activityOther, String title,
+                               String description, MeetingPoint meetingPoint, Instant startsAt, int spots,
+                               Level level, Integer minParticipants, Instant minimumDeadline,
+                               boolean requiresApproval, Audience audience, Clock clock) {
         var now = clock.instant();
         if (startsAt == null || startsAt.isBefore(now.plus(MIN_LEAD_TIME))) {
             throw new ValidationException("plan.startsTooSoon", "The plan must start in at least "
@@ -246,7 +270,7 @@ public class Plan {
         var remindedAt = startsAt.minus(REMINDER_LEAD).isAfter(now) ? null : now;
         return new Plan(UUID.randomUUID(), organizer, activity, activityOther, title, description, meetingPoint,
                 startsAt, spots, 0, level, PlanStatus.OPEN, now, List.of(), List.of(), remindedAt,
-                minimum(minParticipants, minimumDeadline, now), List.of(), requiresApproval, List.of(), 0);
+                minimum(minParticipants, minimumDeadline, now), List.of(), requiresApproval, List.of(), audience, 0);
     }
 
     private static Minimum minimum(Integer participants, Instant deadline, Instant now) {
@@ -434,6 +458,10 @@ public class Plan {
     /** The status of a request now: a pending one expires when the plan starts (HU-069). */
     public RequestStatus statusOf(JoinRequest request, Instant now) {
         return request.isPending() && !startsAt.isAfter(now) ? RequestStatus.EXPIRED : request.status();
+    }
+
+    public Audience audience() {
+        return audience;
     }
 
     public boolean requiresApproval() {
@@ -682,14 +710,14 @@ public class Plan {
                       List<Arrival> newArrivals) {
         return new Plan(id, organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots,
                 newOccupied, level, newStatus, publishedAt, newParticipants, newWaitlist, newRemindedAt, newMinimum,
-                newArrivals, requiresApproval, requests, version);
+                newArrivals, requiresApproval, requests, audience, version);
     }
 
     /** Copy of this plan with other requests; the rest stays. */
     private Plan withRequests(List<JoinRequest> newRequests) {
         return new Plan(id, organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots,
                 occupied, level, status, publishedAt, participants, waitlist, remindedAt, minimum, arrivals,
-                requiresApproval, newRequests, version);
+                requiresApproval, newRequests, audience, version);
     }
 
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */

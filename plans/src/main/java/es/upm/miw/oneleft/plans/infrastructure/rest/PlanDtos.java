@@ -1,6 +1,8 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.Audience;
+import es.upm.miw.oneleft.plans.domain.model.AudienceGender;
 import es.upm.miw.oneleft.plans.domain.model.Arrival;
 import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
 import es.upm.miw.oneleft.plans.domain.model.CheckIn;
@@ -46,6 +48,20 @@ public final class PlanDtos {
         }
     }
 
+    @Schema(description = "For whom a plan is (HU-070): by gender and, optionally, by age")
+    public record AudienceDto(@Schema(example = "ALL") AudienceGender gender,
+                              @Min(Audience.MIN_AGE) @Max(Audience.MAX_AGE) @Schema(example = "25") Integer minAge,
+                              @Min(Audience.MIN_AGE) @Max(Audience.MAX_AGE) @Schema(example = "40") Integer maxAge) {
+
+        static AudienceDto of(Audience audience) {
+            return new AudienceDto(audience.gender(), audience.minAge(), audience.maxAge());
+        }
+
+        Audience toDomain() {
+            return new Audience(gender, minAge, maxAge);
+        }
+    }
+
     @Schema(description = "Plan to publish")
     public record PublishPlanRequest(
             @NotNull @Schema(example = "PADEL") Activity activity,
@@ -65,6 +81,7 @@ public final class PlanDtos {
             Integer minParticipants,
             @Schema(description = "The organizer chooses who comes (HU-069): people ask for a spot and the organizer "
                     + "decides. False if absent") Boolean chooseCompanion,
+            @Valid @Schema(description = "For whom the plan is (HU-070): everyone if absent") AudienceDto audience,
             @Schema(description = "Deadline of the minimum: at least 5 minutes from now and not after the start",
                     example = "2026-09-28T16:30:00Z") Instant minimumDeadline) {
     }
@@ -139,7 +156,8 @@ public final class PlanDtos {
                                @Schema(description = "The organizer chooses who comes (HU-069)")
                                boolean requiresApproval,
                                @Schema(description = "My request for a spot, if I asked (HU-069)")
-                               JoinRequestController.JoinRequestDto myRequest) {
+                               JoinRequestController.JoinRequestDto myRequest,
+                               @Schema(description = "For whom the plan is (HU-070)") AudienceDto audience) {
 
         /** The plan without the statuses of arrival: for anyone, such as in the nearby search. */
         static PlanResponse of(Plan plan) {
@@ -157,7 +175,8 @@ public final class PlanDtos {
                     plan.waitlist().stream().map(ParticipantDto::of).toList(), MinimumDto.of(plan.minimum()),
                     arrivals, plan.requiresApproval(),
                     viewer == null ? null : plan.requestOf(viewer)
-                            .map(request -> JoinRequestController.JoinRequestDto.of(plan, request)).orElse(null));
+                            .map(request -> JoinRequestController.JoinRequestDto.of(plan, request)).orElse(null),
+                    AudienceDto.of(plan.audience()));
         }
     }
 

@@ -6,6 +6,7 @@ import es.upm.miw.oneleft.plans.domain.port.in.JoinPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.out.AvailabilityRepository;
 import es.upm.miw.oneleft.plans.domain.port.out.Blocks;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -23,14 +24,23 @@ public class JoinPlanService implements JoinPlanUseCase {
     private final PlanEventPublisher events;
     private final AvailabilityRepository availabilities;
     private final Blocks blocks;
+    private final AudienceCheck audience;
     private final Clock clock;
 
     public JoinPlanService(OptimisticPlanUpdates updates, PlanEventPublisher events,
                            AvailabilityRepository availabilities, Blocks blocks, Clock clock) {
+        this(updates, events, availabilities, blocks, AudienceCheck.NONE, clock);
+    }
+
+    @Autowired
+    @SuppressWarnings("java:S107")
+    public JoinPlanService(OptimisticPlanUpdates updates, PlanEventPublisher events,
+                           AvailabilityRepository availabilities, Blocks blocks, AudienceCheck audience, Clock clock) {
         this.updates = updates;
         this.events = events;
         this.availabilities = availabilities;
         this.blocks = blocks;
+        this.audience = audience;
         this.clock = clock;
     }
 
@@ -44,6 +54,7 @@ public class JoinPlanService implements JoinPlanUseCase {
             if (blocks.between(plan.organizer().id(), userId)) {
                 throw new PlanNotFoundException(planId);
             }
+            audience.check(plan, userId);
             return plan.join(userId, name, clock);
         });
         availabilities.delete(userId);
