@@ -364,6 +364,11 @@ public class Plan {
 
     /** The same, with the age band of the person for the organizer to see (HU-070). */
     public Plan request(UUID userId, String name, String message, String ageBand, Clock clock) {
+        return request(userId, name, message, ageBand, null, clock);
+    }
+
+    /** The same, with also their level in this activity (HU-070). */
+    public Plan request(UUID userId, String name, String message, String ageBand, Level level, Clock clock) {
         var now = clock.instant();
         if (!requiresApproval) {
             throw new JoinRejectedException("plan.approvalNotRequired", "This plan is joined directly");
@@ -391,7 +396,7 @@ public class Plan {
             throw new JoinRejectedException("plan.requestRejected", "Your request for this plan was rejected");
         }
         var all = new ArrayList<>(requests.stream().filter(request -> !request.userId().equals(userId)).toList());
-        all.add(JoinRequest.pending(userId, name, message, ageBand, now));
+        all.add(JoinRequest.pending(userId, name, message, ageBand, level, now));
         return withRequests(all);
     }
 

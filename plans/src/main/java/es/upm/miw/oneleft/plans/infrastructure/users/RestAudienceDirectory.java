@@ -1,7 +1,9 @@
 package es.upm.miw.oneleft.plans.infrastructure.users;
 
+import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
 import es.upm.miw.oneleft.plans.domain.model.AudienceUnavailableException;
+import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.PersonGender;
 import es.upm.miw.oneleft.plans.domain.port.out.AudienceDirectory;
 import org.springframework.http.HttpStatus;
@@ -12,6 +14,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,7 +40,7 @@ class RestAudienceDirectory implements AudienceDirectory {
             if (audience == null || audience.gender() == null) {
                 throw new RestClientException("Empty answer");
             }
-            return Optional.of(new AudienceMember(audience.gender(), audience.age(), audience.ageBand()));
+            return Optional.of(new AudienceMember(audience.gender(), audience.age(), audience.ageBand(), levelsOf(audience.levels())));
         } catch (HttpClientErrorException error) {
             if (error.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return Optional.empty();
@@ -47,6 +51,21 @@ class RestAudienceDirectory implements AudienceDirectory {
         }
     }
 
+    /** The levels of the profile by activity; what this service does not know is left out. */
+    private static Map<Activity, Level> levelsOf(Map<String, String> levels) {
+        var known = new EnumMap<Activity, Level>(Activity.class);
+        if (levels != null) {
+            levels.forEach((activity, level) -> {
+                try {
+                    known.put(Activity.valueOf(activity), Level.valueOf(level));
+                } catch (IllegalArgumentException unknown) {
+                    // an activity or level of a newer users service: not needed here
+                }
+            });
+        }
+        return known;
+    }
+
     private static String currentToken() {
         if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken authentication) {
             return authentication.getToken().getTokenValue();
@@ -55,6 +74,6 @@ class RestAudienceDirectory implements AudienceDirectory {
     }
 
     /** What the users service answers: gender, age in years and age band. */
-    record Audience(PersonGender gender, int age, String ageBand) {
+    record Audience(PersonGender gender, int age, String ageBand, Map<String, String> levels) {
     }
 }

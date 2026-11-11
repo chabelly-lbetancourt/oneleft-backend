@@ -3,7 +3,9 @@ package es.upm.miw.oneleft.users.infrastructure.rest;
 import es.upm.miw.oneleft.users.domain.model.AgeBand;
 import es.upm.miw.oneleft.users.domain.model.Demographics;
 import es.upm.miw.oneleft.users.domain.model.Gender;
+import es.upm.miw.oneleft.users.domain.model.ProfileNotFoundException;
 import es.upm.miw.oneleft.users.domain.port.in.ManageDemographicsUseCase;
+import es.upm.miw.oneleft.users.domain.port.in.ManageProfileUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -23,7 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /** Date of birth and gender of the signed-in person (HU-070). */
 @RestController
@@ -32,10 +36,12 @@ import java.util.UUID;
 public class DemographicsController {
 
     private final ManageDemographicsUseCase demographics;
+    private final ManageProfileUseCase profiles;
     private final Clock clock;
 
-    public DemographicsController(ManageDemographicsUseCase demographics, Clock clock) {
+    public DemographicsController(ManageDemographicsUseCase demographics, ManageProfileUseCase profiles, Clock clock) {
         this.demographics = demographics;
+        this.profiles = profiles;
         this.clock = clock;
     }
 
@@ -64,8 +70,19 @@ public class DemographicsController {
                     + "while they are not set.")
     public AudienceResponse audience(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return demographics.mine(UUID.fromString(jwt.getSubject()))
-                .map(found -> new AudienceResponse(found.gender(), found.age(clock), found.ageBand(clock).label()))
+                .map(found -> new AudienceResponse(found.gender(), found.age(clock), found.ageBand(clock).label(),
+                        levelsOf(UUID.fromString(jwt.getSubject()))))
                 .orElseThrow(DemographicsNotSetException::new);
+    }
+
+    /** My level in each activity of my hobbies; none if I have no profile yet. */
+    private Map<String, String> levelsOf(UUID userId) {
+        try {
+            return profiles.profileOf(userId).hobbies().stream()
+                    .collect(Collectors.toMap(hobby -> hobby.activity().name(), hobby -> hobby.level().name()));
+        } catch (ProfileNotFoundException notFound) {
+            return Map.of();
+        }
     }
 
     private DemographicsResponse response(Demographics found) {
@@ -94,7 +111,7 @@ public class DemographicsController {
     }
 
     @Schema(description = "Gender and age, for the plans service")
-    public record AudienceResponse(Gender gender, int age, String ageBand) {
+    public record AudienceResponse(Gender gender, int age, String ageBand, Map<String, String> levels) {
     }
 
     /** Nothing set yet. */

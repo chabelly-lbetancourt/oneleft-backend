@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.JoinRequest;
+import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.RequestStatus;
 import es.upm.miw.oneleft.plans.domain.port.in.ManageJoinRequestsUseCase;
@@ -98,13 +99,14 @@ public class JoinRequestController {
     @Schema(description = "A request for a spot")
     public record JoinRequestDto(UUID userId, @Schema(example = "Lucía") String name, String message,
                                  RequestStatus status, Instant requestedAt, Instant decidedAt,
-                                 @Schema(example = "25–34", description = "Age band of the person when they asked; null if unknown") String ageBand) {
+                                 @Schema(example = "25–34", description = "Age band of the person when they asked; null if unknown") String ageBand,
+                                 @Schema(example = "INTERMEDIATE", description = "Level in this activity when they asked; null if unknown") Level level) {
 
         /** The status is the one now: a pending request expires when the plan starts. */
         static JoinRequestDto of(Plan plan, JoinRequest request) {
             return new JoinRequestDto(request.userId(), request.name(), request.message(),
                     plan.statusOf(request, Instant.now()), request.requestedAt(), request.decidedAt(),
-                    request.ageBand());
+                    request.ageBand(), request.level());
         }
     }
 }

@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
 import es.upm.miw.oneleft.plans.domain.model.JoinRequest;
+import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.RequestStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -35,6 +36,10 @@ public class JoinRequestEmbeddable {
     @Column(name = "age_band", length = 10)
     private String ageBand;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Level level;
+
     protected JoinRequestEmbeddable() {
     }
 
@@ -46,9 +51,10 @@ public class JoinRequestEmbeddable {
         this.requestedAt = request.requestedAt();
         this.decidedAt = request.decidedAt();
         this.ageBand = request.ageBand();
+        this.level = request.level();
     }
 
     JoinRequest toDomain() {
-        return new JoinRequest(userId, name, message, status, requestedAt, decidedAt, ageBand);
+        return new JoinRequest(userId, name, message, status, requestedAt, decidedAt, ageBand, level);
     }
 }

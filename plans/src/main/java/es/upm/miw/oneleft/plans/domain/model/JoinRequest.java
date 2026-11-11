@@ -6,10 +6,10 @@ import java.util.UUID;
 /**
  * A person's request for a spot in a plan whose organizer chooses who comes (HU-069), with an optional short message.
  * Only what the organizer needs to decide: no contact data or location, and the age band of the person (HU-070) at
- * the time of asking, if they set it, never their date of birth.
+ * the time of asking, if they set it, never their date of birth, and their level in the activity.
  */
 public record JoinRequest(UUID userId, String name, String message, RequestStatus status, Instant requestedAt,
-                          Instant decidedAt, String ageBand) {
+                          Instant decidedAt, String ageBand, Level level) {
 
     public static final int MAX_MESSAGE_LENGTH = 140;
 
@@ -26,7 +26,7 @@ public record JoinRequest(UUID userId, String name, String message, RequestStatu
 
     public JoinRequest(UUID userId, String name, String message, RequestStatus status, Instant requestedAt,
                        Instant decidedAt) {
-        this(userId, name, message, status, requestedAt, decidedAt, null);
+        this(userId, name, message, status, requestedAt, decidedAt, null, null);
     }
 
     public static JoinRequest pending(UUID userId, String name, String message, Instant now) {
@@ -34,11 +34,16 @@ public record JoinRequest(UUID userId, String name, String message, RequestStatu
     }
 
     public static JoinRequest pending(UUID userId, String name, String message, String ageBand, Instant now) {
-        return new JoinRequest(userId, name, message, RequestStatus.PENDING, now, null, ageBand);
+        return pending(userId, name, message, ageBand, null, now);
+    }
+
+    public static JoinRequest pending(UUID userId, String name, String message, String ageBand, Level level,
+                                      Instant now) {
+        return new JoinRequest(userId, name, message, RequestStatus.PENDING, now, null, ageBand, level);
     }
 
     public JoinRequest decided(RequestStatus newStatus, Instant at) {
-        return new JoinRequest(userId, name, message, newStatus, requestedAt, at, ageBand);
+        return new JoinRequest(userId, name, message, newStatus, requestedAt, at, ageBand, level);
     }
 
     public boolean isPending() {

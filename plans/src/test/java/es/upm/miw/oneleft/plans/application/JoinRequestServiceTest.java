@@ -155,14 +155,20 @@ class JoinRequestServiceTest {
                     }
 
                     @Override
-                    public java.util.Optional<String> ageBandOf(UUID userId) {
-                        return java.util.Optional.of("25–34");
+                    public java.util.Optional<es.upm.miw.oneleft.plans.domain.model.AudienceMember> describe(
+                            UUID userId) {
+                        return java.util.Optional.of(new es.upm.miw.oneleft.plans.domain.model.AudienceMember(
+                                es.upm.miw.oneleft.plans.domain.model.PersonGender.WOMAN, 30, "25–34",
+                                java.util.Map.of(Activity.PADEL, es.upm.miw.oneleft.plans.domain.model.Level.ADVANCED)));
                     }
                 }, CLOCK);
 
         var asked = withBand.request(plan.id(), LUCIA, "Lucía", null);
 
-        assertThat(asked.requestOf(LUCIA)).get().extracting(request -> request.ageBand()).isEqualTo("25–34");
+        assertThat(asked.requestOf(LUCIA)).get().satisfies(request -> {
+            assertThat(request.ageBand()).isEqualTo("25–34");
+            assertThat(request.level()).isEqualTo(es.upm.miw.oneleft.plans.domain.model.Level.ADVANCED);
+        });
     }
 
     @Test

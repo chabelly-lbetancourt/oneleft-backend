@@ -103,11 +103,18 @@ class AudienceServiceTest {
 
     @Test
     void theAgeBandIsOnlyShownAndNeverAnError() {
-        people.put(LUCIA, new AudienceMember(PersonGender.WOMAN, 33, "25–34"));
+        people.put(LUCIA, new AudienceMember(PersonGender.WOMAN, 33, "25–34",
+                java.util.Map.of(es.upm.miw.oneleft.plans.domain.model.Activity.PADEL,
+                        es.upm.miw.oneleft.plans.domain.model.Level.ADVANCED)));
 
-        assertThat(service.ageBandOf(LUCIA)).contains("25–34");
-        assertThat(service.ageBandOf(DIEGO)).isEmpty();
+        assertThat(service.describe(LUCIA)).get().satisfies(member -> {
+            assertThat(member.ageBand()).isEqualTo("25–34");
+            assertThat(member.levelIn(es.upm.miw.oneleft.plans.domain.model.Activity.PADEL))
+                    .isEqualTo(es.upm.miw.oneleft.plans.domain.model.Level.ADVANCED);
+            assertThat(member.levelIn(es.upm.miw.oneleft.plans.domain.model.Activity.YOGA)).isNull();
+        });
+        assertThat(service.describe(DIEGO)).isEmpty();
         usersDown = true;
-        assertThat(service.ageBandOf(LUCIA)).isEmpty();
+        assertThat(service.describe(LUCIA)).isEmpty();
     }
 }
