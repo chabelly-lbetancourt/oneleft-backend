@@ -3,6 +3,8 @@ package es.upm.miw.oneleft.plans.infrastructure.realtime;
 import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn;
+import es.upm.miw.oneleft.plans.domain.model.JoinRequested;
+import es.upm.miw.oneleft.plans.domain.model.RequestDecided;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
@@ -25,6 +27,8 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
 
     static final String PLAN_JOINED = "plan-joined";
     static final String PLAN_LEFT = "plan-left";
+    static final String JOIN_REQUEST = "join-request";
+    static final String REQUEST_DECIDED = "request-decided";
     static final String SPOT_FREED = "plan-spot";
     static final String PLAN_NEARBY = "plan-nearby";
     static final String PLAN_REMINDER = "plan-reminder";
@@ -48,6 +52,28 @@ public class UserEventSubscriptions extends SseSubscriptions<UUID> {
             if (userId.equals(event.organizerId())) {
                 send(emitter, SseEmitter.event().name(PLAN_JOINED).id(event.planId() + ":" + event.participantId())
                         .data(PlanJoinedNotice.of(event), MediaType.APPLICATION_JSON));
+            }
+        });
+    }
+
+    /** The organizer sees a request for a spot in their plan (HU-069). */
+    public void dispatch(JoinRequested event) {
+        forEach((userId, emitter) -> {
+            if (userId.equals(event.organizerId())) {
+                send(emitter, SseEmitter.event().name(JOIN_REQUEST)
+                        .id(event.planId() + ":" + event.requesterId() + ":" + event.occurredAt().toEpochMilli())
+                        .data(JoinRequestNotice.of(event), MediaType.APPLICATION_JSON));
+            }
+        });
+    }
+
+    /** Who asked for a spot hears the decision (HU-069). */
+    public void dispatch(RequestDecided event) {
+        forEach((userId, emitter) -> {
+            if (userId.equals(event.requesterId())) {
+                send(emitter, SseEmitter.event().name(REQUEST_DECIDED)
+                        .id(event.planId() + ":" + event.decision() + ":" + event.occurredAt().toEpochMilli())
+                        .data(RequestDecidedNotice.of(event), MediaType.APPLICATION_JSON));
             }
         });
     }

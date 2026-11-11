@@ -23,6 +23,9 @@ public class JdbcPersonalData implements PersonalData {
         EXPORT.put("plansOrganized",
                 "SELECT id, activity, activity_other, title, description, meeting_point, starts_at, spots, occupied, level, status, "
                 + "published_at FROM plan WHERE organizer_id = :userId ORDER BY starts_at");
+        EXPORT.put("joinRequests",
+                "SELECT plan_id, message, status, requested_at, decided_at FROM plan_join_request "
+                + "WHERE user_id = :userId ORDER BY requested_at");
         EXPORT.put("participations",
                 "SELECT plan_id, name, joined_at FROM plan_participant WHERE user_id = :userId");
         EXPORT.put("waitingLists",
@@ -41,6 +44,7 @@ public class JdbcPersonalData implements PersonalData {
             "UPDATE plan SET occupied = occupied - 1, status = CASE WHEN status = 'FULL' THEN 'OPEN' ELSE status "
                 + "END WHERE status IN ('OPEN', 'FULL') AND id IN (SELECT plan_id FROM plan_participant WHERE user_id = "
                 + ":userId)",
+            "DELETE FROM plan_join_request WHERE user_id = :userId",
             "DELETE FROM plan_participant WHERE user_id = :userId AND plan_id IN (SELECT id FROM plan WHERE "
                 + "status IN ('OPEN', 'FULL'))",
             "DELETE FROM plan_waitlist WHERE user_id = :userId AND plan_id IN (SELECT id FROM plan WHERE status "

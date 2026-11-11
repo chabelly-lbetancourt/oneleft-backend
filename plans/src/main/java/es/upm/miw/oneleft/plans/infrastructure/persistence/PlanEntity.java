@@ -114,6 +114,18 @@ public class PlanEntity {
     @Fetch(FetchMode.SELECT)
     private List<ParticipantEmbeddable> waitlist = new ArrayList<>();
 
+    /** The organizer chooses who comes (HU-069) */
+    @Column(name = "requires_approval", nullable = false)
+    private boolean requiresApproval;
+
+    /** Requests for a spot (HU-069) */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "plan_join_request", joinColumns = @JoinColumn(name = "plan_id"))
+    @OrderBy("requestedAt")
+    @BatchSize(size = 50)
+    @Fetch(FetchMode.SELECT)
+    private List<JoinRequestEmbeddable> requests = new ArrayList<>();
+
     /** «On my way» and «running late» of the group (HU-040) */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "plan_arrival", joinColumns = @JoinColumn(name = "plan_id"))
@@ -128,7 +140,8 @@ public class PlanEntity {
                String meetingPoint, Point location, Instant startsAt, int spots, int occupied, Level level,
                PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants,
                List<ParticipantEmbeddable> waitlist, Instant remindedAt, Integer minParticipants,
-               Instant minimumDeadline, Instant confirmedAt, List<ArrivalEmbeddable> arrivals, long version) {
+               Instant minimumDeadline, Instant confirmedAt, List<ArrivalEmbeddable> arrivals, boolean requiresApproval,
+               List<JoinRequestEmbeddable> requests, long version) {
         this.id = id;
         this.organizerId = organizerId;
         this.organizerName = organizerName;
@@ -151,6 +164,8 @@ public class PlanEntity {
         this.minimumDeadline = minimumDeadline;
         this.confirmedAt = confirmedAt;
         this.arrivals = new ArrayList<>(arrivals);
+        this.requiresApproval = requiresApproval;
+        this.requests = new ArrayList<>(requests);
         this.version = version;
     }
 
@@ -171,6 +186,8 @@ public class PlanEntity {
     Instant getPublishedAt() { return publishedAt; }
     List<ParticipantEmbeddable> getParticipants() { return participants; }
     List<ParticipantEmbeddable> getWaitlist() { return waitlist; }
+    boolean isRequiresApproval() { return requiresApproval; }
+    List<JoinRequestEmbeddable> getRequests() { return requests; }
     Instant getRemindedAt() { return remindedAt; }
     Integer getMinParticipants() { return minParticipants; }
     Instant getMinimumDeadline() { return minimumDeadline; }

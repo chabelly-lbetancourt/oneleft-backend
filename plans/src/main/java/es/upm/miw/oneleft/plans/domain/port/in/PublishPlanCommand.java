@@ -13,18 +13,27 @@ import java.time.Instant;
  */
 public record PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                                  MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
-                                 Integer minParticipants, Instant minimumDeadline, String activityOther) {
+                                 Integer minParticipants, Instant minimumDeadline, String activityOther,
+                                 boolean requiresApproval) {
+
+    /** Without the choice of who comes (HU-069): everyone joins directly. */
+    public PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
+                              MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
+                              Integer minParticipants, Instant minimumDeadline, String activityOther) {
+        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, minParticipants,
+                minimumDeadline, activityOther, false);
+    }
 
     /** Without the name of an activity that is «other». */
     public PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                               MeetingPoint meetingPoint, Instant startsAt, int spots, Level level,
                               Integer minParticipants, Instant minimumDeadline) {
         this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, minParticipants,
-                minimumDeadline, null);
+                minimumDeadline, null, false);
     }
 
     public PublishPlanCommand(Organizer organizer, Activity activity, String title, String description,
                               MeetingPoint meetingPoint, Instant startsAt, int spots, Level level) {
-        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, null, null, null);
+        this(organizer, activity, title, description, meetingPoint, startsAt, spots, level, null, null, null, false);
     }
 }
