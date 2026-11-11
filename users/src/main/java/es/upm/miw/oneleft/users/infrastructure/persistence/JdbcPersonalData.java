@@ -23,11 +23,13 @@ public class JdbcPersonalData implements PersonalData {
         EXPORT.put("profile",
                 "SELECT display_name, bio, zone_name, zone_latitude, zone_longitude FROM profile WHERE user_id = :userId");
         EXPORT.put("hobbies", "SELECT activity, level FROM profile_hobby WHERE user_id = :userId");
+        EXPORT.put("demographics", "SELECT birth_date, gender, changes FROM demographics WHERE user_id = :userId");
         EXPORT.put("photo", "SELECT object_key, updated_at FROM profile_photo WHERE user_id = :userId");
         EXPORT.put("consent", "SELECT version, accepted_at FROM consent WHERE user_id = :userId");
     }
 
     private static final List<String> ERASE = List.of(
+            "DELETE FROM demographics WHERE user_id = :userId",
             "DELETE FROM profile_photo WHERE user_id = :userId",
             "DELETE FROM profile WHERE user_id = :userId",
             "DELETE FROM consent WHERE user_id = :userId");
