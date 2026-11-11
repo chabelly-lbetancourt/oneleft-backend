@@ -24,6 +24,12 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage(), ProfileNotFoundException.CODE);
     }
 
+    /** The date of birth and the gender are not set yet (HU-070). */
+    @ExceptionHandler(DemographicsController.DemographicsNotSetException.class)
+    ProblemDetail demographicsNotSet(DemographicsController.DemographicsNotSetException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage(), "demographics.notSet");
+    }
+
     @ExceptionHandler(PhotoStorageUnavailableException.class)
     ProblemDetail unavailable(PhotoStorageUnavailableException exception) {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), PhotoStorageUnavailableException.CODE);
