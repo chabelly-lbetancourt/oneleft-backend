@@ -2,12 +2,14 @@ package es.upm.miw.oneleft.plans.infrastructure.messaging;
 
 import es.upm.miw.oneleft.plans.domain.model.PlanArrival;
 import es.upm.miw.oneleft.plans.domain.model.PlanAttendanceClosed;
+import es.upm.miw.oneleft.plans.domain.model.JoinRequested;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanCheckedIn;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeftEvent;
 import es.upm.miw.oneleft.plans.domain.model.PlanPublished;
 import es.upm.miw.oneleft.plans.domain.model.PlanReminder;
+import es.upm.miw.oneleft.plans.domain.model.RequestDecided;
 import es.upm.miw.oneleft.plans.domain.port.out.AttendancePublisher;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -53,6 +55,16 @@ public class RabbitPlanEventPublisher implements PlanEventPublisher, AttendanceP
     @Override
     public void publish(PlanArrival event) {
         rabbit.convertAndSend(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_ARRIVAL, event);
+    }
+
+    @Override
+    public void publish(JoinRequested event) {
+        rabbit.convertAndSend(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.JOIN_REQUESTED, event);
+    }
+
+    @Override
+    public void publish(RequestDecided event) {
+        rabbit.convertAndSend(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.REQUEST_DECIDED, event);
     }
 
     @Override

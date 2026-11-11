@@ -53,6 +53,10 @@ public class Plan {
     private final Minimum minimum;
     /** «On my way» and «running late» of the group (HU-040); emptied when the plan starts. */
     private final List<Arrival> arrivals;
+    /** The organizer chooses who comes: nobody joins directly, they ask and the organizer decides (HU-069). */
+    private final boolean requiresApproval;
+    /** Requests for a spot, oldest first (HU-069); only for plans that require approval. */
+    private final List<JoinRequest> requests;
     /** Concurrency token of the persisted aggregate (optimistic locking). */
     private final long version;
 
@@ -108,11 +112,22 @@ public class Plan {
                 publishedAt, participants, waitlist, remindedAt, minimum, arrivals, version);
     }
 
-    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    @SuppressWarnings("java:S107")
     public Plan(UUID id, Organizer organizer, Activity activity, String activityOther, String title,
                 String description, MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
                 PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
                 Instant remindedAt, Minimum minimum, List<Arrival> arrivals, long version) {
+        this(id, organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots, occupied,
+                level, status, publishedAt, participants, waitlist, remindedAt, minimum, arrivals, false, List.of(),
+                version);
+    }
+
+    @SuppressWarnings("java:S107") // Full reconstruction of the aggregate from persistence
+    public Plan(UUID id, Organizer organizer, Activity activity, String activityOther, String title,
+                String description, MeetingPoint meetingPoint, Instant startsAt, int spots, int occupied, Level level,
+                PlanStatus status, Instant publishedAt, List<Participant> participants, List<Participant> waitlist,
+                Instant remindedAt, Minimum minimum, List<Arrival> arrivals, boolean requiresApproval,
+                List<JoinRequest> requests, long version) {
         if (id == null || organizer == null || activity == null || meetingPoint == null || startsAt == null
                 || status == null || publishedAt == null) {
             throw new ValidationException("plan.missingData", "Required plan data is missing");
@@ -157,6 +172,8 @@ public class Plan {
         this.remindedAt = remindedAt;
         this.minimum = minimum;
         this.arrivals = arrivals == null ? List.of() : List.copyOf(arrivals);
+        this.requiresApproval = requiresApproval;
+        this.requests = requests == null ? List.of() : List.copyOf(requests);
         this.version = version;
     }
 
@@ -206,6 +223,16 @@ public class Plan {
     public static Plan publish(Organizer organizer, Activity activity, String activityOther, String title,
                                String description, MeetingPoint meetingPoint, Instant startsAt, int spots,
                                Level level, Integer minParticipants, Instant minimumDeadline, Clock clock) {
+        return publish(organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots, level,
+                minParticipants, minimumDeadline, false, clock);
+    }
+
+    /** The same, for a plan whose organizer chooses who comes (HU-069): nobody joins directly, they ask. */
+    @SuppressWarnings("java:S107")
+    public static Plan publish(Organizer organizer, Activity activity, String activityOther, String title,
+                               String description, MeetingPoint meetingPoint, Instant startsAt, int spots,
+                               Level level, Integer minParticipants, Instant minimumDeadline,
+                               boolean requiresApproval, Clock clock) {
         var now = clock.instant();
         if (startsAt == null || startsAt.isBefore(now.plus(MIN_LEAD_TIME))) {
             throw new ValidationException("plan.startsTooSoon", "The plan must start in at least "
@@ -219,7 +246,7 @@ public class Plan {
         var remindedAt = startsAt.minus(REMINDER_LEAD).isAfter(now) ? null : now;
         return new Plan(UUID.randomUUID(), organizer, activity, activityOther, title, description, meetingPoint,
                 startsAt, spots, 0, level, PlanStatus.OPEN, now, List.of(), List.of(), remindedAt,
-                minimum(minParticipants, minimumDeadline, now), List.of(), 0);
+                minimum(minParticipants, minimumDeadline, now), List.of(), requiresApproval, List.of(), 0);
     }
 
     private static Minimum minimum(Integer participants, Instant deadline, Instant now) {
@@ -242,6 +269,9 @@ public class Plan {
      * nor someone already in it. Taking the last spot closes the plan ({@link PlanStatus#FULL}).
      */
     public Plan join(UUID userId, String name, Clock clock) {
+        if (requiresApproval) {
+            throw new JoinRejectedException("plan.approvalRequired", "The organizer chooses who comes: ask for a spot");
+        }
         var now = clock.instant();
         if (organizer.id().equals(userId)) {
             throw new JoinRejectedException("plan.ownPlan", "The organizer cannot join their own plan");
@@ -270,6 +300,9 @@ public class Plan {
      * spot. A plan with free spots is joined directly, so its list stays empty.
      */
     public Plan joinWaitlist(UUID userId, String name, Clock clock) {
+        if (requiresApproval) {
+            throw new JoinRejectedException("plan.approvalRequired", "The organizer chooses who comes: ask for a spot");
+        }
         var now = clock.instant();
         if (organizer.id().equals(userId)) {
             throw new JoinRejectedException("plan.ownPlan", "The organizer cannot join their own plan");
@@ -295,6 +328,120 @@ public class Plan {
         var waiting = new ArrayList<>(waitlist);
         waiting.add(new Participant(userId, name, now));
         return with(occupied, status, participants, waiting, remindedAt, minimum);
+    }
+
+    /**
+     * Asks for a spot in a plan whose organizer chooses who comes (HU-069). Someone whose request was rejected cannot
+     * ask again; whoever withdrew can.
+     */
+    public Plan request(UUID userId, String name, String message, Clock clock) {
+        var now = clock.instant();
+        if (!requiresApproval) {
+            throw new JoinRejectedException("plan.approvalNotRequired", "This plan is joined directly");
+        }
+        if (organizer.id().equals(userId)) {
+            throw new JoinRejectedException("plan.ownPlan", "The organizer cannot join their own plan");
+        }
+        if (isParticipant(userId)) {
+            throw new JoinRejectedException("plan.alreadyJoined", "You have already joined this plan");
+        }
+        if (!startsAt.isAfter(now)) {
+            throw new JoinRejectedException("plan.started", "The plan has already started");
+        }
+        if (status == PlanStatus.FULL || freeSpots() == 0) {
+            throw new JoinRejectedException("plan.full", "The plan has no free spots left");
+        }
+        if (status != PlanStatus.OPEN) {
+            throw new JoinRejectedException("plan.notOpen", "The plan is no longer open");
+        }
+        var previous = requestOf(userId);
+        if (previous.isPresent() && previous.get().status() == RequestStatus.PENDING) {
+            throw new JoinRejectedException("plan.alreadyRequested", "You have already asked for a spot");
+        }
+        if (previous.isPresent() && previous.get().status() == RequestStatus.REJECTED) {
+            throw new JoinRejectedException("plan.requestRejected", "Your request for this plan was rejected");
+        }
+        var all = new ArrayList<>(requests.stream().filter(request -> !request.userId().equals(userId)).toList());
+        all.add(JoinRequest.pending(userId, name, message, now));
+        return withRequests(all);
+    }
+
+    /**
+     * The organizer accepts a request (HU-069): the person takes a spot. If that fills the plan, the other pending
+     * requests are rejected on their own.
+     */
+    public RequestDecision accept(UUID organizerId, UUID requesterId, Clock clock) {
+        var now = clock.instant();
+        var request = pendingRequest(organizerId, requesterId, now);
+        if (status != PlanStatus.OPEN || freeSpots() == 0) {
+            throw new JoinRejectedException("plan.full", "The plan has no free spots left");
+        }
+        var joined = new ArrayList<>(participants);
+        joined.add(new Participant(requesterId, request.name(), now));
+        var newOccupied = occupied + 1;
+        var full = newOccupied == spots;
+        var accepted = request.decided(RequestStatus.ACCEPTED, now);
+        var autoRejected = new ArrayList<JoinRequest>();
+        var all = new ArrayList<JoinRequest>();
+        for (var other : requests) {
+            if (other.userId().equals(requesterId)) {
+                all.add(accepted);
+            } else if (full && other.isPending()) {
+                var rejected = other.decided(RequestStatus.REJECTED, now);
+                autoRejected.add(rejected);
+                all.add(rejected);
+            } else {
+                all.add(other);
+            }
+        }
+        var plan = with(newOccupied, full ? PlanStatus.FULL : PlanStatus.OPEN, joined, waitlist, remindedAt, minimum)
+                .withRequests(all);
+        return new RequestDecision(plan, accepted, autoRejected);
+    }
+
+    /** The organizer rejects a request (HU-069). */
+    public RequestDecision reject(UUID organizerId, UUID requesterId, Clock clock) {
+        var now = clock.instant();
+        var rejected = pendingRequest(organizerId, requesterId, now).decided(RequestStatus.REJECTED, now);
+        return new RequestDecision(replacing(rejected), rejected, List.of());
+    }
+
+    /** The person withdraws their own pending request (HU-069). */
+    public Plan withdraw(UUID userId, Clock clock) {
+        var now = clock.instant();
+        var request = requestOf(userId).filter(found -> found.isPending() && startsAt.isAfter(now))
+                .orElseThrow(() -> new JoinRejectedException("plan.noPendingRequest", "You have no pending request"));
+        return replacing(request.decided(RequestStatus.WITHDRAWN, now));
+    }
+
+    private JoinRequest pendingRequest(UUID organizerId, UUID requesterId, Instant now) {
+        if (!organizer.id().equals(organizerId)) {
+            throw new NotOrganizerException();
+        }
+        return requestOf(requesterId).filter(found -> found.isPending() && startsAt.isAfter(now))
+                .orElseThrow(() -> new JoinRejectedException("plan.noPendingRequest", "There is no pending request"));
+    }
+
+    private Plan replacing(JoinRequest changed) {
+        return withRequests(requests.stream()
+                .map(request -> request.userId().equals(changed.userId()) ? changed : request).toList());
+    }
+
+    public Optional<JoinRequest> requestOf(UUID userId) {
+        return requests.stream().filter(request -> request.userId().equals(userId)).findFirst();
+    }
+
+    /** The status of a request now: a pending one expires when the plan starts (HU-069). */
+    public RequestStatus statusOf(JoinRequest request, Instant now) {
+        return request.isPending() && !startsAt.isAfter(now) ? RequestStatus.EXPIRED : request.status();
+    }
+
+    public boolean requiresApproval() {
+        return requiresApproval;
+    }
+
+    public List<JoinRequest> requests() {
+        return requests;
     }
 
     /**
@@ -535,7 +682,14 @@ public class Plan {
                       List<Arrival> newArrivals) {
         return new Plan(id, organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots,
                 newOccupied, level, newStatus, publishedAt, newParticipants, newWaitlist, newRemindedAt, newMinimum,
-                newArrivals, version);
+                newArrivals, requiresApproval, requests, version);
+    }
+
+    /** Copy of this plan with other requests; the rest stays. */
+    private Plan withRequests(List<JoinRequest> newRequests) {
+        return new Plan(id, organizer, activity, activityOther, title, description, meetingPoint, startsAt, spots,
+                occupied, level, status, publishedAt, participants, waitlist, remindedAt, minimum, arrivals,
+                requiresApproval, newRequests, version);
     }
 
     /** Event of the last join: who joined, how many spots are left and whether the plan is now full. */

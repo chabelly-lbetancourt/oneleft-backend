@@ -63,6 +63,8 @@ public final class PlanDtos {
             @Min(1) @Max(Plan.MAX_SPOTS)
             @Schema(description = "Optional minimum of participants (HU-039), at most the spots", example = "2")
             Integer minParticipants,
+            @Schema(description = "The organizer chooses who comes (HU-069): people ask for a spot and the organizer "
+                    + "decides. False if absent") Boolean chooseCompanion,
             @Schema(description = "Deadline of the minimum: at least 5 minutes from now and not after the start",
                     example = "2026-09-28T16:30:00Z") Instant minimumDeadline) {
     }
@@ -133,7 +135,11 @@ public final class PlanDtos {
                                List<ParticipantDto> waitlist,
                                @Schema(description = "Null when the plan goes ahead with anyone") MinimumDto minimum,
                                @Schema(description = "Only for the group of the plan, until it starts (HU-040)")
-                               List<ArrivalDto> arrivals) {
+                               List<ArrivalDto> arrivals,
+                               @Schema(description = "The organizer chooses who comes (HU-069)")
+                               boolean requiresApproval,
+                               @Schema(description = "My request for a spot, if I asked (HU-069)")
+                               JoinRequestController.JoinRequestDto myRequest) {
 
         /** The plan without the statuses of arrival: for anyone, such as in the nearby search. */
         static PlanResponse of(Plan plan) {
@@ -149,7 +155,9 @@ public final class PlanDtos {
                     plan.endsAt(), plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(), plan.publishedAt(),
                     plan.participants().stream().map(ParticipantDto::of).toList(),
                     plan.waitlist().stream().map(ParticipantDto::of).toList(), MinimumDto.of(plan.minimum()),
-                    arrivals);
+                    arrivals, plan.requiresApproval(),
+                    viewer == null ? null : plan.requestOf(viewer)
+                            .map(request -> JoinRequestController.JoinRequestDto.of(plan, request)).orElse(null));
         }
     }
 

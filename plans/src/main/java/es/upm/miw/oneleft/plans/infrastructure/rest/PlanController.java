@@ -89,7 +89,8 @@ public class PlanController {
         var organizer = new Organizer(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name"));
         var plan = publishPlan.publish(new PublishPlanCommand(organizer, request.activity(), request.title(),
                 request.description(), request.meetingPoint().toDomain(), request.startsAt(), request.spots(),
-                request.level(), request.minParticipants(), request.minimumDeadline(), request.activityOther()));
+                request.level(), request.minParticipants(), request.minimumDeadline(), request.activityOther(),
+                Boolean.TRUE.equals(request.chooseCompanion())));
         var location = ServletUriComponentsBuilder.fromCurrentRequest().path(PLAN).buildAndExpand(plan.id()).toUri();
         return ResponseEntity.created(location).body(PlanResponse.of(plan));
     }

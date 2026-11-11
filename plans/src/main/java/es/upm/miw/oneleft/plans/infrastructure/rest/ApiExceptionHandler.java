@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.DraftUnavailableException;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
+import es.upm.miw.oneleft.plans.domain.model.NotOrganizerException;
 import es.upm.miw.oneleft.plans.domain.model.PersonActivityException;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.ValidationException;
@@ -29,6 +30,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(JoinRejectedException.class)
     ProblemDetail conflict(JoinRejectedException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage(), exception.code());
+    }
+
+    /** Only the organizer can decide on the requests of their plan (HU-069). */
+    @ExceptionHandler(NotOrganizerException.class)
+    ProblemDetail notOrganizer(NotOrganizerException exception) {
+        return problem(HttpStatus.FORBIDDEN, exception.getMessage(), NotOrganizerException.CODE);
     }
 
     @ExceptionHandler(PersonActivityException.class)
