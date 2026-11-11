@@ -142,4 +142,33 @@ class JoinRequestServiceTest {
                 .hasMessageContaining("no pending request");
         assertThat(plans.data.get(plan.id()).participants()).hasSize(1);
     }
+
+    @Test
+    void theRequestKeepsTheAgeBandOfWhoAsksForTheOrganizerToSee() {
+        var plan = plan(1);
+        var withBand = new JoinRequestService(
+                new OptimisticPlanUpdates(plans, TransactionOperations.withoutTransaction()), plans, events,
+                availabilities, blocks, new AudienceCheck() {
+                    @Override
+                    public void check(Plan toJoin, UUID userId) {
+                        // everyone fits
+                    }
+
+                    @Override
+                    public java.util.Optional<String> ageBandOf(UUID userId) {
+                        return java.util.Optional.of("25–34");
+                    }
+                }, CLOCK);
+
+        var asked = withBand.request(plan.id(), LUCIA, "Lucía", null);
+
+        assertThat(asked.requestOf(LUCIA)).get().extracting(request -> request.ageBand()).isEqualTo("25–34");
+    }
+
+    @Test
+    void withoutAnAgeBandTheRequestHasNone() {
+        var asked = service.request(plan(1).id(), LUCIA, "Lucía", null);
+
+        assertThat(asked.requestOf(LUCIA)).get().extracting(request -> request.ageBand()).isNull();
+    }
 }

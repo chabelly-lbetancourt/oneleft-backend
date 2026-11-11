@@ -100,4 +100,14 @@ class AudienceServiceTest {
         assertThat(join.join(saved.id(), LUCIA, "Lucía").participants()).hasSize(1);
         assertThat(plans.data.get(saved.id()).participants()).hasSize(1);
     }
+
+    @Test
+    void theAgeBandIsOnlyShownAndNeverAnError() {
+        people.put(LUCIA, new AudienceMember(PersonGender.WOMAN, 33, "25–34"));
+
+        assertThat(service.ageBandOf(LUCIA)).contains("25–34");
+        assertThat(service.ageBandOf(DIEGO)).isEmpty();
+        usersDown = true;
+        assertThat(service.ageBandOf(LUCIA)).isEmpty();
+    }
 }

@@ -32,6 +32,9 @@ public class JoinRequestEmbeddable {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
+    @Column(name = "age_band", length = 10)
+    private String ageBand;
+
     protected JoinRequestEmbeddable() {
     }
 
@@ -42,9 +45,10 @@ public class JoinRequestEmbeddable {
         this.status = request.status();
         this.requestedAt = request.requestedAt();
         this.decidedAt = request.decidedAt();
+        this.ageBand = request.ageBand();
     }
 
     JoinRequest toDomain() {
-        return new JoinRequest(userId, name, message, status, requestedAt, decidedAt);
+        return new JoinRequest(userId, name, message, status, requestedAt, decidedAt, ageBand);
     }
 }

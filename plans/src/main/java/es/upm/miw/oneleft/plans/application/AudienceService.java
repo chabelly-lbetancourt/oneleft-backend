@@ -47,6 +47,11 @@ public class AudienceService implements AudienceCheck, AudienceQueryUseCase {
         }
     }
 
+    @Override
+    public Optional<String> ageBandOf(UUID userId) {
+        return viewer(userId).map(AudienceMember::ageBand);
+    }
+
     private Optional<AudienceMember> memberOf(UUID userId) {
         try {
             return directory.memberOf(userId);
