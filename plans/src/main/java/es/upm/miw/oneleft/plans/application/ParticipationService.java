@@ -5,6 +5,7 @@ import es.upm.miw.oneleft.plans.domain.model.PlanLeft;
 import es.upm.miw.oneleft.plans.domain.port.in.ParticipationUseCase;
 import es.upm.miw.oneleft.plans.domain.port.out.AvailabilityRepository;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -20,13 +21,21 @@ public class ParticipationService implements ParticipationUseCase {
     private final OptimisticPlanUpdates updates;
     private final PlanEventPublisher events;
     private final AvailabilityRepository availabilities;
+    private final AudienceCheck audience;
     private final Clock clock;
 
     public ParticipationService(OptimisticPlanUpdates updates, PlanEventPublisher events,
                                 AvailabilityRepository availabilities, Clock clock) {
+        this(updates, events, availabilities, AudienceCheck.NONE, clock);
+    }
+
+    @Autowired
+    public ParticipationService(OptimisticPlanUpdates updates, PlanEventPublisher events,
+                                AvailabilityRepository availabilities, AudienceCheck audience, Clock clock) {
         this.updates = updates;
         this.events = events;
         this.availabilities = availabilities;
+        this.audience = audience;
         this.clock = clock;
     }
 
@@ -43,7 +52,10 @@ public class ParticipationService implements ParticipationUseCase {
 
     @Override
     public Plan joinWaitlist(UUID planId, UUID userId, String name) {
-        return updates.update(planId, plan -> plan.joinWaitlist(userId, name, clock));
+        return updates.update(planId, plan -> {
+            audience.check(plan, userId);
+            return plan.joinWaitlist(userId, name, clock);
+        });
     }
 
     @Override

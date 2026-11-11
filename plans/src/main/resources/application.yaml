@@ -101,6 +101,9 @@ resilience4j:
 
 oneleft:
   # Whether the plans of someone may be seen (HU-048): the social service decides, asked with the token of the caller
+  # Gender and age of a person (HU-070), asked with their own token
+  users:
+    url: ${USERS_URL:http://localhost:8081}
   social:
     url: ${SOCIAL_URL:http://localhost:8085}
   weather:

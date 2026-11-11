@@ -12,6 +12,7 @@ import es.upm.miw.oneleft.plans.domain.port.out.AvailabilityRepository;
 import es.upm.miw.oneleft.plans.domain.port.out.Blocks;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,16 +32,26 @@ public class JoinRequestService implements ManageJoinRequestsUseCase {
     private final PlanEventPublisher events;
     private final AvailabilityRepository availabilities;
     private final Blocks blocks;
+    private final AudienceCheck audience;
     private final Clock clock;
 
     @SuppressWarnings("java:S107")
     public JoinRequestService(OptimisticPlanUpdates updates, PlanRepository plans, PlanEventPublisher events,
                               AvailabilityRepository availabilities, Blocks blocks, Clock clock) {
+        this(updates, plans, events, availabilities, blocks, AudienceCheck.NONE, clock);
+    }
+
+    @Autowired
+    @SuppressWarnings("java:S107")
+    public JoinRequestService(OptimisticPlanUpdates updates, PlanRepository plans, PlanEventPublisher events,
+                              AvailabilityRepository availabilities, Blocks blocks, AudienceCheck audience,
+                              Clock clock) {
         this.updates = updates;
         this.plans = plans;
         this.events = events;
         this.availabilities = availabilities;
         this.blocks = blocks;
+        this.audience = audience;
         this.clock = clock;
     }
 
@@ -51,6 +62,7 @@ public class JoinRequestService implements ManageJoinRequestsUseCase {
             if (blocks.between(current.organizer().id(), userId)) {
                 throw new PlanNotFoundException(planId);
             }
+            audience.check(current, userId);
             return current.request(userId, name, message, clock);
         });
         events.publish(new JoinRequested(planId, plan.organizer().id(), plan.title(), userId, name, clock.instant()));

@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.Audience;
 import es.upm.miw.oneleft.plans.domain.model.ConcurrentPlanUpdateException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.Minimum;
@@ -54,7 +55,8 @@ public class JpaPlanRepository implements PlanRepository {
                 plan.remindedAt(), minimum == null ? null : minimum.participants(),
                 minimum == null ? null : minimum.deadline(), minimum == null ? null : minimum.confirmedAt(),
                 plan.arrivals().stream().map(ArrivalEmbeddable::new).toList(), plan.requiresApproval(),
-                plan.requests().stream().map(JoinRequestEmbeddable::new).toList(), plan.version());
+                plan.requests().stream().map(JoinRequestEmbeddable::new).toList(), plan.audience().gender(),
+                plan.audience().minAge(), plan.audience().maxAge(), plan.version());
         try {
             // Flushing here makes a stale version fail inside the adapter, where it becomes a domain exception
             return toDomain(jpa.saveAndFlush(entity));
@@ -91,7 +93,7 @@ public class JpaPlanRepository implements PlanRepository {
         // Without a requester no organizer is excluded (no user has the nil UUID)
         var requester = search.requesterId() == null ? NOBODY : search.requesterId();
         return jpa.findOpenNearby(search.latitude(), search.longitude(), search.radiusMeters(), activities, requester,
-                        now, search.until(now), limit).stream()
+                        now, search.until(now), limit, search.viewerGender(), search.viewerAge()).stream()
                 .map(JpaPlanRepository::toDomain).toList();
     }
 
@@ -110,7 +112,8 @@ public class JpaPlanRepository implements PlanRepository {
                 e.getMinParticipants() == null ? null
                         : new Minimum(e.getMinParticipants(), e.getMinimumDeadline(), e.getConfirmedAt()),
                 e.getArrivals().stream().map(ArrivalEmbeddable::toDomain).toList(), e.isRequiresApproval(),
-                e.getRequests().stream().map(JoinRequestEmbeddable::toDomain).toList(), e.getVersion());
+                e.getRequests().stream().map(JoinRequestEmbeddable::toDomain).toList(),
+                new Audience(e.getAudienceGender(), e.getMinAge(), e.getMaxAge()), e.getVersion());
     }
 
     private static ParticipantEmbeddable toEmbeddable(Participant person) {
