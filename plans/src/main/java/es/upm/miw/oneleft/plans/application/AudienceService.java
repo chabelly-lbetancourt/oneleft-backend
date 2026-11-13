@@ -48,8 +48,8 @@ public class AudienceService implements AudienceCheck, AudienceQueryUseCase {
     }
 
     @Override
-    public Optional<String> ageBandOf(UUID userId) {
-        return viewer(userId).map(AudienceMember::ageBand);
+    public Optional<AudienceMember> describe(UUID userId) {
+        return viewer(userId);
     }
 
     private Optional<AudienceMember> memberOf(UUID userId) {

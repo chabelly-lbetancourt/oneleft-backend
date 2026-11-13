@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.application;
 
+import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 
 import java.util.Optional;
@@ -15,8 +16,8 @@ public interface AudienceCheck {
     /** @throws es.upm.miw.oneleft.plans.domain.model.JoinRejectedException if the person does not fit */
     void check(Plan plan, UUID userId);
 
-    /** The age band of the person for the organizer to see, if known; never an error: it is only shown (HU-070). */
-    default Optional<String> ageBandOf(UUID userId) {
+    /** The person as the organizer sees them (age band and level), if known; never an error: it is only shown (HU-070). */
+    default Optional<AudienceMember> describe(UUID userId) {
         return Optional.empty();
     }
 }

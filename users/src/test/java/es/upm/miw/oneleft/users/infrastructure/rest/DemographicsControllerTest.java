@@ -46,7 +46,7 @@ class DemographicsControllerTest {
                 .andExpect(jsonPath("$.ageBand.label").value("25–34")).andExpect(jsonPath("$.changesLeft").value(2));
         mockMvc.perform(get(BASE + "/audience").with(me)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.gender").value("WOMAN")).andExpect(jsonPath("$.age").value(30))
-                .andExpect(jsonPath("$.ageBand").value("25–34"))
+                .andExpect(jsonPath("$.ageBand").value("25–34")).andExpect(jsonPath("$.levels").isMap())
                 .andExpect(jsonPath("$.birthDate").doesNotExist());
     }
 

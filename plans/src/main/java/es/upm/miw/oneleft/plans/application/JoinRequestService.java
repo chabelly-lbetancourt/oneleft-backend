@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.application;
 
+import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
 import es.upm.miw.oneleft.plans.domain.model.JoinRequested;
 import es.upm.miw.oneleft.plans.domain.model.NotOrganizerException;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
@@ -58,13 +59,14 @@ public class JoinRequestService implements ManageJoinRequestsUseCase {
     /** For someone blocked by the organizer, or who blocked them, the plan does not exist (HU-033). */
     @Override
     public Plan request(UUID planId, UUID userId, String name, String message) {
-        var ageBand = audience.ageBandOf(userId).orElse(null);
+        var member = audience.describe(userId);
         var plan = updates.update(planId, current -> {
             if (blocks.between(current.organizer().id(), userId)) {
                 throw new PlanNotFoundException(planId);
             }
             audience.check(current, userId);
-            return current.request(userId, name, message, ageBand, clock);
+            return current.request(userId, name, message, member.map(AudienceMember::ageBand).orElse(null),
+                    member.map(person -> person.levelIn(current.activity())).orElse(null), clock);
         });
         events.publish(new JoinRequested(planId, plan.organizer().id(), plan.title(), userId, name, clock.instant()));
         return plan;
