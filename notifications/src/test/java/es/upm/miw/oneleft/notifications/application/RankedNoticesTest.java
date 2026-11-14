@@ -89,6 +89,7 @@ class RankedNoticesTest {
 
     private NearbyPlanNotifier notifier(RankingSettings settings) {
         return new NearbyPlanNotifier(preferences, new NearbyPlanNotifierTest.Alerts(), log, delivery(), blocked(),
+                new AudienceFilter(new NearbyPlanNotifierTest.MemberAudiences()),
                 new CandidateRanker(model, settings), batches, settings, Clock.fixed(NOW, MADRID));
     }
 

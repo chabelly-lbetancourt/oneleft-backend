@@ -45,6 +45,7 @@ class PersonalDataIntegrationTest {
             "INSERT INTO saved_alert (id, user_id, name, latitude, longitude, radius_meters, created_at) VALUES ('$b', '$user', 'Padel', 40.39, -3.63, 2000, now())",
             "INSERT INTO saved_alert_activity (alert_id, activity) VALUES ('$b', 'PADEL')",
             "INSERT INTO block (blocker_id, blocked_id, blocked_at) VALUES ('$user', '$other', now())",
+            "INSERT INTO member_audience (user_id, gender, age, updated_at) VALUES ('$user', 'WOMAN', 30, now())",
             "INSERT INTO notice_batch_plan (plan_id, organizer_id, activity, title, place_name, latitude, longitude, starts_at, free_spots, ranking, next_batch, next_batch_at) VALUES ('$c', '$other', 'PADEL', 'Padel', 'Courts', 40.39, -3.63, now() + interval '1 hour', 1, 'model', 1, now())",
             "INSERT INTO pending_notice (plan_id, user_id, position, score) VALUES ('$c', '$user', 0, 0.5)"};
     private static final Check[] AFTER = {
@@ -55,6 +56,7 @@ class PersonalDataIntegrationTest {
             new Check("SELECT count(*) FROM saved_alert WHERE user_id = '$user'", "0", "her saved alerts"),
             new Check("SELECT count(*) FROM saved_alert_activity WHERE alert_id = '$b'", "0", "with their activities"),
             new Check("SELECT count(*) FROM block WHERE '$user' IN (blocker_id, blocked_id)", "0", "and her blocks"),
+            new Check("SELECT count(*) FROM member_audience WHERE user_id = '$user'", "0", "her gender and age"),
             new Check("SELECT count(*) FROM pending_notice WHERE user_id = '$user'", "0", "and her place in the batches")};
     private static final String[] CLEANUP = {
             "DELETE FROM notice_batch_plan WHERE plan_id = '$c'"};

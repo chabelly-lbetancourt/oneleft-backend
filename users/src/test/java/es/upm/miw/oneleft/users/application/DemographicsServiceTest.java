@@ -3,6 +3,7 @@ package es.upm.miw.oneleft.users.application;
 import es.upm.miw.oneleft.users.domain.model.Demographics;
 import es.upm.miw.oneleft.users.domain.model.Gender;
 import es.upm.miw.oneleft.users.domain.model.ValidationException;
+import es.upm.miw.oneleft.users.domain.port.out.DemographicsEvents;
 import es.upm.miw.oneleft.users.domain.port.out.DemographicsRepository;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +11,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,8 +36,17 @@ class DemographicsServiceTest {
             data.put(demographics.userId(), demographics);
             return demographics;
         }
+
+        @Override
+        public List<Demographics> bornOn(LocalDate day) {
+            return data.values().stream().filter(d -> d.birthDate().getMonth() == day.getMonth()
+                    && d.birthDate().getDayOfMonth() == day.getDayOfMonth()).toList();
+        }
     };
-    private final DemographicsService service = new DemographicsService(repository,
+    private final List<String> announced = new ArrayList<>();
+    private final DemographicsEvents events = (userId, gender, age, at) ->
+            announced.add(userId + " " + gender + " " + age);
+    private final DemographicsService service = new DemographicsService(repository, events,
             Clock.fixed(Instant.parse("2026-11-16T10:00:00Z"), ZoneOffset.UTC));
 
     @Test
@@ -68,5 +80,24 @@ class DemographicsServiceTest {
         assertThatThrownBy(() -> service.save(USER, LocalDate.of(2015, 1, 1), Gender.MAN))
                 .isInstanceOf(ValidationException.class);
         assertThat(service.mine(USER)).isEmpty();
+    }
+
+    @Test
+    void savingAnnouncesTheGenderAndTheAgeButNeverTheDateOfBirth() {
+        service.save(USER, LocalDate.of(1995, 11, 17), Gender.WOMAN);
+
+        assertThat(announced).containsExactly(USER + " WOMAN 30");
+    }
+
+    @Test
+    void theBirthdayAnnouncesTheNewAgeOfWhoHasItToday() {
+        var other = UUID.randomUUID();
+        service.save(USER, LocalDate.of(1990, 11, 16), Gender.MAN);
+        service.save(other, LocalDate.of(1990, 11, 17), Gender.MAN);
+        announced.clear();
+
+        assertThat(service.announceBirthdays()).isEqualTo(1);
+
+        assertThat(announced).containsExactly(USER + " MAN 36");
     }
 }
