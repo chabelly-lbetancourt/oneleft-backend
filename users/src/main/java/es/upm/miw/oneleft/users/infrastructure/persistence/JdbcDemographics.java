@@ -10,6 +10,8 @@ import org.springframework.stereotype.Repository;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,6 +31,20 @@ class JdbcDemographics implements DemographicsRepository {
                 new MapSqlParameterSource("userId", userId), (rs, row) -> new Demographics(
                         rs.getObject("user_id", UUID.class), rs.getObject("birth_date", LocalDate.class),
                         Gender.valueOf(rs.getString("gender")), rs.getInt("changes"))).stream().findFirst();
+    }
+
+    @Override
+    public List<Demographics> bornOn(LocalDate day) {
+        var leapDayInACommonYear = day.getMonth() == Month.MARCH && day.getDayOfMonth() == 1 && !day.isLeapYear();
+        return jdbc.query("""
+                SELECT * FROM demographics
+                WHERE (EXTRACT(MONTH FROM birth_date) = :month AND EXTRACT(DAY FROM birth_date) = :day)
+                   OR (:leapDay AND EXTRACT(MONTH FROM birth_date) = 2 AND EXTRACT(DAY FROM birth_date) = 29)""",
+                new MapSqlParameterSource("month", day.getMonthValue()).addValue("day", day.getDayOfMonth())
+                        .addValue("leapDay", leapDayInACommonYear),
+                (rs, row) -> new Demographics(rs.getObject("user_id", UUID.class),
+                        rs.getObject("birth_date", LocalDate.class), Gender.valueOf(rs.getString("gender")),
+                        rs.getInt("changes")));
     }
 
     @Override

@@ -12,6 +12,8 @@ public class AccountsRabbitConfig {
 
     public static final String ACCOUNTS_EXCHANGE = "oneleft.accounts";
     public static final String USER_DELETED = "user.deleted";
+    /** Gender and age of a person (HU-070); the date of birth never travels. */
+    public static final String DEMOGRAPHICS_CHANGED = "demographics.changed";
 
     @Bean
     TopicExchange accountsExchange() {

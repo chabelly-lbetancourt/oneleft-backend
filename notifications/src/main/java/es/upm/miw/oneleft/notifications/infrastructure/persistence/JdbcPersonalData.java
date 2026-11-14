@@ -32,6 +32,8 @@ public class JdbcPersonalData implements PersonalData {
                 "SELECT plan_id, position FROM pending_notice WHERE user_id = :userId");
         EXPORT.put("savedAlerts",
                 "SELECT * FROM saved_alert WHERE user_id = :userId");
+        EXPORT.put("audience",
+                "SELECT gender, age FROM member_audience WHERE user_id = :userId");
         EXPORT.put("blocks",
                 "SELECT blocker_id, blocked_id, blocked_at FROM block WHERE blocker_id = :userId");
     }
@@ -42,6 +44,7 @@ public class JdbcPersonalData implements PersonalData {
             "DELETE FROM saved_alert WHERE user_id = :userId",
             "DELETE FROM push_subscription WHERE user_id = :userId",
             "DELETE FROM notification_preferences WHERE user_id = :userId",
+            "DELETE FROM member_audience WHERE user_id = :userId",
             "DELETE FROM block WHERE :userId IN (blocker_id, blocked_id)");
 
     private final NamedParameterJdbcTemplate jdbc;

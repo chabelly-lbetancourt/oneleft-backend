@@ -8,6 +8,7 @@ import es.upm.miw.oneleft.notifications.domain.model.NotificationPreferences;
 import es.upm.miw.oneleft.notifications.domain.model.PublishedPlan;
 import es.upm.miw.oneleft.notifications.domain.model.RankedCandidate;
 import es.upm.miw.oneleft.notifications.domain.model.RankingSettings;
+import es.upm.miw.oneleft.notifications.domain.model.SavedAlert;
 import es.upm.miw.oneleft.notifications.domain.port.in.NotifyNearbyPlanUseCase;
 import es.upm.miw.oneleft.notifications.domain.port.out.AlertRepository;
 import es.upm.miw.oneleft.notifications.domain.port.out.Blocks;
@@ -30,7 +31,8 @@ import java.util.List;
 /**
  * Decides who hears about a newly published plan and delivers the notices (HU-006): people with notices on, near the
  * meeting point, interested in the activity, and people with a saved alert that matches the plan (HU-036); always
- * outside their quiet hours and under their daily limit. Each person hears about a plan once, even if several alerts
+ * outside their quiet hours and under their daily limit, and only the plans that are for them by gender and age
+ * (HU-070). Each person hears about a plan once, even if several alerts
  * match it, in the app if it is open and as a system notification in the browsers they subscribed. Nobody hears
  * about a plan of someone they blocked or who blocked them (HU-033).
  * <p>
@@ -52,6 +54,7 @@ public class NearbyPlanNotifier implements NotifyNearbyPlanUseCase {
     private final NoticeLog notices;
     private final NoticeDelivery delivery;
     private final Blocks blocks;
+    private final AudienceFilter audience;
     private final CandidateRanker ranker;
     private final NoticeBatches batches;
     private final RankingSettings settings;
@@ -59,13 +62,14 @@ public class NearbyPlanNotifier implements NotifyNearbyPlanUseCase {
 
     @SuppressWarnings("java:S107")
     public NearbyPlanNotifier(PreferencesRepository preferences, AlertRepository alerts, NoticeLog notices,
-                              NoticeDelivery delivery, Blocks blocks, CandidateRanker ranker, NoticeBatches batches,
-                              RankingSettings settings, Clock clock) {
+                              NoticeDelivery delivery, Blocks blocks, AudienceFilter audience, CandidateRanker ranker,
+                              NoticeBatches batches, RankingSettings settings, Clock clock) {
         this.preferences = preferences;
         this.alerts = alerts;
         this.notices = notices;
         this.delivery = delivery;
         this.blocks = blocks;
+        this.audience = audience;
         this.ranker = ranker;
         this.batches = batches;
         this.settings = settings;
@@ -88,8 +92,10 @@ public class NearbyPlanNotifier implements NotifyNearbyPlanUseCase {
         var localTime = LocalTime.now(clock);
         var startOfDay = LocalDate.now(clock).atStartOfDay(clock.getZone()).toInstant();
         var people = new ArrayList<NotificationPreferences>();
-        for (var person : preferences.findEnabledFor(plan.activity())) {
-            if (person.wants(plan) && !person.isQuietAt(localTime)
+        var enabled = preferences.findEnabledFor(plan.activity());
+        var forThem = audience.allowed(plan, enabled.stream().map(NotificationPreferences::userId).toList());
+        for (var person : enabled) {
+            if (forThem.contains(person.userId()) && person.wants(plan) && !person.isQuietAt(localTime)
                     && !blocks.between(plan.organizerId(), person.userId())
                     && notices.countSince(person.userId(), startOfDay) < person.maxPerDay()) {
                 people.add(person);
@@ -129,7 +135,12 @@ public class NearbyPlanNotifier implements NotifyNearbyPlanUseCase {
         var localTime = LocalTime.now(clock);
         var startOfDay = LocalDate.now(clock).atStartOfDay(clock.getZone()).toInstant();
         var notified = 0;
-        for (var alert : alerts.findFor(plan.activity())) {
+        var saved = alerts.findFor(plan.activity());
+        var forThem = audience.allowed(plan, saved.stream().map(SavedAlert::userId).toList());
+        for (var alert : saved) {
+            if (!forThem.contains(alert.userId())) {
+                continue;
+            }
             var person = preferences.findByUser(alert.userId())
                     .orElseGet(() -> NotificationPreferences.defaults(alert.userId()));
             if (alert.matches(plan, clock.getZone()) && !person.isQuietAt(localTime)

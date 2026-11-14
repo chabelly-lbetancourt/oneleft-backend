@@ -1,8 +1,11 @@
 package es.upm.miw.oneleft.notifications.application;
 
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
+import es.upm.miw.oneleft.notifications.domain.model.Audience;
+import es.upm.miw.oneleft.notifications.domain.model.AudienceGender;
 import es.upm.miw.oneleft.notifications.domain.model.BatchedPlan;
 import es.upm.miw.oneleft.notifications.domain.model.Level;
+import es.upm.miw.oneleft.notifications.domain.model.MemberAudience;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
 import es.upm.miw.oneleft.notifications.domain.model.NoticeHistory;
 import es.upm.miw.oneleft.notifications.domain.model.NotificationPreferences;
@@ -15,6 +18,7 @@ import es.upm.miw.oneleft.notifications.domain.model.RankingSettings;
 import es.upm.miw.oneleft.notifications.domain.model.QuietHours;
 import es.upm.miw.oneleft.notifications.domain.model.SavedAlert;
 import es.upm.miw.oneleft.notifications.domain.port.out.AlertRepository;
+import es.upm.miw.oneleft.notifications.domain.port.out.Audiences;
 import es.upm.miw.oneleft.notifications.domain.port.out.NoticeBatches;
 import es.upm.miw.oneleft.notifications.domain.port.out.NoticeLog;
 import es.upm.miw.oneleft.notifications.domain.port.out.PreferencesRepository;
@@ -50,9 +54,11 @@ class NearbyPlanNotifierTest {
     private static final UUID ANA = UUID.randomUUID();
     private static final UUID LUCIA = UUID.randomUUID();
     private static final UUID DIEGO = UUID.randomUUID();
+    private static final UUID MARTA = UUID.randomUUID();
 
     private final Preferences preferences = new Preferences();
     private final Alerts alerts = new Alerts();
+    private final MemberAudiences audiences = new MemberAudiences();
     private final Log log = new Log();
     private final List<NearbyPlanNotice> published = new ArrayList<>();
     private final Subscriptions subscriptions = new Subscriptions();
@@ -71,6 +77,7 @@ class NearbyPlanNotifierTest {
         var settings = RankingSettings.everyoneAtOnce();
         return new NearbyPlanNotifier(preferences, alerts, log, new NoticeDelivery(published::add, subscriptions, push),
                 (userId, otherId) -> blocks.contains(userId + ">" + otherId) || blocks.contains(otherId + ">" + userId),
+                new AudienceFilter(audiences),
                 new CandidateRanker((plan, candidates, at) -> Optional.empty(), settings), new Batches(), settings,
                 Clock.fixed(now, MADRID));
     }
@@ -187,6 +194,57 @@ class NearbyPlanNotifierTest {
         assertThat(subscriptions.findByUser(LUCIA)).as("only its owner can remove it").hasSize(1);
         service.unsubscribe(LUCIA, "https://push.example/lucia");
         assertThat(subscriptions.findByUser(LUCIA)).isEmpty();
+    }
+
+    private PublishedPlan padelFor(Audience audience) {
+        return new PublishedPlan(UUID.randomUUID(), ANA, Activity.PADEL, "Pádel 2 contra 2, falta uno",
+                "Pistas de la Albufera", 40.3964, -3.6297, NOW.plus(Duration.ofHours(1)), 1, null, audience);
+    }
+
+    @Test
+    void aPlanForWomenOnlyNotifiesWomenAndNobodyWhoseDataIsUnknown() {
+        preferences.save(wantsEverything(LUCIA, null, 5));
+        preferences.save(wantsEverything(DIEGO, null, 5));
+        preferences.save(wantsEverything(MARTA, null, 5));
+        audiences.save(new MemberAudience(LUCIA, "WOMAN", 28));
+        audiences.save(new MemberAudience(DIEGO, "MAN", 28));
+
+        assertThat(notifier.notifyNearby(padelFor(new Audience(AudienceGender.WOMAN, null, null)))).isEqualTo(1);
+
+        assertThat(published).extracting(NearbyPlanNotice::userId).containsExactly(LUCIA);
+    }
+
+    @Test
+    void anAgeRangeLeavesOutWhoIsOutsideItAndNonBinaryPeopleFitOnlyPlansForEveryone() {
+        preferences.save(wantsEverything(LUCIA, null, 5));
+        preferences.save(wantsEverything(DIEGO, null, 5));
+        preferences.save(wantsEverything(MARTA, null, 5));
+        audiences.save(new MemberAudience(LUCIA, "WOMAN", 25));
+        audiences.save(new MemberAudience(DIEGO, "MAN", 41));
+        audiences.save(new MemberAudience(MARTA, "NON_BINARY", 30));
+
+        notifier.notifyNearby(padelFor(new Audience(AudienceGender.ALL, 20, 35)));
+
+        assertThat(published).extracting(NearbyPlanNotice::userId).containsExactlyInAnyOrder(LUCIA, MARTA);
+    }
+
+    @Test
+    void aPlanForEveryoneNotifiesEvenWhoseDataIsUnknown() {
+        preferences.save(wantsEverything(MARTA, null, 5));
+
+        assertThat(notifier.notifyNearby(padelFor(Audience.EVERYONE))).isEqualTo(1);
+    }
+
+    @Test
+    void aSavedAlertDoesNotNotifyWhoThePlanIsNotFor() {
+        alerts.save(afterWork(LUCIA, null));
+        alerts.save(afterWork(DIEGO, null));
+        audiences.save(new MemberAudience(LUCIA, "WOMAN", 28));
+        audiences.save(new MemberAudience(DIEGO, "MAN", 28));
+
+        notifier.notifyNearby(padelFor(new Audience(AudienceGender.MAN, null, null)));
+
+        assertThat(published).extracting(NearbyPlanNotice::userId).containsExactly(DIEGO);
     }
 
     /** «Padel after work» around the courts: Monday to Friday from 17:00 to 21:00 (HU-036). */
@@ -462,6 +520,23 @@ class NearbyPlanNotifierTest {
             }
             sent.add("cancelled:" + subscription.endpoint());
             return Result.SENT;
+        }
+    }
+
+    /** In-memory copy of the gender and age of people (HU-070). */
+    static class MemberAudiences implements Audiences {
+        private final Map<UUID, MemberAudience> data = new HashMap<>();
+
+        @Override
+        public Map<UUID, MemberAudience> findByUsers(Collection<UUID> userIds) {
+            var found = new HashMap<UUID, MemberAudience>();
+            userIds.forEach(id -> Optional.ofNullable(data.get(id)).ifPresent(a -> found.put(id, a)));
+            return found;
+        }
+
+        @Override
+        public void save(MemberAudience audience) {
+            data.put(audience.userId(), audience);
         }
     }
 }
