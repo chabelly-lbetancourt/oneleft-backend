@@ -31,6 +31,10 @@ public class RabbitConfig {
     public static final String BADGE_EARNED = "notification.badge-earned";
     public static final String KUDOS_RECEIVED = "notification.kudos";
 
+    /** What the level of each person is worth (HU-063), for the services that keep a copy of it. */
+    public static final String REPUTATION_EXCHANGE = "oneleft.reputation";
+    public static final String PERKS_CHANGED = "reputation.perks-changed";
+
     public static final String CHECK_INS_QUEUE = "reputation.check-ins";
     public static final String ATTENDANCE_QUEUE = "reputation.attendance";
     public static final String CANCELLATIONS_QUEUE = "reputation.cancellations";
@@ -54,6 +58,11 @@ public class RabbitConfig {
     @Bean
     TopicExchange notificationsExchange() {
         return new TopicExchange(NOTIFICATIONS_EXCHANGE, true, false);
+    }
+
+    @Bean
+    TopicExchange reputationExchange() {
+        return new TopicExchange(REPUTATION_EXCHANGE, true, false);
     }
 
     @Bean

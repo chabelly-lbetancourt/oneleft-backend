@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanLeft;
 import es.upm.miw.oneleft.plans.domain.port.in.ParticipationUseCase;
 import es.upm.miw.oneleft.plans.domain.port.out.AvailabilityRepository;
+import es.upm.miw.oneleft.plans.domain.port.out.PerksDirectory;
 import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,7 +14,8 @@ import java.util.UUID;
 
 /**
  * Leaving and waiting list with the same optimistic locking as joining: if someone leaves while another person
- * joins, one of them is retried with the fresh plan and the spots never go out of sync.
+ * joins, one of them is retried with the fresh plan and the spots never go out of sync. The reputation of whoever
+ * joins a waiting list says how far ahead they wait (HU-063).
  */
 @Service
 public class ParticipationService implements ParticipationUseCase {
@@ -22,6 +24,7 @@ public class ParticipationService implements ParticipationUseCase {
     private final PlanEventPublisher events;
     private final AvailabilityRepository availabilities;
     private final AudienceCheck audience;
+    private final PerksDirectory perks;
     private final Clock clock;
 
     public ParticipationService(OptimisticPlanUpdates updates, PlanEventPublisher events,
@@ -29,13 +32,21 @@ public class ParticipationService implements ParticipationUseCase {
         this(updates, events, availabilities, AudienceCheck.NONE, clock);
     }
 
-    @Autowired
     public ParticipationService(OptimisticPlanUpdates updates, PlanEventPublisher events,
                                 AvailabilityRepository availabilities, AudienceCheck audience, Clock clock) {
+        this(updates, events, availabilities, audience, PerksDirectory.NONE, clock);
+    }
+
+    @Autowired
+    @SuppressWarnings("java:S107")
+    public ParticipationService(OptimisticPlanUpdates updates, PlanEventPublisher events,
+                                AvailabilityRepository availabilities, AudienceCheck audience, PerksDirectory perks,
+                                Clock clock) {
         this.updates = updates;
         this.events = events;
         this.availabilities = availabilities;
         this.audience = audience;
+        this.perks = perks;
         this.clock = clock;
     }
 
@@ -52,9 +63,11 @@ public class ParticipationService implements ParticipationUseCase {
 
     @Override
     public Plan joinWaitlist(UUID planId, UUID userId, String name) {
+        // Asked once, before the retries: whoever has more reputation waits ahead of whoever has less (HU-063)
+        var priority = perks.perksOf(userId).waitlistPriority();
         return updates.update(planId, plan -> {
             audience.check(plan, userId);
-            return plan.joinWaitlist(userId, name, clock);
+            return plan.joinWaitlist(userId, name, priority, clock);
         });
     }
 

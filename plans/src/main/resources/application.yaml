@@ -106,6 +106,9 @@ oneleft:
     url: ${USERS_URL:http://localhost:8081}
   social:
     url: ${SOCIAL_URL:http://localhost:8085}
+  # What the reputation of a person is worth (HU-063), asked with their own token
+  reputation:
+    url: ${REPUTATION_URL:http://localhost:8086}
   weather:
     url: ${WEATHER_URL:https://api.open-meteo.com}
   places:

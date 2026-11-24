@@ -69,6 +69,11 @@ public class JpaReputationRepository implements Ledger, Scores {
     }
 
     @Override
+    public Map<UUID, Integer> all() {
+        return scores.findAll().stream().collect(Collectors.toMap(ScoreEntity::userId, ScoreEntity::score));
+    }
+
+    @Override
     public int rebuildFromLedger() {
         scores.deleteWithoutEntries();
         return scores.rebuildFromLedger();

@@ -8,6 +8,7 @@ import es.upm.miw.oneleft.reputation.domain.port.in.ReputationQueryUseCase;
 import es.upm.miw.oneleft.reputation.infrastructure.config.KeycloakJwt;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.BadgeResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.LedgerResponse;
+import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.PerksResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.RebuildResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.ReputationResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.StreakResponse;
@@ -31,8 +32,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * My reputation and its ledger, the reputation of others (HU-009), the badges (HU-044), and the levels and the weekly
- * streak (HU-062).
+ * My reputation and its ledger, the reputation of others (HU-009), the badges (HU-044), the levels and the weekly
+ * streak (HU-062), and what each level is worth (HU-063).
  */
 @RestController
 @RequestMapping(ReputationController.REPUTATION)
@@ -45,6 +46,7 @@ public class ReputationController {
     public static final String PERSON = "/people/{userId}";
     public static final String MY_BADGES = ME + "/badges";
     public static final String MY_STREAK = ME + "/streak";
+    public static final String MY_PERKS = ME + "/perks";
     public static final String PERSON_BADGES = PERSON + "/badges";
     public static final String PERSON_STATS = PERSON + "/stats";
     public static final String SCORES = "/scores";
@@ -90,9 +92,20 @@ public class ReputationController {
         return StreakResponse.of(reputation.streakOf(KeycloakJwt.userId(jwt)));
     }
 
+    @GetMapping(MY_PERKS)
+    @Operation(summary = "What my level is worth (HU-063)",
+            description = "The higher the level, the further ahead on the waiting lists, the more the notices of "
+                    + "nearby plans count on me, and the more plans at once and saved alerts. The plans and "
+                    + "notifications services apply them; the plans service asks here with the token of the person.")
+    @ApiResponse(responseCode = "200", description = "My perks")
+    public PerksResponse myPerks(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
+        return PerksResponse.of(reputation.reputationOf(KeycloakJwt.userId(jwt)));
+    }
+
     @GetMapping(PERSON)
     @Operation(summary = "The reputation of someone",
-            description = "Their score and level (HU-062); their ledger is only theirs.")
+            description = "Their score and level (HU-062), and whether they are a trusted organizer (HU-063); their "
+                    + "ledger is only theirs.")
     @ApiResponse(responseCode = "200", description = "The score and level")
     public ReputationResponse of(@PathVariable UUID userId) {
         return ReputationResponse.of(reputation.reputationOf(userId));
@@ -142,7 +155,9 @@ public class ReputationController {
 
     @PostMapping(REBUILD)
     @Operation(summary = "Rebuild every score from the ledger (administrators)",
-            description = "The scores are a projection of the ledger: they are computed again as sums of entries.")
+            description = "The scores are a projection of the ledger: they are computed again as sums of entries. "
+                    + "The perks of everyone with a score are announced again (HU-063), which fills the copies of "
+                    + "the other services.")
     @ApiResponse(responseCode = "200", description = "How many people have a score")
     @ApiResponse(responseCode = "403", description = "Only administrators", content = @Content)
     public RebuildResponse rebuild(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {

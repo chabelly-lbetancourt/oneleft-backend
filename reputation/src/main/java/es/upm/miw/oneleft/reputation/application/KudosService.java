@@ -14,8 +14,10 @@ import es.upm.miw.oneleft.reputation.domain.port.out.Badges;
 import es.upm.miw.oneleft.reputation.domain.port.out.KudosNotices;
 import es.upm.miw.oneleft.reputation.domain.port.out.KudosStore;
 import es.upm.miw.oneleft.reputation.domain.port.out.Ledger;
+import es.upm.miw.oneleft.reputation.domain.port.out.PerkNotices;
 import es.upm.miw.oneleft.reputation.domain.port.out.Scores;
 import es.upm.miw.oneleft.reputation.domain.port.out.TrackRecords;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,21 +43,30 @@ public class KudosService implements KudosUseCase {
     private final KudosStore kudos;
     private final TrackRecords trackRecords;
     private final Ledger ledger;
-    private final Scores scores;
     private final KudosNotices notices;
     private final BadgeAwards awards;
     private final DailyCaps dailyCaps;
+    private final LevelWatch levels;
     private final Clock clock;
 
+    @SuppressWarnings("java:S107")
     public KudosService(KudosStore kudos, TrackRecords trackRecords, Ledger ledger, Scores scores,
                         KudosNotices notices, Badges badges, BadgeNotices badgeNotices, Clock clock) {
+        this(kudos, trackRecords, ledger, scores, notices, badges, badgeNotices, PerkNotices.NONE, clock);
+    }
+
+    @Autowired
+    @SuppressWarnings("java:S107")
+    public KudosService(KudosStore kudos, TrackRecords trackRecords, Ledger ledger, Scores scores,
+                        KudosNotices notices, Badges badges, BadgeNotices badgeNotices, PerkNotices perkNotices,
+                        Clock clock) {
         this.kudos = kudos;
         this.trackRecords = trackRecords;
         this.ledger = ledger;
-        this.scores = scores;
         this.notices = notices;
         this.awards = new BadgeAwards(trackRecords, badges, badgeNotices);
         this.dailyCaps = new DailyCaps(ledger);
+        this.levels = new LevelWatch(scores, perkNotices, clock);
         this.clock = clock;
     }
 
@@ -69,7 +80,7 @@ public class KudosService implements KudosUseCase {
         var entry = limited(given, LedgerEntry.of(receiverId, Reason.KUDOS, given.id(),
                 ledger.planTitle(planId).orElse(null), given.givenAt()));
         if (ledger.append(entry)) {
-            scores.add(receiverId, entry.points());
+            levels.add(receiverId, entry.points());
             awards.awardReached(receiverId, given.givenAt());
         }
         notices.received(given, giverName);

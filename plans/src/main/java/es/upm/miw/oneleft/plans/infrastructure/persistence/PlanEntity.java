@@ -107,13 +107,13 @@ public class PlanEntity {
     @Fetch(FetchMode.SELECT)
     private List<ParticipantEmbeddable> participants = new ArrayList<>();
 
-    /** Waiting list, in order of arrival (HU-023). */
+    /** Waiting list (HU-023): the highest priority first (HU-063) and, among equals, in order of arrival. */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "plan_waitlist", joinColumns = @JoinColumn(name = "plan_id"))
-    @OrderBy("joinedAt")
+    @OrderBy("priority DESC, joinedAt")
     @BatchSize(size = 50)
     @Fetch(FetchMode.SELECT)
-    private List<ParticipantEmbeddable> waitlist = new ArrayList<>();
+    private List<WaitingEmbeddable> waitlist = new ArrayList<>();
 
     /** The organizer chooses who comes (HU-069) */
     @Column(name = "requires_approval", nullable = false)
@@ -151,7 +151,7 @@ public class PlanEntity {
                String description,
                String meetingPoint, Point location, Instant startsAt, int spots, int occupied, Level level,
                PlanStatus status, Instant publishedAt, List<ParticipantEmbeddable> participants,
-               List<ParticipantEmbeddable> waitlist, Instant remindedAt, Integer minParticipants,
+               List<WaitingEmbeddable> waitlist, Instant remindedAt, Integer minParticipants,
                Instant minimumDeadline, Instant confirmedAt, List<ArrivalEmbeddable> arrivals, boolean requiresApproval,
                List<JoinRequestEmbeddable> requests, AudienceGender audienceGender, Integer minAge, Integer maxAge,
                long version) {
@@ -201,7 +201,7 @@ public class PlanEntity {
     PlanStatus getStatus() { return status; }
     Instant getPublishedAt() { return publishedAt; }
     List<ParticipantEmbeddable> getParticipants() { return participants; }
-    List<ParticipantEmbeddable> getWaitlist() { return waitlist; }
+    List<WaitingEmbeddable> getWaitlist() { return waitlist; }
     boolean isRequiresApproval() { return requiresApproval; }
     List<JoinRequestEmbeddable> getRequests() { return requests; }
     AudienceGender getAudienceGender() { return audienceGender; }

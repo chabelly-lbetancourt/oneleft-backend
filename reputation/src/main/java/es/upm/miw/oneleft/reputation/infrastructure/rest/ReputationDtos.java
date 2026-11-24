@@ -27,11 +27,32 @@ public final class ReputationDtos {
                                              + "NEIGHBOURHOOD_REFERENCE 500-1499, LEGEND 1500+",
                                              example = "REGULAR") Level level,
                                      @Schema(description = "The score at which the next level starts; null at LEGEND",
-                                             example = "500") Integer nextLevelAt) {
+                                             example = "500") Integer nextLevelAt,
+                                     @Schema(description = "The seal of trusted organizer (HU-063): REGULAR or "
+                                             + "above with 5 or more plans organized that were held")
+                                     boolean trustedOrganizer) {
 
         static ReputationResponse of(Reputation reputation) {
             return new ReputationResponse(reputation.userId(), reputation.score(), reputation.level(),
-                    reputation.nextLevelAt().orElse(null));
+                    reputation.nextLevelAt().orElse(null), reputation.trustedOrganizer());
+        }
+    }
+
+    @Schema(description = "What my level is worth (HU-063)")
+    public record PerksResponse(@Schema(example = "REGULAR") Level level,
+                                @Schema(description = "Who goes first on a waiting list: the higher first (0 to 3)",
+                                        example = "1") int waitlistPriority,
+                                @Schema(description = "What multiplies my chances of being among the first notified "
+                                        + "of a nearby plan", example = "1.1") double noticeWeight,
+                                @Schema(description = "The plans I may organize at once", example = "6")
+                                int maxActivePlans,
+                                @Schema(description = "The alerts I may keep", example = "6") int maxSavedAlerts,
+                                @Schema(description = "The seal of trusted organizer") boolean trustedOrganizer) {
+
+        static PerksResponse of(Reputation reputation) {
+            var perks = reputation.perks();
+            return new PerksResponse(perks.level(), perks.waitlistPriority(), perks.noticeWeight(),
+                    perks.maxActivePlans(), perks.maxSavedAlerts(), reputation.trustedOrganizer());
         }
     }
 

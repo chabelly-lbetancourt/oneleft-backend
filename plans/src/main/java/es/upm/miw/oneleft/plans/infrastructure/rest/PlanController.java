@@ -88,6 +88,9 @@ public class PlanController {
     @ApiResponse(responseCode = "201", description = "Plan published")
     @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
     @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
+    @ApiResponse(responseCode = "409", description = "plan.tooManyActive: the organizer already has as many plans "
+            + "that have not started as their reputation allows (HU-063): 5, or up to 10 with the level; the "
+            + "problem carries the limit in max", content = @Content)
     public ResponseEntity<PlanResponse> publish(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                                 @Valid @RequestBody PublishPlanRequest request) {
         var organizer = new Organizer(UUID.fromString(jwt.getSubject()), jwt.getClaimAsString("name"));
@@ -138,7 +141,9 @@ public class PlanController {
 
     @PostMapping(WAITLIST)
     @Operation(summary = "Join the waiting list of a full plan (HU-023)",
-            description = "When someone leaves, the first person of the list takes the spot automatically.")
+            description = "When someone leaves, the first person of the list takes the spot automatically. "
+                    + "Whoever has more reputation waits ahead of whoever has less (HU-063); among equals, in "
+                    + "order of arrival.")
     @ApiResponse(responseCode = "200", description = "On the waiting list; the plan with its list")
     @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
     @ApiResponse(responseCode = "409", description = "plan.notFull, plan.alreadyWaiting, plan.alreadyJoined, "

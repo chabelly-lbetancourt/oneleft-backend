@@ -8,7 +8,9 @@ import es.upm.miw.oneleft.reputation.domain.port.out.TrackRecords;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +39,16 @@ public class JpaBadgeRepository implements TrackRecords, Badges {
         var record = badges.trackRecordOf(userId);
         return new TrackRecord((int) record.getOrganizedHeld(), (int) record.getCompleted(),
                 (int) record.getActivities(), (int) record.getStreak(), (int) record.getKudos());
+    }
+
+    @Override
+    public Map<UUID, Integer> organizedHeldOf(Collection<UUID> userIds) {
+        var organized = new HashMap<UUID, Integer>();
+        if (!userIds.isEmpty()) {
+            badges.organizedHeldOf(userIds)
+                    .forEach(row -> organized.put((UUID) row[0], ((Number) row[1]).intValue()));
+        }
+        return organized;
     }
 
     @Override
