@@ -292,11 +292,14 @@ class ReputationIntegrationTest {
                     "occurredAt", Instant.parse("2026-10-13T16:00:00Z").plusSeconds(60L * minute).toString()));
         }
 
-        waitUntil(() -> jdbc.queryForObject("SELECT COUNT(*) FROM reputation_entry WHERE user_id = ?", Integer.class,
-                lucia) == AntiCheatRules.MAX_ATTENDED_PER_DAY + 1);
+        waitUntil(() -> jdbc.queryForObject("SELECT COUNT(*) FROM reputation_entry WHERE user_id = ? "
+                + "AND reason = 'ATTENDED'", Integer.class, lucia) == AntiCheatRules.MAX_ATTENDED_PER_DAY + 1);
 
-        assertThat(score(lucia)).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10);
+        assertThat(jdbc.queryForObject("SELECT SUM(points) FROM reputation_entry WHERE user_id = ? "
+                + "AND reason = 'ATTENDED'", Integer.class, lucia)).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10);
+        // The latest check-in is the one that gave nothing, and says why
         mockMvc.perform(get(ME + "/ledger").with(user(lucia)))
+                .andExpect(jsonPath("$.items[0].reason").value("ATTENDED"))
                 .andExpect(jsonPath("$.items[0].points").value(0))
                 .andExpect(jsonPath("$.items[0].limitedBy").value("DAILY_CAP"))
                 .andExpect(jsonPath("$.items[1].limitedBy").doesNotExist());

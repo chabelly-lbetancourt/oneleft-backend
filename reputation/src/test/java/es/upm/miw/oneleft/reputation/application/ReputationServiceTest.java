@@ -150,14 +150,20 @@ class ReputationServiceTest {
         IntStream.rangeClosed(0, AntiCheatRules.MAX_ATTENDED_PER_DAY).forEach(index ->
                 service.record(new CheckInFact(UUID.randomUUID(), "Padel", lucia, NOW.plusSeconds(60L * index))));
 
-        assertThat(service.reputationOf(lucia).score()).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10);
+        assertThat(attendedPoints(lucia)).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10);
         assertThat(service.ledgerOf(lucia, new PageQuery(0, 20)).items().getFirst())
                 .extracting(LedgerEntry::points, LedgerEntry::limitedBy).containsExactly(0, PointsLimit.DAILY_CAP);
         // The next day in Spain they count again; a check-in delivered twice is still one
         var tomorrow = new CheckInFact(UUID.randomUUID(), "Padel", lucia, NOW.plus(Duration.ofDays(1)));
         service.record(tomorrow);
         service.record(tomorrow);
-        assertThat(service.reputationOf(lucia).score()).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10 + 10);
+        assertThat(attendedPoints(lucia)).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10 + 10);
+    }
+
+    /** Only the points of the check-ins, whatever other reasons the same events may give */
+    private int attendedPoints(UUID userId) {
+        return store.entries.stream().filter(entry -> entry.userId().equals(userId)
+                && entry.reason() == Reason.ATTENDED).mapToInt(LedgerEntry::points).sum();
     }
 
     @Test
