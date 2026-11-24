@@ -10,6 +10,7 @@ import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.BadgeRes
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.LedgerResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.RebuildResponse;
 import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.ReputationResponse;
+import es.upm.miw.oneleft.reputation.infrastructure.rest.ReputationDtos.StreakResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -29,7 +30,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.UUID;
 
-/** My reputation and its ledger, the reputation of others (HU-009) and the badges (HU-044). */
+/**
+ * My reputation and its ledger, the reputation of others (HU-009), the badges (HU-044), and the levels and the weekly
+ * streak (HU-062).
+ */
 @RestController
 @RequestMapping(ReputationController.REPUTATION)
 @Tag(name = "Reputation", description = "The score of each person and the ledger that explains it")
@@ -40,6 +44,7 @@ public class ReputationController {
     public static final String MY_LEDGER = ME + "/ledger";
     public static final String PERSON = "/people/{userId}";
     public static final String MY_BADGES = ME + "/badges";
+    public static final String MY_STREAK = ME + "/streak";
     public static final String PERSON_BADGES = PERSON + "/badges";
     public static final String PERSON_STATS = PERSON + "/stats";
     public static final String SCORES = "/scores";
@@ -57,8 +62,8 @@ public class ReputationController {
     }
 
     @GetMapping(ME)
-    @Operation(summary = "My reputation")
-    @ApiResponse(responseCode = "200", description = "My score")
+    @Operation(summary = "My reputation", description = "My score and its level (HU-062).")
+    @ApiResponse(responseCode = "200", description = "My score and level")
     public ReputationResponse mine(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return ReputationResponse.of(reputation.reputationOf(KeycloakJwt.userId(jwt)));
     }
@@ -75,9 +80,20 @@ public class ReputationController {
         return LedgerResponse.of(reputation.ledgerOf(KeycloakJwt.userId(jwt), query));
     }
 
+    @GetMapping(MY_STREAK)
+    @Operation(summary = "My weekly streak (HU-062)",
+            description = "The weeks in a row, up to this one, with at least one plan checked in (Monday to Sunday, "
+                    + "in Spain). The first check-in of each week gives 5 points per week in a row, up to 25. A streak "
+                    + "that has no plan this week yet is still alive until the week ends.")
+    @ApiResponse(responseCode = "200", description = "My streak")
+    public StreakResponse myStreak(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
+        return StreakResponse.of(reputation.streakOf(KeycloakJwt.userId(jwt)));
+    }
+
     @GetMapping(PERSON)
-    @Operation(summary = "The reputation of someone", description = "Their score; their ledger is only theirs.")
-    @ApiResponse(responseCode = "200", description = "The score")
+    @Operation(summary = "The reputation of someone",
+            description = "Their score and level (HU-062); their ledger is only theirs.")
+    @ApiResponse(responseCode = "200", description = "The score and level")
     public ReputationResponse of(@PathVariable UUID userId) {
         return ReputationResponse.of(reputation.reputationOf(userId));
     }
@@ -116,7 +132,8 @@ public class ReputationController {
     }
 
     @GetMapping(SCORES)
-    @Operation(summary = "The reputation of several people", description = "For lists of plans, in the order asked.")
+    @Operation(summary = "The reputation of several people",
+            description = "For lists of plans, in the order asked, each one with their level (HU-062).")
     @ApiResponse(responseCode = "200", description = "The scores")
     @ApiResponse(responseCode = "400", description = "reputation.people: 1 to 50 people", content = @Content)
     public List<ReputationResponse> scores(@RequestParam List<UUID> ids) {

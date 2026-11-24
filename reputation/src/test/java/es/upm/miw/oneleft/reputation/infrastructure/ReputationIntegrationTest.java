@@ -138,18 +138,18 @@ class ReputationIntegrationTest {
 
         waitUntil(() -> Integer.valueOf(-65).equals(score(diego)) && score(ana) != null);
 
-        assertThat(score(lucia)).isEqualTo(10);
+        assertThat(score(lucia)).isEqualTo(10 + 5);
         assertThat(score(ana)).isEqualTo(-15 + 20);
         mockMvc.perform(get(ME + "/ledger").with(user(ana)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2))
                 .andExpect(jsonPath("$.items[0].planTitle").value("Padel 2 vs 2"))
                 .andExpect(jsonPath("$.items[0].planId").value(plan.toString()));
-        mockMvc.perform(get(ME).with(user(lucia))).andExpect(jsonPath("$.score").value(10));
+        mockMvc.perform(get(ME).with(user(lucia))).andExpect(jsonPath("$.score").value(15));
         mockMvc.perform(get(ReputationController.REPUTATION + "/scores").param("ids", diego + "," + lucia)
                         .with(user(ana)))
                 .andExpect(jsonPath("$[0].score").value(-65))
-                .andExpect(jsonPath("$[1].score").value(10));
+                .andExpect(jsonPath("$[1].score").value(15));
         mockMvc.perform(get(ReputationController.REPUTATION + "/people/" + UUID.randomUUID()).with(user(ana)))
                 .andExpect(jsonPath("$.score").value(0));
     }
@@ -199,7 +199,7 @@ class ReputationIntegrationTest {
         mockMvc.perform(post(ReputationController.REPUTATION + ReputationController.REBUILD)
                         .with(user(ana, "admin")))
                 .andExpect(status().isOk());
-        assertThat(score(lucia)).isEqualTo(10);
+        assertThat(score(lucia)).isEqualTo(10 + 5);
     }
 
     private void attendanceClosed(String activity, List<UUID> attendees, List<UUID> absentees, int minute) {
@@ -303,6 +303,35 @@ class ReputationIntegrationTest {
                 .andExpect(jsonPath("$.items[0].points").value(0))
                 .andExpect(jsonPath("$.items[0].limitedBy").value("DAILY_CAP"))
                 .andExpect(jsonPath("$.items[1].limitedBy").doesNotExist());
+    }
+
+    /** HU-062: the first check-in of each week gives the streak bonus, and the score comes with its level */
+    @Test
+    void theCheckInsOfWeeksInARowGiveTheStreakAndTheScoreItsLevel() throws Exception {
+        // Wednesday 7 and Tuesday 13 October 2026: two weeks in a row
+        for (var day : List.of("2026-10-07T16:00:00Z", "2026-10-13T16:00:00Z", "2026-10-13T18:00:00Z")) {
+            publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_CHECKED_IN, Map.of("planId", UUID.randomUUID(),
+                    "title", "Padel", "userId", lucia, "occurredAt", day));
+        }
+
+        waitUntil(() -> Integer.valueOf(3 * 10 + 5 + 10).equals(score(lucia)));
+
+        assertThat(jdbc.queryForList("SELECT points FROM reputation_entry WHERE user_id = ? AND reason = "
+                + "'WEEKLY_STREAK' ORDER BY occurred_at", Integer.class, lucia)).containsExactly(5, 10);
+        mockMvc.perform(get(ME).with(user(lucia)))
+                .andExpect(jsonPath("$.score").value(45))
+                .andExpect(jsonPath("$.level").value("NEW"))
+                .andExpect(jsonPath("$.nextLevelAt").value(100));
+        mockMvc.perform(get(ReputationController.REPUTATION + "/scores").param("ids", lucia.toString())
+                        .with(user(ana)))
+                .andExpect(jsonPath("$[0].level").value("NEW"));
+        // Those weeks are long gone now: no streak today, and the next week would start one
+        mockMvc.perform(get(ReputationController.REPUTATION + ReputationController.MY_STREAK).with(user(lucia)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weeks").value(0))
+                .andExpect(jsonPath("$.thisWeek").value(false))
+                .andExpect(jsonPath("$.nextBonus").value(5))
+                .andExpect(jsonPath("$.maxBonus").value(25));
     }
 
     @Test

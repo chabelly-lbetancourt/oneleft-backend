@@ -4,12 +4,13 @@ import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
 import es.upm.miw.oneleft.reputation.domain.model.Reputation;
+import es.upm.miw.oneleft.reputation.domain.model.Streak;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-/** The reputation of people and the entries that explain it. */
+/** The reputation of people, with their level (HU-062), and the entries that explain it. */
 public interface ReputationQueryUseCase {
 
     /** At most this many people in one question */
@@ -22,4 +23,7 @@ public interface ReputationQueryUseCase {
 
     /** Why the reputation of someone went up or down, the latest first. */
     PageResult<LedgerEntry> ledgerOf(UUID userId, PageQuery page);
+
+    /** The weekly streak of someone today (HU-062). */
+    Streak streakOf(UUID userId);
 }
