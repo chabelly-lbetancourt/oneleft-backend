@@ -2,6 +2,9 @@ package es.upm.miw.oneleft.plans.infrastructure.rest;
 
 import es.upm.miw.oneleft.plans.domain.model.DraftUnavailableException;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
+import es.upm.miw.oneleft.plans.domain.model.MemoryForbiddenException;
+import es.upm.miw.oneleft.plans.domain.model.MemoryNotFoundException;
+import es.upm.miw.oneleft.plans.domain.model.MemoryStorageUnavailableException;
 import es.upm.miw.oneleft.plans.domain.model.NotOrganizerException;
 import es.upm.miw.oneleft.plans.domain.model.PersonActivityException;
 import es.upm.miw.oneleft.plans.domain.model.PlanLimitException;
@@ -62,6 +65,24 @@ public class ApiExceptionHandler {
     ProblemDetail draftUnavailable(DraftUnavailableException exception) {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, "The assistant is not available now",
                 DraftUnavailableException.CODE);
+    }
+
+    @ExceptionHandler(MemoryNotFoundException.class)
+    ProblemDetail memoryNotFound(MemoryNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage(), MemoryNotFoundException.CODE);
+    }
+
+    /** The album is only for the group of the plan, and each photo is only removed by whoever uploaded it (HU-052). */
+    @ExceptionHandler(MemoryForbiddenException.class)
+    ProblemDetail memoryForbidden(MemoryForbiddenException exception) {
+        return problem(HttpStatus.FORBIDDEN, exception.getMessage(), exception.code());
+    }
+
+    /** The storage of the photos does not answer: the rest of the service works as usual. */
+    @ExceptionHandler(MemoryStorageUnavailableException.class)
+    ProblemDetail memoryStorageUnavailable(MemoryStorageUnavailableException exception) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(),
+                MemoryStorageUnavailableException.CODE);
     }
 
     @ExceptionHandler(ValidationException.class)

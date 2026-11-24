@@ -34,6 +34,9 @@ public class JdbcPersonalData implements PersonalData {
                 "SELECT plan_id, status, minutes_late, announced_at FROM plan_arrival WHERE user_id = :userId");
         EXPORT.put("checkIns",
                 "SELECT plan_id, checked_in_at FROM plan_check_in WHERE user_id = :userId");
+        EXPORT.put("memories",
+                "SELECT id, plan_id, object_key, size_bytes, uploaded_at FROM plan_memory WHERE user_id = :userId "
+                + "ORDER BY uploaded_at");
         EXPORT.put("freeMode",
                 "SELECT latitude, longitude, until, created_at FROM availability WHERE user_id = :userId");
         EXPORT.put("blocks",
@@ -55,6 +58,7 @@ public class JdbcPersonalData implements PersonalData {
             "UPDATE plan_waitlist SET name = 'Persona eliminada' WHERE user_id = :userId",
             "UPDATE plan_arrival SET name = 'Persona eliminada' WHERE user_id = :userId",
             "UPDATE plan_check_in SET name = 'Persona eliminada' WHERE user_id = :userId",
+            "DELETE FROM plan_memory WHERE user_id = :userId",
             "DELETE FROM availability WHERE user_id = :userId",
             "DELETE FROM block WHERE :userId IN (blocker_id, blocked_id)");
 
