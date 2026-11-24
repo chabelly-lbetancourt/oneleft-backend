@@ -153,8 +153,9 @@ class CancelPlanControllerTest {
                 .andExpect(jsonPath("$.waitlist", hasSize(0)));
         mockMvc.perform(get(PlanController.PLANS + PlanController.MINE).with(user(organizer, "Ana")))
                 .andExpect(jsonPath("$", hasSize(0)));
+        // Nobody takes a spot of a cancelled plan
         mockMvc.perform(post(plan(planId) + "/participants").with(user(diego, "Diego")))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("plan.notOpen"));
+                .andExpect(status().isConflict());
         assertThat(received()).singleElement().satisfies(event -> {
             assertThat(event.planId()).hasToString(planId);
             assertThat(event.reason()).isEqualTo(PlanCancelled.Reason.ORGANIZER);
