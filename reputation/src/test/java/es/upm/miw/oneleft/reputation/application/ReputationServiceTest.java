@@ -16,8 +16,10 @@ import es.upm.miw.oneleft.reputation.domain.model.Reputation;
 import es.upm.miw.oneleft.reputation.domain.model.ValidationException;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,7 +35,7 @@ class ReputationServiceTest {
     private final InMemoryReputation store = new InMemoryReputation();
     private final List<String> notices = new ArrayList<>();
     private final ReputationService service = new ReputationService(store, store, store, store,
-            (userId, badge, at) -> notices.add(userId + ":" + badge));
+            (userId, badge, at) -> notices.add(userId + ":" + badge), Clock.fixed(NOW, ZoneOffset.UTC));
     private final UUID plan = UUID.randomUUID();
     private final UUID ana = UUID.randomUUID();
     private final UUID lucia = UUID.randomUUID();
@@ -45,8 +47,10 @@ class ReputationServiceTest {
         service.record(checkIn);
         service.record(checkIn);
 
-        assertThat(service.reputationOf(lucia)).isEqualTo(new Reputation(lucia, 10));
-        assertThat(store.entries).hasSize(1);
+        // The check-in and the bonus of the first week of a streak (HU-062)
+        assertThat(service.reputationOf(lucia)).isEqualTo(new Reputation(lucia, 10 + 5));
+        assertThat(store.entries).extracting(LedgerEntry::reason)
+                .containsExactlyInAnyOrder(Reason.ATTENDED, Reason.WEEKLY_STREAK);
     }
 
     @Test
@@ -74,7 +78,7 @@ class ReputationServiceTest {
         service.record(new CheckInFact(plan, "Padel", lucia, NOW));
 
         assertThat(service.reputationsOf(List.of(ana, lucia, ana)))
-                .containsExactly(new Reputation(ana, 0), new Reputation(lucia, 10));
+                .containsExactly(new Reputation(ana, 0), new Reputation(lucia, 10 + 5));
         assertThatThrownBy(() -> service.reputationsOf(List.of()))
                 .isInstanceOfSatisfying(ValidationException.class,
                         error -> assertThat(error.code()).isEqualTo("reputation.people"));
@@ -89,7 +93,7 @@ class ReputationServiceTest {
 
         assertThat(service.rebuildScores()).isEqualTo(1);
 
-        assertThat(service.reputationOf(lucia).score()).isEqualTo(10);
+        assertThat(service.reputationOf(lucia).score()).isEqualTo(10 + 5);
     }
 
     private AttendanceFact heldPlan(String activity, List<UUID> attendees, List<UUID> absentees, int minute) {

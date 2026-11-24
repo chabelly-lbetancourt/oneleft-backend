@@ -33,6 +33,12 @@ interface SpringDataLedgerRepository extends JpaRepository<LedgerEntryEntity, Lo
 
     Page<LedgerEntryEntity> findByUserIdOrderByOccurredAtDescIdDesc(UUID userId, Pageable page);
 
+    /** When the entries of a person and reason happened, from an instant on: only the times, for the streak */
+    @Query("SELECT e.occurredAt FROM LedgerEntryEntity e WHERE e.userId = :userId AND e.reason = :reason "
+            + "AND e.occurredAt >= :since")
+    List<Instant> occurrencesOf(@Param("userId") UUID userId, @Param("reason") Reason reason,
+                                @Param("since") Instant since);
+
     /** The title of a plan, as the entries it caused keep it (HU-060) */
     @Query("SELECT e.planTitle FROM LedgerEntryEntity e WHERE e.sourceId = :planId AND e.planTitle IS NOT NULL "
             + "ORDER BY e.id")

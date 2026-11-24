@@ -6,6 +6,7 @@ import es.upm.miw.oneleft.reputation.domain.model.PageResult;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,8 @@ public interface Ledger {
 
     /** The entries of a person and reason from an instant (included) to another (not included), for the caps */
     int count(UUID userId, Reason reason, Instant from, Instant to);
+    /** When the entries of a person and reason happened, from an instant on: the weeks of a streak (HU-062) */
+    List<Instant> occurrencesOf(UUID userId, Reason reason, Instant since);
 
     /** The title of a plan, as its entries keep it */
     Optional<String> planTitle(UUID planId);

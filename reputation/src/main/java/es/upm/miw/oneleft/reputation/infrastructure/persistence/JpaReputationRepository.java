@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,6 +46,11 @@ public class JpaReputationRepository implements Ledger, Scores {
         var rows = ledger.findByUserIdOrderByOccurredAtDescIdDesc(userId, PageRequest.of(page.page(), page.size()));
         return new PageResult<>(rows.map(LedgerEntryEntity::toDomain).getContent(), page.page(), page.size(),
                 rows.getTotalElements());
+    }
+
+    @Override
+    public List<Instant> occurrencesOf(UUID userId, Reason reason, Instant since) {
+        return ledger.occurrencesOf(userId, reason, since);
     }
 
     @Override

@@ -98,6 +98,12 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
     }
 
     @Override
+    public List<Instant> occurrencesOf(UUID userId, Reason reason, Instant since) {
+        return entries.stream().filter(entry -> entry.userId().equals(userId) && entry.reason() == reason
+                && !entry.occurredAt().isBefore(since)).map(LedgerEntry::occurredAt).toList();
+    }
+
+    @Override
     public Optional<String> planTitle(UUID planId) {
         return entries.stream().filter(entry -> entry.sourceId().equals(planId) && entry.planTitle() != null)
                 .map(LedgerEntry::planTitle).findFirst();
