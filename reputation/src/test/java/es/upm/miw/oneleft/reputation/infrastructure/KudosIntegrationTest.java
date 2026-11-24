@@ -75,6 +75,7 @@ class KudosIntegrationTest {
 
     private final UUID plan = UUID.randomUUID();
     private final UUID old = UUID.randomUUID();
+    private final UUID again = UUID.randomUUID();
     private final UUID ana = UUID.randomUUID();
     private final UUID lucia = UUID.randomUUID();
     private final UUID diego = UUID.randomUUID();
@@ -94,7 +95,7 @@ class KudosIntegrationTest {
             jdbc.execute("SET LOCAL oneleft.ledger_erasure = 'on'");
             jdbc.update("DELETE FROM reputation_entry WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
         });
-        jdbc.update("DELETE FROM kudos WHERE plan_id IN (?, ?)", plan, old);
+        jdbc.update("DELETE FROM kudos WHERE plan_id IN (?, ?, ?)", plan, old, again);
         jdbc.update("DELETE FROM reputation_score WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
         jdbc.update("DELETE FROM track_record WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
         jdbc.update("DELETE FROM badge WHERE user_id IN (?, ?, ?)", ana, lucia, diego);
@@ -194,5 +195,20 @@ class KudosIntegrationTest {
         mockMvc.perform(get(ReputationController.REPUTATION + KudosController.PLAN_KUDOS, old)
                         .with(jwt().jwt(token -> token.subject(lucia.toString()))))
                 .andExpect(jsonPath("$.open").value(false));
+    }
+
+    /** HU-066: the kudos between two people are counted in the real store; the second one is worth half */
+    @Test
+    void aSecondKudosFromTheSamePersonIsWorthHalf() throws Exception {
+        attendanceClosed(plan, Instant.now());
+        attendanceClosed(again, Instant.now());
+
+        give(lucia, plan, ana, "GOOD_VIBES").andExpect(status().isCreated());
+        give(lucia, again, ana, "PUNCTUAL").andExpect(status().isCreated());
+
+        assertThat(jdbc.queryForList("SELECT points FROM reputation_entry WHERE user_id = ? AND reason = 'KUDOS' "
+                + "ORDER BY id", Integer.class, ana)).containsExactly(5, 2);
+        assertThat(jdbc.queryForObject("SELECT limited_by FROM reputation_entry WHERE user_id = ? AND reason = "
+                + "'KUDOS' AND points = 2", String.class, ana)).isEqualTo("SAME_PERSON");
     }
 }

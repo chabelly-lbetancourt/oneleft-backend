@@ -11,9 +11,10 @@ import java.util.UUID;
  *
  * @param sourceId  the plan or the report that caused it; with the user and the reason, it identifies the entry
  * @param planTitle the title of the plan when it was a plan, to explain the entry
+ * @param limitedBy why it gave fewer points than its reason is worth (HU-066), or {@code null}
  */
 public record LedgerEntry(UUID userId, Reason reason, int points, UUID sourceId, String planTitle,
-                          Instant occurredAt) {
+                          Instant occurredAt, PointsLimit limitedBy) {
 
     public LedgerEntry {
         if (userId == null || reason == null || sourceId == null || occurredAt == null) {
@@ -22,7 +23,23 @@ public record LedgerEntry(UUID userId, Reason reason, int points, UUID sourceId,
         occurredAt = occurredAt.truncatedTo(ChronoUnit.SECONDS);
     }
 
+    /** An entry worth what its reason is worth */
+    public LedgerEntry(UUID userId, Reason reason, int points, UUID sourceId, String planTitle, Instant occurredAt) {
+        this(userId, reason, points, sourceId, planTitle, occurredAt, null);
+    }
+
     public static LedgerEntry of(UUID userId, Reason reason, UUID sourceId, String planTitle, Instant occurredAt) {
         return new LedgerEntry(userId, reason, reason.points(), sourceId, planTitle, occurredAt);
+    }
+
+    /**
+     * The same entry, worth fewer points, and why. Nothing changes if the points are not fewer; after several limits,
+     * the last one that cut it explains the points it ended with.
+     */
+    public LedgerEntry limited(int fewerPoints, PointsLimit limit) {
+        if (fewerPoints >= points) {
+            return this;
+        }
+        return new LedgerEntry(userId, reason, fewerPoints, sourceId, planTitle, occurredAt, limit);
     }
 }

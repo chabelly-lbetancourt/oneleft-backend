@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.reputation.application;
 
 import es.upm.miw.oneleft.reputation.InMemoryReputation;
+import es.upm.miw.oneleft.reputation.domain.model.AntiCheatRules;
 import es.upm.miw.oneleft.reputation.domain.model.Attendance;
 import es.upm.miw.oneleft.reputation.domain.model.Badge;
 import es.upm.miw.oneleft.reputation.domain.model.Kudos;
@@ -8,6 +9,7 @@ import es.upm.miw.oneleft.reputation.domain.model.KudosException;
 import es.upm.miw.oneleft.reputation.domain.model.KudosKind;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PlanKudos;
+import es.upm.miw.oneleft.reputation.domain.model.PointsLimit;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,7 @@ import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 /** HU-060: kudos between the people who arrived at a plan, in the ledger, with their notice. */
 class KudosServiceTest {
@@ -100,15 +103,104 @@ class KudosServiceTest {
         assertThat(service.kudosOf(diego, plan)).isEqualTo(new PlanKudos(false, null, List.of()));
     }
 
+    /** The service with the clock some days after {@link #NOW}, for what depends on the day (HU-066) */
+    private KudosService daysLater(int days) {
+        return new KudosService(store, store, store, store, (kudos, giverName) -> notices.add(giverName), store,
+                (userId, badge, at) -> badgeNotices.add(userId + ":" + badge),
+                Clock.fixed(NOW.plus(Duration.ofDays(days)), ZoneOffset.UTC));
+    }
+
+    private UUID someoneWhoArrived(UUID planId) {
+        var other = UUID.randomUUID();
+        store.record(List.of(new Attendance(other, planId, "PADEL", false, true, true, CLOSED)));
+        return other;
+    }
+
     @Test
-    void fiftyKudosBringTheBadgeOfTheNeighbourhood() {
-        IntStream.range(0, 50).forEach(index -> {
-            var other = UUID.randomUUID();
-            store.record(List.of(new Attendance(other, plan, "PADEL", false, true, true, CLOSED)));
-            service.give(other, "Someone", plan, ana, KudosKind.GOOD_VIBES);
-        });
+    void fiftyKudosThatGavePointsBringTheBadgeOfTheNeighbourhood() {
+        // Ten a day: the daily cap leaves the rest of a day at nothing, and those do not count for the badge
+        IntStream.range(0, 49).forEach(index ->
+                daysLater(index / AntiCheatRules.MAX_KUDOS_PER_DAY)
+                        .give(someoneWhoArrived(plan), "Someone", plan, ana, KudosKind.GOOD_VIBES));
+        service.give(someoneWhoArrived(plan), "Someone", plan, ana, KudosKind.GOOD_VIBES);
+        assertThat(store.earnedBy(ana)).doesNotContainKey(Badge.NEIGHBOURHOOD_SOUL);
+
+        daysLater(5).give(someoneWhoArrived(plan), "Someone", plan, ana, KudosKind.GOOD_VIBES);
 
         assertThat(store.earnedBy(ana)).containsKey(Badge.NEIGHBOURHOOD_SOUL);
         assertThat(badgeNotices).containsOnlyOnce(ana + ":NEIGHBOURHOOD_SOUL");
+    }
+
+    private UUID planTogether(UUID organizer, UUID other) {
+        var planId = UUID.randomUUID();
+        store.record(List.of(new Attendance(organizer, planId, "PADEL", true, true, true, CLOSED),
+                new Attendance(other, planId, "PADEL", false, true, true, CLOSED)));
+        return planId;
+    }
+
+    private List<LedgerEntry> kudosOf(UUID receiver) {
+        return store.entries.stream().filter(entry -> entry.userId().equals(receiver)
+                && entry.reason() == Reason.KUDOS).toList();
+    }
+
+    @Test
+    void eachKudosFromTheSamePersonIsWorthHalfTheOneBeforeButStaysInTheLedger() {
+        IntStream.range(0, 4).forEach(index -> service.give(lucia, "Lucía", planTogether(ana, lucia), ana,
+                KudosKind.GOOD_VIBES));
+        // Someone else still gives the five of always
+        service.give(diego, "Diego", planTogether(ana, diego), ana, KudosKind.GOOD_VIBES);
+
+        assertThat(kudosOf(ana)).extracting(LedgerEntry::points, LedgerEntry::limitedBy)
+                .containsExactly(tuple(5, null), tuple(2, PointsLimit.SAME_PERSON), tuple(1, PointsLimit.SAME_PERSON),
+                        tuple(0, PointsLimit.SAME_PERSON), tuple(5, null));
+        assertThat(store.scores).containsEntry(ana, 13);
+        // Every kudos is still told and counted by kind
+        assertThat(service.receivedBy(ana)).containsEntry(KudosKind.GOOD_VIBES, 5L);
+    }
+
+    @Test
+    void aPairThatKeepsRatingEachOtherGetsNothingFromItsKudos() {
+        IntStream.range(0, AntiCheatRules.MUTUAL_PAIR_KUDOS).forEach(index -> {
+            var together = planTogether(ana, lucia);
+            service.give(lucia, "Lucía", together, ana, KudosKind.GOOD_VIBES);
+            service.give(ana, "Ana", together, lucia, KudosKind.GOOD_VIBES);
+        });
+
+        assertThat(kudosOf(ana)).extracting(LedgerEntry::points).containsExactly(5, 2, 1);
+        // The third one back makes them a pair
+        assertThat(kudosOf(lucia)).extracting(LedgerEntry::points, LedgerEntry::limitedBy)
+                .containsExactly(tuple(5, null), tuple(2, PointsLimit.SAME_PERSON), tuple(0, PointsLimit.MUTUAL_PAIR));
+        var fourth = planTogether(ana, lucia);
+        service.give(lucia, "Lucía", fourth, ana, KudosKind.PUNCTUAL);
+        assertThat(kudosOf(ana).getLast().limitedBy()).isEqualTo(PointsLimit.MUTUAL_PAIR);
+    }
+
+    @Test
+    void theKudosOfLongAgoDoNotMakeTheSamePersonNorAPair() {
+        var aMonthLater = new KudosService(store, store, store, store, (kudos, giverName) -> notices.add(giverName),
+                store, (userId, badge, at) -> badgeNotices.add(userId + ":" + badge),
+                Clock.fixed(NOW.plus(AntiCheatRules.SAME_PERSON_WINDOW).plusSeconds(1), ZoneOffset.UTC));
+        service.give(lucia, "Lucía", planTogether(ana, lucia), ana, KudosKind.GOOD_VIBES);
+        var later = UUID.randomUUID();
+        store.record(List.of(
+                new Attendance(ana, later, "PADEL", true, true, true, NOW.plus(AntiCheatRules.SAME_PERSON_WINDOW)),
+                new Attendance(lucia, later, "PADEL", false, true, true, NOW.plus(AntiCheatRules.SAME_PERSON_WINDOW))));
+
+        aMonthLater.give(lucia, "Lucía", later, ana, KudosKind.GOOD_VIBES);
+
+        assertThat(kudosOf(ana)).extracting(LedgerEntry::points).containsExactly(5, 5);
+    }
+
+    @Test
+    void fromTheDailyCapOnAKudosGivesNothingThatDay() {
+        IntStream.rangeClosed(0, AntiCheatRules.MAX_KUDOS_PER_DAY)
+                .forEach(index -> service.give(someoneWhoArrived(plan), "Someone", plan, ana, KudosKind.GOOD_VIBES));
+
+        assertThat(store.scores).containsEntry(ana, AntiCheatRules.MAX_KUDOS_PER_DAY * 5);
+        assertThat(kudosOf(ana).getLast()).extracting(LedgerEntry::points, LedgerEntry::limitedBy)
+                .containsExactly(0, PointsLimit.DAILY_CAP);
+        // The next day they count again
+        daysLater(1).give(someoneWhoArrived(plan), "Someone", plan, ana, KudosKind.GOOD_VIBES);
+        assertThat(store.scores).containsEntry(ana, AntiCheatRules.MAX_KUDOS_PER_DAY * 5 + 5);
     }
 }

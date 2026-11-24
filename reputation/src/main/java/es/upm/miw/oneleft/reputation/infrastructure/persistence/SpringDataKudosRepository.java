@@ -29,6 +29,12 @@ interface SpringDataKudosRepository extends JpaRepository<KudosEntity, KudosEnti
             + "GROUP BY k.kind")
     List<KindCount> countsOf(@Param("receiverId") UUID receiverId);
 
+    /** The kudos from a giver to a receiver in an interval, both ends included (HU-066) */
+    @Query("SELECT COUNT(k) FROM KudosEntity k WHERE k.id.giverId = :giverId AND k.id.receiverId = :receiverId "
+            + "AND k.givenAt >= :from AND k.givenAt <= :to")
+    long countGiven(@Param("giverId") UUID giverId, @Param("receiverId") UUID receiverId,
+                    @Param("from") Instant from, @Param("to") Instant to);
+
     interface KindCount {
         KudosKind getKind();
 

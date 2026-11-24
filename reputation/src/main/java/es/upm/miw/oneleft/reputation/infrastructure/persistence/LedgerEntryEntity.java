@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.reputation.infrastructure.persistence;
 
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
+import es.upm.miw.oneleft.reputation.domain.model.PointsLimit;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,10 +42,14 @@ public class LedgerEntryEntity {
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "limited_by", length = 20)
+    private PointsLimit limitedBy;
+
     protected LedgerEntryEntity() {
     }
 
     LedgerEntry toDomain() {
-        return new LedgerEntry(userId, reason, points, sourceId, planTitle, occurredAt);
+        return new LedgerEntry(userId, reason, points, sourceId, planTitle, occurredAt, limitedBy);
     }
 }

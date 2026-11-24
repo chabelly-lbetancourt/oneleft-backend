@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.reputation.infrastructure;
 
 import es.upm.miw.oneleft.reputation.TestcontainersConfiguration;
+import es.upm.miw.oneleft.reputation.domain.model.AntiCheatRules;
 import es.upm.miw.oneleft.reputation.domain.model.Badge;
 import es.upm.miw.oneleft.reputation.domain.port.out.BadgeNotices;
 import es.upm.miw.oneleft.reputation.infrastructure.messaging.RabbitConfig;
@@ -280,6 +281,25 @@ class ReputationIntegrationTest {
         } finally {
             admin.deleteQueue(notices.getName());
         }
+    }
+
+    /** HU-066: the daily cap is counted in the real ledger, and the entry that gave nothing explains why */
+    @Test
+    void fromTheDailyCapOnACheckInGivesNothingAndTheLedgerSaysWhy() throws Exception {
+        for (var minute = 0; minute <= AntiCheatRules.MAX_ATTENDED_PER_DAY; minute++) {
+            publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_CHECKED_IN, Map.of("planId", UUID.randomUUID(),
+                    "title", "Padel", "userId", lucia,
+                    "occurredAt", Instant.parse("2026-10-13T16:00:00Z").plusSeconds(60L * minute).toString()));
+        }
+
+        waitUntil(() -> jdbc.queryForObject("SELECT COUNT(*) FROM reputation_entry WHERE user_id = ?", Integer.class,
+                lucia) == AntiCheatRules.MAX_ATTENDED_PER_DAY + 1);
+
+        assertThat(score(lucia)).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10);
+        mockMvc.perform(get(ME + "/ledger").with(user(lucia)))
+                .andExpect(jsonPath("$.items[0].points").value(0))
+                .andExpect(jsonPath("$.items[0].limitedBy").value("DAILY_CAP"))
+                .andExpect(jsonPath("$.items[1].limitedBy").doesNotExist());
     }
 
     @Test

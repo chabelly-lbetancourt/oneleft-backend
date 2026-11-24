@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.reputation.application;
 
+import es.upm.miw.oneleft.reputation.domain.model.AntiCheatRules;
 import es.upm.miw.oneleft.reputation.domain.model.Kudos;
 import es.upm.miw.oneleft.reputation.domain.model.KudosException;
 import es.upm.miw.oneleft.reputation.domain.model.KudosKind;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
  * Kudos between the people of a plan (HU-060). Whoever arrived gives one to each of the others who arrived, up to a
  * week after the plan, which is checked with the track record that the reputation already keeps: no question to the
  * plans service. Each kudos is an entry of the ledger (+5) for whoever receives it, may bring the badge «Alma del
- * barrio», and is told to them in real time.
+ * barrio», and is told to them in real time. The anti-cheating rules (HU-066) may make it worth less, or nothing.
  */
 @Service
 @Transactional
@@ -43,6 +44,7 @@ public class KudosService implements KudosUseCase {
     private final Scores scores;
     private final KudosNotices notices;
     private final BadgeAwards awards;
+    private final DailyCaps dailyCaps;
     private final Clock clock;
 
     public KudosService(KudosStore kudos, TrackRecords trackRecords, Ledger ledger, Scores scores,
@@ -53,6 +55,7 @@ public class KudosService implements KudosUseCase {
         this.scores = scores;
         this.notices = notices;
         this.awards = new BadgeAwards(trackRecords, badges, badgeNotices);
+        this.dailyCaps = new DailyCaps(ledger);
         this.clock = clock;
     }
 
@@ -63,14 +66,25 @@ public class KudosService implements KudosUseCase {
         if (!kudos.save(given)) {
             throw new KudosException(KudosException.Reason.ALREADY_GIVEN, "One kudos per person and plan");
         }
-        var entry = LedgerEntry.of(receiverId, Reason.KUDOS, given.id(), ledger.planTitle(planId).orElse(null),
-                given.givenAt());
+        var entry = limited(given, LedgerEntry.of(receiverId, Reason.KUDOS, given.id(),
+                ledger.planTitle(planId).orElse(null), given.givenAt()));
         if (ledger.append(entry)) {
             scores.add(receiverId, entry.points());
             awards.awardReached(receiverId, given.givenAt());
         }
         notices.received(given, giverName);
         return given;
+    }
+
+    /**
+     * The points of a kudos after the anti-cheating rules (HU-066): less for the same person lately, nothing between
+     * a pair that keeps rating each other, and the daily cap of whoever receives it. The kudos itself is kept.
+     */
+    private LedgerEntry limited(Kudos given, LedgerEntry entry) {
+        var since = given.givenAt().minus(AntiCheatRules.SAME_PERSON_WINDOW);
+        var toThem = kudos.countGiven(given.giverId(), given.receiverId(), since, given.givenAt());
+        var back = kudos.countGiven(given.receiverId(), given.giverId(), since, given.givenAt());
+        return dailyCaps.apply(AntiCheatRules.kudos(entry, toThem, back));
     }
 
     @Override

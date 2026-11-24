@@ -49,8 +49,8 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
         var mine = lines.values().stream().filter(line -> line.userId().equals(userId))
                 .sorted(Comparator.comparing(Attendance::closedAt).reversed()).toList();
         var streak = (int) mine.stream().filter(Attendance::held).takeWhile(Attendance::arrived).count();
-        var received = (int) entries.stream()
-                .filter(entry -> entry.userId().equals(userId) && entry.reason() == Reason.KUDOS).count();
+        var received = (int) entries.stream().filter(entry -> entry.userId().equals(userId)
+                && entry.reason() == Reason.KUDOS && entry.points() > 0).count();
         return new TrackRecord((int) mine.stream().filter(line -> line.organizer() && line.held()).count(),
                 (int) mine.stream().filter(Attendance::arrived).count(),
                 (int) mine.stream().filter(Attendance::arrived).map(Attendance::activity).distinct().count(),
@@ -92,6 +92,12 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
     }
 
     @Override
+    public int count(UUID userId, Reason reason, Instant from, Instant to) {
+        return (int) entries.stream().filter(entry -> entry.userId().equals(userId) && entry.reason() == reason
+                && !entry.occurredAt().isBefore(from) && entry.occurredAt().isBefore(to)).count();
+    }
+
+    @Override
     public Optional<String> planTitle(UUID planId) {
         return entries.stream().filter(entry -> entry.sourceId().equals(planId) && entry.planTitle() != null)
                 .map(LedgerEntry::planTitle).findFirst();
@@ -126,6 +132,13 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
     public List<Kudos> givenBy(UUID giverId, UUID planId) {
         return kudos.stream().filter(given -> given.giverId().equals(giverId) && given.planId().equals(planId))
                 .toList();
+    }
+
+    @Override
+    public int countGiven(UUID giverId, UUID receiverId, Instant from, Instant to) {
+        return (int) kudos.stream().filter(given -> given.giverId().equals(giverId)
+                && given.receiverId().equals(receiverId) && !given.givenAt().isBefore(from)
+                && !given.givenAt().isAfter(to)).count();
     }
 
     @Override

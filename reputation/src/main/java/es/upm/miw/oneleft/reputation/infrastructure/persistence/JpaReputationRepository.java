@@ -3,11 +3,13 @@ package es.upm.miw.oneleft.reputation.infrastructure.persistence;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
+import es.upm.miw.oneleft.reputation.domain.model.Reason;
 import es.upm.miw.oneleft.reputation.domain.port.out.Ledger;
 import es.upm.miw.oneleft.reputation.domain.port.out.Scores;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -28,8 +30,14 @@ public class JpaReputationRepository implements Ledger, Scores {
 
     @Override
     public boolean append(LedgerEntry entry) {
+        var limitedBy = entry.limitedBy() == null ? null : entry.limitedBy().name();
         return ledger.append(entry.userId(), entry.reason().name(), entry.points(), entry.sourceId(),
-                entry.planTitle(), entry.occurredAt()) == 1;
+                entry.planTitle(), entry.occurredAt(), limitedBy) == 1;
+    }
+
+    @Override
+    public int count(UUID userId, Reason reason, Instant from, Instant to) {
+        return Math.toIntExact(ledger.count(userId, reason, from, to));
     }
 
     @Override
