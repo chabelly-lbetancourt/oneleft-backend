@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Main aggregate: a plan for the next few hours with free spots that other people can take.
@@ -578,12 +579,37 @@ public class Plan {
         }
         var recipients = new ArrayList<UUID>();
         recipients.add(organizer.id());
-        participants.forEach(participant -> recipients.add(participant.userId()));
-        waitlist.forEach(person -> recipients.add(person.userId()));
-        var cancelled = with(occupied, PlanStatus.CANCELLED, participants, List.of(), remindedAt, minimum,
-                List.of());
-        return new MinimumChecked(cancelled, Optional.of(new PlanCancelled(id, organizer.id(), title,
+        recipients.addAll(peopleInIt());
+        return new MinimumChecked(cancelled(), Optional.of(new PlanCancelled(id, organizer.id(), title,
                 meetingPoint.name(), startsAt, PlanCancelled.Reason.MINIMUM_NOT_REACHED, recipients, now)));
+    }
+
+    /**
+     * The organizer cancels their own plan before it starts: its waiting list is emptied and everyone who had joined
+     * or was waiting is told. Cancelling a plan that is already cancelled changes nothing and tells nobody again.
+     */
+    public CancelledPlan cancel(UUID organizerId, Instant now) {
+        if (!organizer.id().equals(organizerId)) {
+            throw new NotOrganizerException();
+        }
+        if (status == PlanStatus.CANCELLED) {
+            return new CancelledPlan(this, Optional.empty());
+        }
+        if (status == PlanStatus.IN_PROGRESS || status == PlanStatus.FINISHED || !startsAt.isAfter(now)) {
+            throw new JoinRejectedException("plan.started", "The plan has already started");
+        }
+        return new CancelledPlan(cancelled(), Optional.of(new PlanCancelled(id, organizer.id(), title,
+                meetingPoint.name(), startsAt, PlanCancelled.Reason.ORGANIZER, peopleInIt(), now)));
+    }
+
+    /** This plan cancelled: it keeps who had joined, but nobody waits for it or is on their way any more. */
+    private Plan cancelled() {
+        return with(occupied, PlanStatus.CANCELLED, participants, List.of(), remindedAt, minimum, List.of());
+    }
+
+    /** Whoever has joined or is waiting, in that order. */
+    private List<UUID> peopleInIt() {
+        return Stream.concat(participants.stream(), waitlist.stream()).map(Participant::userId).toList();
     }
 
     /**

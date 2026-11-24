@@ -115,6 +115,12 @@ final class NoticeTexts {
 
     static String body(PlanCancellation cancellation, String language, ZoneId zone) {
         var time = TIME.format(cancellation.startsAt().atZone(zone));
+        if (cancellation.byOrganizer()) {
+            return english(language)
+                    ? "Its organizer cancelled it. It was at %s · %s.".formatted(time, cancellation.placeName())
+                    : "Quien lo organizaba lo ha cancelado. Era a las %s · %s.".formatted(time,
+                    cancellation.placeName());
+        }
         return english(language)
                 ? "Not enough people joined. It was at %s · %s.".formatted(time, cancellation.placeName())
                 : "No se llegó al mínimo de participantes. Era a las %s · %s.".formatted(time,

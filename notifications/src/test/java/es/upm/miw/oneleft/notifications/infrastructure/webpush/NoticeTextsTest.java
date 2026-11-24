@@ -2,11 +2,13 @@ package es.upm.miw.oneleft.notifications.infrastructure.webpush;
 
 import es.upm.miw.oneleft.notifications.domain.model.Activity;
 import es.upm.miw.oneleft.notifications.domain.model.NearbyPlanNotice;
+import es.upm.miw.oneleft.notifications.domain.model.PlanCancellation;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,5 +38,21 @@ class NoticeTextsTest {
 
         assertThat(NoticeTexts.body(notice, "es", ZoneId.of("Europe/Madrid"))).startsWith("Museos y exposiciones a las");
         assertThat(NoticeTexts.body(notice, "en", ZoneId.of("Europe/Madrid"))).startsWith("Museums and exhibitions at");
+    }
+
+    @Test
+    void aCancellationSaysWhetherTheOrganizerDecidedItOrTheMinimumWasNotReached() {
+        var zone = ZoneId.of("Europe/Madrid");
+        var byOrganizer = new PlanCancellation(UUID.randomUUID(), "Pádel", "Pistas",
+                Instant.parse("2026-11-16T17:00:00Z"), List.of(), true);
+        var forTheMinimum = new PlanCancellation(UUID.randomUUID(), "Pádel", "Pistas",
+                Instant.parse("2026-11-16T17:00:00Z"), List.of());
+
+        assertThat(NoticeTexts.body(byOrganizer, "es", zone))
+                .isEqualTo("Quien lo organizaba lo ha cancelado. Era a las 18:00 · Pistas.");
+        assertThat(NoticeTexts.body(byOrganizer, "en", zone))
+                .isEqualTo("Its organizer cancelled it. It was at 18:00 · Pistas.");
+        assertThat(NoticeTexts.body(forTheMinimum, "es", zone)).startsWith("No se llegó al mínimo");
+        assertThat(NoticeTexts.body(forTheMinimum, "en", zone)).startsWith("Not enough people joined");
     }
 }
