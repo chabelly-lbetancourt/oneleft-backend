@@ -5,13 +5,18 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * A plan has been cancelled because it did not reach its minimum of participants (HU-039): the plans service tells
- * who was in it or waiting for it, so that everyone finds out.
+ * A plan has been cancelled, because it did not reach its minimum of participants (HU-039) or because its organizer
+ * cancelled it: the plans service tells who was in it or waiting for it, so that everyone finds out.
  */
 public record PlanCancellation(UUID planId, String title, String placeName, Instant startsAt,
-                               List<UUID> recipientIds) {
+                               List<UUID> recipientIds, boolean byOrganizer) {
 
     public PlanCancellation {
         recipientIds = recipientIds == null ? List.of() : List.copyOf(recipientIds);
+    }
+
+    /** A plan that did not reach its minimum of participants. */
+    public PlanCancellation(UUID planId, String title, String placeName, Instant startsAt, List<UUID> recipientIds) {
+        this(planId, title, placeName, startsAt, recipientIds, false);
     }
 }

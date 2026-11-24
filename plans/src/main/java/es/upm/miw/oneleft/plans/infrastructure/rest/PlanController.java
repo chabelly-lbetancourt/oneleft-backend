@@ -6,6 +6,7 @@ import es.upm.miw.oneleft.plans.domain.model.ActivityCategory;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.port.in.AudienceQueryUseCase;
+import es.upm.miw.oneleft.plans.domain.port.in.CancelPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.JoinPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.ParticipationUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
@@ -65,17 +66,21 @@ public class PlanController {
     private final QueryPlansUseCase queryPlans;
     private final JoinPlanUseCase joinPlan;
     private final ParticipationUseCase participation;
+    private final CancelPlanUseCase cancelPlan;
     private final NearbyPlanSubscriptions nearbySubscriptions;
     private final UserEventSubscriptions userEvents;
 
+    @SuppressWarnings("java:S107")
     public PlanController(PublishPlanUseCase publishPlan, QueryPlansUseCase queryPlans, JoinPlanUseCase joinPlan,
-                          ParticipationUseCase participation, NearbyPlanSubscriptions nearbySubscriptions,
-                          UserEventSubscriptions userEvents, AudienceQueryUseCase audiences) {
+                          ParticipationUseCase participation, CancelPlanUseCase cancelPlan,
+                          NearbyPlanSubscriptions nearbySubscriptions, UserEventSubscriptions userEvents,
+                          AudienceQueryUseCase audiences) {
         this.audiences = audiences;
         this.publishPlan = publishPlan;
         this.queryPlans = queryPlans;
         this.joinPlan = joinPlan;
         this.participation = participation;
+        this.cancelPlan = cancelPlan;
         this.nearbySubscriptions = nearbySubscriptions;
         this.userEvents = userEvents;
     }
@@ -110,6 +115,26 @@ public class PlanController {
     public PlanResponse plan(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
         var me = UUID.fromString(jwt.getSubject());
         return PlanResponse.of(queryPlans.plan(planId, me), me);
+    }
+
+    @DeleteMapping(PLAN)
+    @Operation(summary = "Cancel my plan",
+            description = "The organizer cancels their plan before it starts. Everyone who had joined or was "
+                    + "waiting is told (`plan-cancelled` in their stream and a notification), the chat of the plan "
+                    + "closes and the plan no longer counts for the limit of plans at once (HU-063). Cancelling less "
+                    + "than an hour before the start costs reputation (HU-009). Cancelling a plan that is already "
+                    + "cancelled does nothing. Emits the PlanCancelled event with the reason ORGANIZER.")
+    @ApiResponse(responseCode = "204", description = "Plan cancelled, now or before")
+    @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
+    @ApiResponse(responseCode = "403", description = "plan.notOrganizer: only the organizer cancels the plan",
+            content = @Content)
+    @ApiResponse(responseCode = "404", description = "plan.notFound: the plan does not exist", content = @Content)
+    @ApiResponse(responseCode = "409", description = "plan.started: the plan has already started or finished; or "
+            + "plan.busy", content = @Content)
+    public ResponseEntity<Void> cancel(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
+                                       @PathVariable UUID planId) {
+        cancelPlan.cancel(planId, UUID.fromString(jwt.getSubject()));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping(PARTICIPANTS)
@@ -171,9 +196,9 @@ public class PlanController {
                     + "plans; `plan-spot` (SpotFreedNotice) when a spot is freed for them from a waiting list; "
                     + "`plan-nearby` (PlanNearbyNotice) when a plan they asked for is published nearby; and "
                     + "`plan-reminder` (PlanReminderNotice) when a plan they are in is about to start; and "
-                    + "`plan-cancelled` (PlanCancelledNotice) when a plan they are in or waiting for is cancelled "
-                    + "because it did not reach its minimum of participants; and `plan-arrival` (PlanArrivalNotice) "
-                    + "when someone of the group of a plan is on the way or running late (HU-040).")
+                    + "`plan-cancelled` (PlanCancelledNotice) when a plan they are in or waiting for is cancelled, "
+                    + "because it did not reach its minimum of participants or by its organizer (`reason`); and "
+                    + "`plan-arrival` (PlanArrivalNotice) when someone of the group of a plan is on the way or running late (HU-040).")
     @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
                     schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PlanJoinedNotice.class)))

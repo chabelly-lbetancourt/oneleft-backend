@@ -80,7 +80,7 @@ public class JpaPlanRepository implements PlanRepository {
 
     @Override
     public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {
-        // A plan cancelled for not reaching its minimum (HU-039) is no longer upcoming
+        // A cancelled plan (by its organizer, or for not reaching its minimum, HU-039) is no longer upcoming
         return jpa.findByOrganizerIdAndStartsAtAfterAndStatusNotOrderByStartsAt(organizerId, from,
                         PlanStatus.CANCELLED).stream()
                 .map(JpaPlanRepository::toDomain).toList();

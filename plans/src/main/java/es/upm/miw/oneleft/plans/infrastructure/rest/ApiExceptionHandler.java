@@ -44,7 +44,7 @@ public class ApiExceptionHandler {
         return problem;
     }
 
-    /** Only the organizer can decide on the requests of their plan (HU-069). */
+    /** Only the organizer can decide on the requests of their plan (HU-069) or cancel it. */
     @ExceptionHandler(NotOrganizerException.class)
     ProblemDetail notOrganizer(NotOrganizerException exception) {
         return problem(HttpStatus.FORBIDDEN, exception.getMessage(), NotOrganizerException.CODE);

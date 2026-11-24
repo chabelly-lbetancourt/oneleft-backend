@@ -12,7 +12,7 @@ import java.util.UUID;
 /** The part of each event that the reputation reads: the JSON fields are the contract. */
 final class ReputationMessages {
 
-    /** The reason of a cancellation decided by the organizer (the plans service does not send it yet) */
+    /** The reason of a cancellation decided by the organizer */
     static final String BY_ORGANIZER = "ORGANIZER";
 
     private ReputationMessages() {
