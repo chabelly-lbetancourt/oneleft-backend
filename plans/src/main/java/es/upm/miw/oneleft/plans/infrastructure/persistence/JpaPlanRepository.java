@@ -47,7 +47,7 @@ public class JpaPlanRepository implements PlanRepository {
         var point = plan.meetingPoint();
         var location = GEOMETRY.createPoint(new Coordinate(point.longitude(), point.latitude()));
         var participants = plan.participants().stream().map(JpaPlanRepository::toEmbeddable).toList();
-        var waitlist = plan.waitlist().stream().map(JpaPlanRepository::toEmbeddable).toList();
+        var waitlist = plan.waitlist().stream().map(JpaPlanRepository::toWaiting).toList();
         var minimum = plan.minimum();
         var entity = new PlanEntity(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
                 plan.activityOther(), plan.title(), plan.description(), point.name(), location, plan.startsAt(), plan.spots(),
@@ -118,6 +118,14 @@ public class JpaPlanRepository implements PlanRepository {
 
     private static ParticipantEmbeddable toEmbeddable(Participant person) {
         return new ParticipantEmbeddable(person.userId(), person.name(), person.joinedAt());
+    }
+
+    private static WaitingEmbeddable toWaiting(Participant person) {
+        return new WaitingEmbeddable(person.userId(), person.name(), person.joinedAt(), person.priority());
+    }
+
+    private static Participant toParticipant(WaitingEmbeddable person) {
+        return new Participant(person.getUserId(), person.getName(), person.getJoinedAt(), person.getPriority());
     }
 
     private static Participant toParticipant(ParticipantEmbeddable person) {

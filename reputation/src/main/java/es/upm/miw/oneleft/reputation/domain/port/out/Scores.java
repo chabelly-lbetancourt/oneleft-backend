@@ -12,6 +12,9 @@ public interface Scores {
     /** The scores of the people that have one */
     Map<UUID, Integer> scoresOf(Collection<UUID> userIds);
 
+    /** Every score there is (HU-063) */
+    Map<UUID, Integer> all();
+
     /** Computes every score again as the sum of its entries; @return how many people have a score */
     int rebuildFromLedger();
 }

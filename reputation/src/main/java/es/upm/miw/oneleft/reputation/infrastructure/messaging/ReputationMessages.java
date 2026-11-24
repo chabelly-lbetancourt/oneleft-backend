@@ -54,6 +54,14 @@ final class ReputationMessages {
     record KudosReceived(UUID userId, String giverName, String kind, UUID planId, Instant givenAt) {
     }
 
+    /**
+     * reputation.perks-changed (HU-063): what the level of someone is worth from now on, for the services that keep a
+     * copy. The latest {@code occurredAt} wins.
+     */
+    record PerksChanged(UUID userId, String level, int waitlistPriority, double noticeWeight, int maxActivePlans,
+                        int maxSavedAlerts, Instant occurredAt) {
+    }
+
     /** report.confirmed (HU-033) */
     record Report(UUID reportId, UUID userId, Instant occurredAt) {
 

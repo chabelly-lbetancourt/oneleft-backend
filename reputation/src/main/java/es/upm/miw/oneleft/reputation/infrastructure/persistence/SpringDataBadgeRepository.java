@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.NativeQuery;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,6 +48,12 @@ interface SpringDataBadgeRepository extends JpaRepository<BadgeEntity, BadgeEnti
               (SELECT COUNT(*) FROM reputation_entry WHERE user_id = :userId AND reason = 'KUDOS'
                  AND points > 0) AS kudos""")
     Record trackRecordOf(@Param("userId") UUID userId);
+
+    /** The plans organized that were held of several people (HU-063): each row is the person and how many */
+    @NativeQuery("""
+            SELECT user_id, COUNT(*) FROM track_record
+            WHERE user_id IN (:userIds) AND organizer AND held GROUP BY user_id""")
+    List<Object[]> organizedHeldOf(@Param("userIds") Collection<UUID> userIds);
 
     interface Record {
         long getOrganizedHeld();

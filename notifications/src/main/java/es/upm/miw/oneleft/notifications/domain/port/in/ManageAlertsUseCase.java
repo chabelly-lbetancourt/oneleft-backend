@@ -11,7 +11,7 @@ import java.util.UUID;
  */
 public interface ManageAlertsUseCase {
 
-    /** Most alerts a person can keep. It could grow with the reputation of HU-009. */
+    /** Most alerts a person can keep; more with the perks of their reputation (HU-063). */
     int MAX_ALERTS = 5;
 
     List<SavedAlert> alertsOf(UUID userId);

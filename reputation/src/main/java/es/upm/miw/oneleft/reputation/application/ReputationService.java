@@ -24,8 +24,10 @@ import es.upm.miw.oneleft.reputation.domain.port.in.ReputationQueryUseCase;
 import es.upm.miw.oneleft.reputation.domain.port.out.BadgeNotices;
 import es.upm.miw.oneleft.reputation.domain.port.out.Badges;
 import es.upm.miw.oneleft.reputation.domain.port.out.Ledger;
+import es.upm.miw.oneleft.reputation.domain.port.out.PerkNotices;
 import es.upm.miw.oneleft.reputation.domain.port.out.Scores;
 import es.upm.miw.oneleft.reputation.domain.port.out.TrackRecords;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +46,8 @@ import java.util.UUID;
  * person, in the same transaction: an event delivered twice counts once. When the attendance of a plan closes, its
  * group also adds to their track record and may earn badges (HU-044), each one once, with a notice. The first
  * check-in of a week also gives the bonus of the weekly streak (HU-062), once a week. What adds points has a daily
- * cap per reason (HU-066).
+ * cap per reason (HU-066). Points that change the level of someone tell the other services what the new one is worth
+ * (HU-063).
  */
 @Service
 @Transactional
@@ -57,16 +60,25 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
     private final Badges badges;
     private final BadgeAwards awards;
     private final DailyCaps dailyCaps;
+    private final LevelWatch levels;
     private final Clock clock;
 
     public ReputationService(Ledger ledger, Scores scores, TrackRecords trackRecords, Badges badges,
                              BadgeNotices notices, Clock clock) {
+        this(ledger, scores, trackRecords, badges, notices, PerkNotices.NONE, clock);
+    }
+
+    @Autowired
+    @SuppressWarnings("java:S107")
+    public ReputationService(Ledger ledger, Scores scores, TrackRecords trackRecords, Badges badges,
+                             BadgeNotices notices, PerkNotices perkNotices, Clock clock) {
         this.ledger = ledger;
         this.scores = scores;
         this.trackRecords = trackRecords;
         this.badges = badges;
         this.awards = new BadgeAwards(trackRecords, badges, notices);
         this.dailyCaps = new DailyCaps(ledger);
+        this.levels = new LevelWatch(scores, perkNotices, clock);
         this.clock = clock;
     }
 
@@ -109,7 +121,9 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
             throw new ValidationException("reputation.people", "Ask for 1 to " + MAX_PEOPLE + " people");
         }
         var known = scores.scoresOf(people);
-        return people.stream().map(userId -> new Reputation(userId, known.getOrDefault(userId, 0))).toList();
+        var organized = trackRecords.organizedHeldOf(people);
+        return people.stream().map(userId -> new Reputation(userId, known.getOrDefault(userId, 0),
+                organized.getOrDefault(userId, 0))).toList();
     }
 
     @Override
@@ -156,14 +170,16 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
 
     @Override
     public int rebuildScores() {
-        return scores.rebuildFromLedger();
+        var people = scores.rebuildFromLedger();
+        levels.announceAll();
+        return people;
     }
 
     /** The entry as the daily caps leave it (HU-066), kept even if it gives nothing, so the ledger explains why */
     private void append(LedgerEntry entry) {
         var limited = dailyCaps.apply(entry);
         if (ledger.append(limited)) {
-            scores.add(limited.userId(), limited.points());
+            levels.add(limited.userId(), limited.points());
         }
     }
 }

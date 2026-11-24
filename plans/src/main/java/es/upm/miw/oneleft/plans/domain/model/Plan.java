@@ -45,7 +45,7 @@ public class Plan {
     private final PlanStatus status;
     private final Instant publishedAt;
     private final List<Participant> participants;
-    /** People waiting for a spot, in order of arrival (HU-023). */
+    /** People waiting for a spot (HU-023): the highest priority first (HU-063) and, among equals, in order of arrival. */
     private final List<Participant> waitlist;
     /** When the reminder was sent (HU-007); null while it is pending. */
     private final Instant remindedAt;
@@ -324,6 +324,14 @@ public class Plan {
      * spot. A plan with free spots is joined directly, so its list stays empty.
      */
     public Plan joinWaitlist(UUID userId, String name, Clock clock) {
+        return joinWaitlist(userId, name, 0, clock);
+    }
+
+    /**
+     * Joins the waiting list with the priority that the reputation of the person gives them (HU-063): ahead of whoever
+     * has less, behind whoever has the same or more, so nobody loses their turn to an equal who came later.
+     */
+    public Plan joinWaitlist(UUID userId, String name, int priority, Clock clock) {
         if (requiresApproval) {
             throw new JoinRejectedException("plan.approvalRequired", "The organizer chooses who comes: ask for a spot");
         }
@@ -350,7 +358,8 @@ public class Plan {
             throw new JoinRejectedException("plan.waitlistFull", "The waiting list is full");
         }
         var waiting = new ArrayList<>(waitlist);
-        waiting.add(new Participant(userId, name, now));
+        var behind = (int) waitlist.stream().filter(person -> person.priority() >= priority).count();
+        waiting.add(behind, new Participant(userId, name, now, priority));
         return with(occupied, status, participants, waiting, remindedAt, minimum);
     }
 

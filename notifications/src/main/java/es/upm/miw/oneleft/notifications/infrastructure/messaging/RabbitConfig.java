@@ -39,6 +39,10 @@ public class RabbitConfig {
     public static final String USER_UNBLOCKED = "user.unblocked";
     public static final String BLOCKS_QUEUE = "notifications.blocks";
     public static final String NEARBY_PLAN = "notification.nearby-plan";
+    /** What the level of each person is worth (HU-063), copied through a durable queue shared by every replica */
+    public static final String REPUTATION_EXCHANGE = "oneleft.reputation";
+    public static final String PERKS_CHANGED = "reputation.perks-changed";
+    public static final String PERKS_QUEUE = "notifications.perks";
 
     @Bean
     TopicExchange plansExchange() {
@@ -98,6 +102,21 @@ public class RabbitConfig {
     @Bean
     Binding unblockedBinding(Queue blocksQueue, TopicExchange socialExchange) {
         return BindingBuilder.bind(blocksQueue).to(socialExchange).with(USER_UNBLOCKED);
+    }
+
+    @Bean
+    TopicExchange reputationExchange() {
+        return new TopicExchange(REPUTATION_EXCHANGE, true, false);
+    }
+
+    @Bean
+    Queue perksQueue() {
+        return QueueBuilder.durable(PERKS_QUEUE).build();
+    }
+
+    @Bean
+    Binding perksBinding(Queue perksQueue, TopicExchange reputationExchange) {
+        return BindingBuilder.bind(perksQueue).to(reputationExchange).with(PERKS_CHANGED);
     }
 
     @Bean

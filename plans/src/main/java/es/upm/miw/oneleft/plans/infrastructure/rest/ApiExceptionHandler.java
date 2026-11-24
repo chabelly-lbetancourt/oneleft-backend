@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.plans.domain.model.DraftUnavailableException;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.NotOrganizerException;
 import es.upm.miw.oneleft.plans.domain.model.PersonActivityException;
+import es.upm.miw.oneleft.plans.domain.model.PlanLimitException;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.ValidationException;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,14 @@ public class ApiExceptionHandler {
     @ExceptionHandler(JoinRejectedException.class)
     ProblemDetail conflict(JoinRejectedException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage(), exception.code());
+    }
+
+    /** Someone already organizes as many plans at once as their reputation allows (HU-063). */
+    @ExceptionHandler(PlanLimitException.class)
+    ProblemDetail tooManyPlans(PlanLimitException exception) {
+        var problem = problem(HttpStatus.CONFLICT, exception.getMessage(), PlanLimitException.CODE);
+        problem.setProperty("max", exception.max());
+        return problem;
     }
 
     /** Only the organizer can decide on the requests of their plan (HU-069). */

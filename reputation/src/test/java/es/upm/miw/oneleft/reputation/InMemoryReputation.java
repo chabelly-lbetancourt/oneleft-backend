@@ -58,6 +58,12 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
     }
 
     @Override
+    public Map<UUID, Integer> organizedHeldOf(Collection<UUID> userIds) {
+        return userIds.stream().filter(userId -> of(userId).organizedHeld() > 0)
+                .collect(Collectors.toMap(userId -> userId, userId -> of(userId).organizedHeld()));
+    }
+
+    @Override
     public Optional<Attendance> attendance(UUID userId, UUID planId) {
         return Optional.ofNullable(lines.get(userId + ">" + planId));
     }
@@ -118,6 +124,11 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
     public Map<UUID, Integer> scoresOf(Collection<UUID> userIds) {
         return scores.entrySet().stream().filter(score -> userIds.contains(score.getKey()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    @Override
+    public Map<UUID, Integer> all() {
+        return Map.copyOf(scores);
     }
 
     @Override

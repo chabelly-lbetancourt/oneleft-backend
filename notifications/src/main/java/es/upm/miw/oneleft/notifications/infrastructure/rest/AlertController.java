@@ -53,7 +53,8 @@ public class AlertController {
     @Operation(summary = "Save an alert", description = "Up to " + ManageAlertsUseCase.MAX_ALERTS + " per person.")
     @ApiResponse(responseCode = "201", description = "Saved alert")
     @ApiResponse(responseCode = "400", description = "Invalid alert (code in the problem)")
-    @ApiResponse(responseCode = "409", description = "alerts.limit")
+    @ApiResponse(responseCode = "409", description = "alerts.limit: 5 alerts, or up to 10 with the reputation "
+            + "of the person (HU-063)")
     public ResponseEntity<AlertDto> create(@AuthenticationPrincipal Jwt jwt, @RequestBody AlertDto request) {
         var userId = KeycloakJwt.userId(jwt);
         var alert = alerts.create(userId, request.toDomain(userId));
