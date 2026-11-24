@@ -9,7 +9,11 @@ import java.util.UUID;
 
 interface SpringDataScoreRepository extends JpaRepository<ScoreEntity, UUID> {
 
-    @Modifying
+    /**
+     * The score read earlier in the same transaction is forgotten, so reading it again gives the new one: an event
+     * that adds twice (the check-in and its streak bonus) must see the first points to know the level (HU-063).
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @NativeQuery("""
             INSERT INTO reputation_score (user_id, score) VALUES (:userId, :points)
             ON CONFLICT (user_id) DO UPDATE SET score = reputation_score.score + EXCLUDED.score""")

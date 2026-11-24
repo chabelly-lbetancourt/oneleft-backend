@@ -163,8 +163,11 @@ class PerksIntegrationTest {
             assertThat(perks.path("maxActivePlans").asInt()).isEqualTo(6);
             assertThat(perks.path("maxSavedAlerts").asInt()).isEqualTo(6);
             assertThat(perks.path("occurredAt").asString()).isNotBlank();
-            // The bonus of the streak comes after and leaves the level as it was: nothing else is told
+            // The bonus of the streak comes after, in the same transaction, and leaves the level as it was: it
+            // is counted on top of the points of the check-in, and nothing else is told
             assertThat(rabbit.receive(copies.getName(), 1000)).isNull();
+            assertThat(jdbc.queryForObject("SELECT score FROM reputation_score WHERE user_id = ?", Integer.class,
+                    lucia)).isEqualTo(95 + 10 + 5);
         } finally {
             admin.deleteQueue(copies.getName());
         }
