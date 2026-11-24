@@ -35,7 +35,8 @@ import java.util.UUID;
 /**
  * Reputation from events (HU-009). Each entry goes to the immutable ledger and, only if it is new, to the score of its
  * person, in the same transaction: an event delivered twice counts once. When the attendance of a plan closes, its
- * group also adds to their track record and may earn badges (HU-044), each one once, with a notice.
+ * group also adds to their track record and may earn badges (HU-044), each one once, with a notice. What adds points
+ * has a daily cap per reason (HU-066).
  */
 @Service
 @Transactional
@@ -47,6 +48,7 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
     private final TrackRecords trackRecords;
     private final Badges badges;
     private final BadgeAwards awards;
+    private final DailyCaps dailyCaps;
 
     public ReputationService(Ledger ledger, Scores scores, TrackRecords trackRecords, Badges badges,
                              BadgeNotices notices) {
@@ -55,6 +57,7 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
         this.trackRecords = trackRecords;
         this.badges = badges;
         this.awards = new BadgeAwards(trackRecords, badges, notices);
+        this.dailyCaps = new DailyCaps(ledger);
     }
 
     @Override
@@ -132,9 +135,11 @@ public class ReputationService implements RecordReputationUseCase, ReputationQue
         return scores.rebuildFromLedger();
     }
 
+    /** The entry as the daily caps leave it (HU-066), kept even if it gives nothing, so the ledger explains why */
     private void append(LedgerEntry entry) {
-        if (ledger.append(entry)) {
-            scores.add(entry.userId(), entry.points());
+        var limited = dailyCaps.apply(entry);
+        if (ledger.append(limited)) {
+            scores.add(limited.userId(), limited.points());
         }
     }
 }

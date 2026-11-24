@@ -32,7 +32,8 @@ interface SpringDataBadgeRepository extends JpaRepository<BadgeEntity, BadgeEnti
 
     /**
      * The track record of someone in one query: plans organized that were held, plans arrived at, their different
-     * activities, the plans arrived at since the last no-show to a plan held, and the kudos of the ledger (HU-060).
+     * activities, the plans arrived at since the last no-show to a plan held, and the kudos of the ledger (HU-060)
+     * that gave points: the ones the anti-cheating rules left at nothing do not count (HU-066).
      */
     @NativeQuery("""
             SELECT
@@ -43,7 +44,8 @@ interface SpringDataBadgeRepository extends JpaRepository<BadgeEntity, BadgeEnti
                  AND t.closed_at > COALESCE((SELECT MAX(m.closed_at) FROM track_record m
                                              WHERE m.user_id = :userId AND m.held AND NOT m.arrived),
                                             '-infinity'::timestamptz)) AS streak,
-              (SELECT COUNT(*) FROM reputation_entry WHERE user_id = :userId AND reason = 'KUDOS') AS kudos""")
+              (SELECT COUNT(*) FROM reputation_entry WHERE user_id = :userId AND reason = 'KUDOS'
+                 AND points > 0) AS kudos""")
     Record trackRecordOf(@Param("userId") UUID userId);
 
     interface Record {

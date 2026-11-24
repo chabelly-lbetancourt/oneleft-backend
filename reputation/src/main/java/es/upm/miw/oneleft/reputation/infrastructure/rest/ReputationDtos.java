@@ -4,6 +4,7 @@ import es.upm.miw.oneleft.reputation.domain.model.Badge;
 import es.upm.miw.oneleft.reputation.domain.model.BadgeProgress;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
+import es.upm.miw.oneleft.reputation.domain.model.PointsLimit;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
 import es.upm.miw.oneleft.reputation.domain.model.Reputation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -28,12 +29,14 @@ public final class ReputationDtos {
     @Schema(description = "An entry of the ledger: why the reputation went up or down")
     public record EntryResponse(Reason reason, @Schema(example = "10") int points,
                                 @Schema(description = "The plan that caused it, when it was a plan") UUID planId,
-                                @Schema(example = "Padel 2 vs 2") String planTitle, Instant occurredAt) {
+                                @Schema(example = "Padel 2 vs 2") String planTitle, Instant occurredAt,
+                                @Schema(description = "Why it gave fewer points than its reason is worth (HU-066), "
+                                        + "or null") PointsLimit limitedBy) {
 
         static EntryResponse of(LedgerEntry entry) {
             var fromPlan = entry.planTitle() != null;
             return new EntryResponse(entry.reason(), entry.points(), fromPlan ? entry.sourceId() : null,
-                    entry.planTitle(), entry.occurredAt());
+                    entry.planTitle(), entry.occurredAt(), entry.limitedBy());
         }
     }
 

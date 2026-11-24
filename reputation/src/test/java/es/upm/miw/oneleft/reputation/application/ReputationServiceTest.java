@@ -1,6 +1,7 @@
 package es.upm.miw.oneleft.reputation.application;
 
 import es.upm.miw.oneleft.reputation.InMemoryReputation;
+import es.upm.miw.oneleft.reputation.domain.model.AntiCheatRules;
 import es.upm.miw.oneleft.reputation.domain.model.AttendanceFact;
 import es.upm.miw.oneleft.reputation.domain.model.Badge;
 import es.upm.miw.oneleft.reputation.domain.model.BadgeProgress;
@@ -8,6 +9,7 @@ import es.upm.miw.oneleft.reputation.domain.model.CancellationFact;
 import es.upm.miw.oneleft.reputation.domain.model.CheckInFact;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
+import es.upm.miw.oneleft.reputation.domain.model.PointsLimit;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
 import es.upm.miw.oneleft.reputation.domain.model.ReportFact;
 import es.upm.miw.oneleft.reputation.domain.model.Reputation;
@@ -141,5 +143,50 @@ class ReputationServiceTest {
 
         assertThat(notices).isEmpty();
         assertThat(service.myBadges(ana)).allSatisfy(badge -> assertThat(badge.progress()).isZero());
+    }
+
+    @Test
+    void fromTheDailyCapOnACheckInGivesNothingThatDayButStaysInTheLedger() {
+        IntStream.rangeClosed(0, AntiCheatRules.MAX_ATTENDED_PER_DAY).forEach(index ->
+                service.record(new CheckInFact(UUID.randomUUID(), "Padel", lucia, NOW.plusSeconds(60L * index))));
+
+        assertThat(attendedPoints(lucia)).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10);
+        assertThat(service.ledgerOf(lucia, new PageQuery(0, 20)).items().getFirst())
+                .extracting(LedgerEntry::points, LedgerEntry::limitedBy).containsExactly(0, PointsLimit.DAILY_CAP);
+        // The next day in Spain they count again; a check-in delivered twice is still one
+        var tomorrow = new CheckInFact(UUID.randomUUID(), "Padel", lucia, NOW.plus(Duration.ofDays(1)));
+        service.record(tomorrow);
+        service.record(tomorrow);
+        assertThat(attendedPoints(lucia)).isEqualTo(AntiCheatRules.MAX_ATTENDED_PER_DAY * 10 + 10);
+    }
+
+    /** Only the points of the check-ins, whatever other reasons the same events may give */
+    private int attendedPoints(UUID userId) {
+        return store.entries.stream().filter(entry -> entry.userId().equals(userId)
+                && entry.reason() == Reason.ATTENDED).mapToInt(LedgerEntry::points).sum();
+    }
+
+    @Test
+    void organizingHasItsOwnDailyCapAndWhatTakesPointsAwayHasNone() {
+        IntStream.rangeClosed(0, AntiCheatRules.MAX_ORGANIZED_PER_DAY).forEach(index ->
+                service.record(heldPlan("PADEL", List.of(lucia), List.of(), index)));
+        IntStream.range(0, 10).forEach(index ->
+                service.record(heldPlan("PADEL", List.of(ana), List.of(lucia), 100 + index)));
+
+        assertThat(service.reputationOf(ana).score()).isEqualTo(AntiCheatRules.MAX_ORGANIZED_PER_DAY * 20);
+        assertThat(service.reputationOf(lucia).score()).isEqualTo(-15 * 10);
+    }
+
+    @Test
+    void onlyPlansWithACheckInGivePoints() {
+        // Nobody checked in: nothing for anyone
+        service.record(new AttendanceFact(UUID.randomUUID(), "Plan", "PADEL", ana, List.of(), List.of(ana, lucia),
+                true, NOW));
+        // Only the organizer checked in: the plan was not held with anyone, organizing it gives nothing
+        service.record(new AttendanceFact(UUID.randomUUID(), "Plan", "PADEL", ana, List.of(ana), List.of(), true,
+                NOW));
+
+        assertThat(store.entries).isEmpty();
+        assertThat(service.reputationOf(ana).score()).isZero();
     }
 }

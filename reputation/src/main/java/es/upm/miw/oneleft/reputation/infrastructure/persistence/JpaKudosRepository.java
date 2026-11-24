@@ -5,6 +5,7 @@ import es.upm.miw.oneleft.reputation.domain.model.KudosKind;
 import es.upm.miw.oneleft.reputation.domain.port.out.KudosStore;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -36,5 +37,10 @@ public class JpaKudosRepository implements KudosStore {
         var counts = new EnumMap<KudosKind, Long>(KudosKind.class);
         kudos.countsOf(receiverId).forEach(count -> counts.put(count.getKind(), count.getTotal()));
         return counts;
+    }
+
+    @Override
+    public int countGiven(UUID giverId, UUID receiverId, Instant from, Instant to) {
+        return Math.toIntExact(kudos.countGiven(giverId, receiverId, from, to));
     }
 }

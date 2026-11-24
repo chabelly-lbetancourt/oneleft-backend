@@ -3,6 +3,7 @@ package es.upm.miw.oneleft.reputation.domain.port.out;
 import es.upm.miw.oneleft.reputation.domain.model.Kudos;
 import es.upm.miw.oneleft.reputation.domain.model.KudosKind;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,4 +17,7 @@ public interface KudosStore {
     List<Kudos> givenBy(UUID giverId, UUID planId);
 
     Map<KudosKind, Long> countsOf(UUID receiverId);
+
+    /** The kudos from a giver to a receiver given from an instant to another, both included (HU-066) */
+    int countGiven(UUID giverId, UUID receiverId, Instant from, Instant to);
 }

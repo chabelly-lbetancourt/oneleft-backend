@@ -21,8 +21,8 @@ public class JdbcPersonalData implements PersonalData {
 
     static {
         EXPORT.put("ledger",
-                "SELECT reason, points, source_id, plan_title, occurred_at FROM reputation_entry WHERE user_id = "
-                + ":userId ORDER BY occurred_at");
+                "SELECT reason, points, source_id, plan_title, occurred_at, limited_by FROM reputation_entry "
+                + "WHERE user_id = :userId ORDER BY occurred_at");
         EXPORT.put("score",
                 "SELECT score FROM reputation_score WHERE user_id = :userId");
         EXPORT.put("trackRecord",

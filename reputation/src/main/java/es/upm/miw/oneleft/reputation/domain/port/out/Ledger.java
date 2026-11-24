@@ -3,7 +3,9 @@ package es.upm.miw.oneleft.reputation.domain.port.out;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
+import es.upm.miw.oneleft.reputation.domain.model.Reason;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +16,9 @@ public interface Ledger {
     boolean append(LedgerEntry entry);
 
     PageResult<LedgerEntry> entriesOf(UUID userId, PageQuery page);
+
+    /** The entries of a person and reason from an instant (included) to another (not included), for the caps */
+    int count(UUID userId, Reason reason, Instant from, Instant to);
 
     /** The title of a plan, as its entries keep it */
     Optional<String> planTitle(UUID planId);
