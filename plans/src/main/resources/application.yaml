@@ -113,6 +113,19 @@ oneleft:
     url: ${WEATHER_URL:https://api.open-meteo.com}
   places:
     url: ${PLACES_URL:https://photon.komoot.io}
+  storage:
+    # Photos of the plans (HU-052) in the same S3-compatible storage as the profile photos (HU-020): Versity S3 Gateway
+    # in Docker, S3 or a Lightsail bucket when deployed. Photos go from the device to the storage with signed links
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:7070}
+    # The address browsers reach, which the links are signed for (inside Docker it is not the internal one)
+    public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:${STORAGE_ENDPOINT:http://localhost:7070}}
+    bucket: ${STORAGE_BUCKET:oneleft-photos}
+    region: ${STORAGE_REGION:us-east-1}
+    access-key: ${STORAGE_ACCESS_KEY:oneleft}
+    secret-key: ${STORAGE_SECRET_KEY:oneleft-dev-storage}
+    path-style: ${STORAGE_PATH_STYLE:true}
+    # Development only: deployed, the bucket already exists
+    create-bucket: ${STORAGE_CREATE_BUCKET:true}
   share:
     # Where a shared link finally opens the plan (the web app) and the time zone of the preview (HU-024)
     web-url: ${WEB_URL:http://localhost:4200}
