@@ -56,6 +56,24 @@ class PlanCancelTest {
     }
 
     @Test
+    void thePlanOfADeletedAccountIsCancelledWithTheSameRulesAndItsOwnReason() {
+        var full = plan.join(LUCIA, "Lucía", CLOCK).joinWaitlist(DIEGO, "Diego", CLOCK);
+
+        var cancelled = full.cancelForDeletedAccount(LATER);
+
+        assertThat(cancelled.plan().status()).isEqualTo(PlanStatus.CANCELLED);
+        assertThat(cancelled.plan().waitlist()).isEmpty();
+        assertThat(cancelled.event()).hasValueSatisfying(event -> {
+            assertThat(event.reason()).isEqualTo(PlanCancelled.Reason.ACCOUNT_DELETED);
+            assertThat(event.recipientIds()).containsExactly(LUCIA, DIEGO);
+        });
+        assertThat(cancelled.plan().cancelForDeletedAccount(LATER).event()).isEmpty();
+        assertThatThrownBy(() -> full.cancelForDeletedAccount(START))
+                .isInstanceOfSatisfying(JoinRejectedException.class,
+                        error -> assertThat(error.code()).isEqualTo("plan.started"));
+    }
+
+    @Test
     void aPlanWithNobodyInItIsCancelledAndNobodyIsTold() {
         var cancelled = plan.cancel(organizer, LATER);
 

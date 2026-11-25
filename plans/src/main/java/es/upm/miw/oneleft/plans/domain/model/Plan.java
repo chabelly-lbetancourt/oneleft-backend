@@ -592,6 +592,18 @@ public class Plan {
         if (!organizer.id().equals(organizerId)) {
             throw new NotOrganizerException();
         }
+        return cancel(now, PlanCancelled.Reason.ORGANIZER);
+    }
+
+    /**
+     * The organizer deleted their account (HU-045): the plan is cancelled with the same rules as when they cancel it
+     * themselves, but the event says why, so that nobody takes points from an account that no longer exists.
+     */
+    public CancelledPlan cancelForDeletedAccount(Instant now) {
+        return cancel(now, PlanCancelled.Reason.ACCOUNT_DELETED);
+    }
+
+    private CancelledPlan cancel(Instant now, PlanCancelled.Reason reason) {
         if (status == PlanStatus.CANCELLED) {
             return new CancelledPlan(this, Optional.empty());
         }
@@ -599,7 +611,7 @@ public class Plan {
             throw new JoinRejectedException("plan.started", "The plan has already started");
         }
         return new CancelledPlan(cancelled(), Optional.of(new PlanCancelled(id, organizer.id(), title,
-                meetingPoint.name(), startsAt, PlanCancelled.Reason.ORGANIZER, peopleInIt(), now)));
+                meetingPoint.name(), startsAt, reason, peopleInIt(), now)));
     }
 
     /** This plan cancelled: it keeps who had joined, but nobody waits for it or is on their way any more. */

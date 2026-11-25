@@ -2,6 +2,7 @@ package es.upm.miw.oneleft.plans.application;
 
 import es.upm.miw.oneleft.plans.domain.model.MemoryKey;
 import es.upm.miw.oneleft.plans.domain.model.MemoryStorageUnavailableException;
+import es.upm.miw.oneleft.plans.domain.port.in.CancelPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.PersonalDataUseCase;
 import es.upm.miw.oneleft.plans.domain.port.out.MemoryStorage;
 import es.upm.miw.oneleft.plans.domain.port.out.PersonalData;
@@ -9,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import java.util.List;
 import java.util.Map;
@@ -16,17 +18,21 @@ import java.util.UUID;
 
 /** The personal data of this service (HU-045): what a person can download and what their erasure removes. */
 @Service
-@Transactional
 public class PersonalDataService implements PersonalDataUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(PersonalDataService.class);
 
     private final PersonalData data;
     private final MemoryStorage storage;
+    private final CancelPlanUseCase cancellations;
+    private final TransactionOperations transactions;
 
-    public PersonalDataService(PersonalData data, MemoryStorage storage) {
+    public PersonalDataService(PersonalData data, MemoryStorage storage, CancelPlanUseCase cancellations,
+                               TransactionOperations transactions) {
         this.data = data;
         this.storage = storage;
+        this.cancellations = cancellations;
+        this.transactions = transactions;
     }
 
     @Override
@@ -35,10 +41,19 @@ public class PersonalDataService implements PersonalDataUseCase {
         return data.of(userId);
     }
 
+    /**
+     * First the plans they organized that have not started are cancelled like any other cancellation, each in its own
+     * transaction and announced once saved: whoever was in them has to be read and told before the erasure touches
+     * the plans. Then the data is erased in one transaction. If the event arrives again, there is nothing left to
+     * cancel and nobody is told twice.
+     */
     @Override
     public void erase(UUID userId) {
-        data.erase(userId);
-        erasePhotos(userId);
+        cancellations.cancelPlansOfDeletedAccount(userId);
+        transactions.executeWithoutResult(status -> {
+            data.erase(userId);
+            erasePhotos(userId);
+        });
     }
 
     /**

@@ -52,6 +52,8 @@ public class JdbcPersonalData implements PersonalData {
                 + "status IN ('OPEN', 'FULL'))",
             "DELETE FROM plan_waitlist WHERE user_id = :userId AND plan_id IN (SELECT id FROM plan WHERE status "
                 + "IN ('OPEN', 'FULL'))",
+            // The plans not started were already cancelled, with their event, by the use case: this only closes
+            // one whose start time has passed and the lifecycle has not moved yet
             "UPDATE plan SET status = 'CANCELLED' WHERE organizer_id = :userId AND status IN ('OPEN', 'FULL')",
             "UPDATE plan SET organizer_name = 'Persona eliminada' WHERE organizer_id = :userId",
             "UPDATE plan_participant SET name = 'Persona eliminada' WHERE user_id = :userId",

@@ -155,7 +155,12 @@ class ReputationIntegrationTest {
     }
 
     @Test
-    void aCancellationByTheOrganizerCloseToTheStartCostsAndOneForTheMinimumDoesNot() throws Exception {
+    void aCancellationByTheOrganizerCloseToTheStartCostsAndOneForTheMinimumOrADeletedAccountDoesNot()
+            throws Exception {
+        var deleted = UUID.randomUUID();
+        publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_CANCELLED, Map.of("planId", UUID.randomUUID(),
+                "organizerId", deleted, "title", "Yoga", "startsAt", "2026-10-13T16:20:00Z", "reason",
+                "ACCOUNT_DELETED", "recipientIds", List.of(ana), "occurredAt", "2026-10-13T16:00:00Z"));
         publish(RabbitConfig.PLANS_EXCHANGE, RabbitConfig.PLAN_CANCELLED, Map.of("planId", plan, "organizerId", ana,
                 "title", "Padel", "startsAt", "2026-10-13T16:20:00Z", "reason", "MINIMUM_NOT_REACHED",
                 "recipientIds", List.of(ana), "occurredAt", "2026-10-13T16:00:00Z"));
@@ -167,6 +172,7 @@ class ReputationIntegrationTest {
 
         assertThat(score(lucia)).isEqualTo(-10);
         assertThat(score(ana)).isNull();
+        assertThat(score(deleted)).isNull();
     }
 
     @Test

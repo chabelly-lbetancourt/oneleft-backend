@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Notice for everyone in a plan: it has been cancelled (HU-039). */
+/** Notice for everyone in a plan: it has been cancelled (HU-039), with the reason (see {@link PlanCancelled}). */
 @Schema(description = "A plan you are in has been cancelled")
 public record PlanCancelledNotice(UUID planId, String title,
                                   @Schema(example = "Pistas de la Albufera") String placeName, Instant startsAt,

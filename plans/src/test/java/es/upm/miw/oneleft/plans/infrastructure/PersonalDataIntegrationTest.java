@@ -1,17 +1,21 @@
 package es.upm.miw.oneleft.plans.infrastructure;
 
 import es.upm.miw.oneleft.plans.TestcontainersConfiguration;
+import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.port.in.PersonalDataUseCase;
+import es.upm.miw.oneleft.plans.domain.port.out.PlanEventPublisher;
 import es.upm.miw.oneleft.plans.infrastructure.messaging.AccountDeletedListener;
 import es.upm.miw.oneleft.plans.infrastructure.rest.MyDataController;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -19,6 +23,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,7 +46,7 @@ class PersonalDataIntegrationTest {
             "INSERT INTO plan (id, organizer_id, organizer_name, activity, title, meeting_point, location, starts_at, spots, occupied, status, published_at) VALUES ('$a', '$other', 'Ana', 'PADEL', 'Test A', 'Pistas', ST_SetSRID(ST_MakePoint(-3.6, 40.4), 4326), now() + interval '2 hours', 3, 2, 'OPEN', now())",
             "INSERT INTO plan (id, organizer_id, organizer_name, activity, title, meeting_point, location, starts_at, spots, occupied, status, published_at) VALUES ('$b', '$user', 'Lucía', 'PADEL', 'Test B', 'Pistas', ST_SetSRID(ST_MakePoint(-3.6, 40.4), 4326), now() + interval '2 hours', 2, 1, 'OPEN', now())",
             "INSERT INTO plan (id, organizer_id, organizer_name, activity, title, meeting_point, location, starts_at, spots, occupied, status, published_at) VALUES ('$c', '$other', 'Ana', 'PADEL', 'Test C', 'Pistas', ST_SetSRID(ST_MakePoint(-3.6, 40.4), 4326), now() - interval '5 hours', 2, 2, 'FINISHED', now() - interval '6 hours')",
-            "INSERT INTO plan_participant (plan_id, user_id, name, joined_at) VALUES ('$a', '$user', 'Lucía', now()), ('$c', '$user', 'Lucía', now())",
+            "INSERT INTO plan_participant (plan_id, user_id, name, joined_at) VALUES ('$a', '$user', 'Lucía', now()), ('$c', '$user', 'Lucía', now()), ('$b', '$other', 'Ana', now())",
             "INSERT INTO block (blocker_id, blocked_id, blocked_at) VALUES ('$user', '$other', now())"};
     private static final Check[] AFTER = {
             new Check("SELECT occupied FROM plan WHERE id = '$a'", "1", "a plan she was in has her spot free again"),
@@ -66,6 +71,9 @@ class PersonalDataIntegrationTest {
 
     @Autowired
     private PersonalDataUseCase personalData;
+
+    @MockitoSpyBean
+    private PlanEventPublisher events;
 
     private final UUID user = UUID.randomUUID();
     private final UUID other = UUID.randomUUID();
@@ -114,5 +122,11 @@ class PersonalDataIntegrationTest {
             var found = jdbc.queryForObject(sql(check.sql()), Object.class);
             assertThat(String.valueOf(found)).as(check.meaning()).isEqualTo(check.expected());
         }
+        // Whoever was in the plan she organized is told, once, and not as a cancellation of hers that costs points
+        var cancelled = ArgumentCaptor.forClass(PlanCancelled.class);
+        verify(events).publish(cancelled.capture());
+        assertThat(cancelled.getValue().planId()).isEqualTo(planB);
+        assertThat(cancelled.getValue().reason()).isEqualTo(PlanCancelled.Reason.ACCOUNT_DELETED);
+        assertThat(cancelled.getValue().recipientIds()).containsExactly(other);
     }
 }

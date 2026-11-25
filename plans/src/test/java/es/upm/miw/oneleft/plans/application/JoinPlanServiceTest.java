@@ -7,6 +7,7 @@ import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
+import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
 import es.upm.miw.oneleft.plans.domain.model.RecentPlan;
 import es.upm.miw.oneleft.plans.domain.model.PlanCancelled;
 import es.upm.miw.oneleft.plans.domain.model.PlanJoined;
@@ -22,6 +23,7 @@ import org.springframework.transaction.support.TransactionOperations;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +70,9 @@ class JoinPlanServiceTest {
 
         @Override
         public List<Plan> findByOrganizerStartingAfter(UUID organizerId, Instant from) {
-            return List.of();
+            return data.values().stream().filter(plan -> plan.organizer().id().equals(organizerId)
+                            && plan.startsAt().isAfter(from) && plan.status() != PlanStatus.CANCELLED)
+                    .sorted(Comparator.comparing(Plan::startsAt)).toList();
         }
 
         @Override
