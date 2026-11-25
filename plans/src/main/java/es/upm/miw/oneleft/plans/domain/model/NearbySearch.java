@@ -13,9 +13,19 @@ import java.util.UUID;
  * @param requesterId who is searching, or {@code null} if unknown
  * @param viewerGender gender of who searches, or {@code null} if unknown: without it only the plans for everyone
  * @param viewerAge age of who searches, or {@code null} if unknown: without it only the plans with no age range
+ * @param accessibility what the place of the plan must have (HU-046), all of it; empty means any place
  */
 public record NearbySearch(double latitude, double longitude, int radiusMeters, Set<Activity> activities,
-                           Duration startsWithin, UUID requesterId, String viewerGender, Integer viewerAge) {
+                           Duration startsWithin, UUID requesterId, String viewerGender, Integer viewerAge,
+                           Set<AccessibilityFeature> accessibility) {
+
+    /** A search that does not ask for an accessible place (HU-046). */
+    @SuppressWarnings("java:S107")
+    public NearbySearch(double latitude, double longitude, int radiusMeters, Set<Activity> activities,
+                        Duration startsWithin, UUID requesterId, String viewerGender, Integer viewerAge) {
+        this(latitude, longitude, radiusMeters, activities, startsWithin, requesterId, viewerGender, viewerAge,
+                Set.of());
+    }
 
     /** A search that does not know who the viewer is: only the plans for everyone (HU-070). */
     public NearbySearch(double latitude, double longitude, int radiusMeters, Set<Activity> activities,
@@ -26,7 +36,13 @@ public record NearbySearch(double latitude, double longitude, int radiusMeters, 
     /** The same search for a person with this gender and age: the plans that are not for them are left out (HU-070). */
     public NearbySearch forViewer(AudienceMember viewer) {
         return new NearbySearch(latitude, longitude, radiusMeters, activities, startsWithin, requesterId,
-                viewer.gender().name(), viewer.age());
+                viewer.gender().name(), viewer.age(), accessibility);
+    }
+
+    /** The same search, only for the plans whose place has all of this (HU-046). */
+    public NearbySearch withAccessibility(Set<AccessibilityFeature> required) {
+        return new NearbySearch(latitude, longitude, radiusMeters, activities, startsWithin, requesterId,
+                viewerGender, viewerAge, required);
     }
 
     public static final int MIN_RADIUS_METERS = 500;
@@ -52,6 +68,7 @@ public record NearbySearch(double latitude, double longitude, int radiusMeters, 
                     + MIN_STARTS_WITHIN.toHours() + " to " + Plan.MAX_HORIZON.toHours() + " hours can be searched");
         }
         activities = activities == null ? Set.of() : Set.copyOf(activities);
+        accessibility = accessibility == null ? Set.of() : Set.copyOf(accessibility);
     }
 
     public double distanceTo(double otherLatitude, double otherLongitude) {
@@ -78,7 +95,8 @@ public record NearbySearch(double latitude, double longitude, int radiusMeters, 
                 && event.startsAt().isAfter(now)
                 && !event.startsAt().isAfter(until(now))
                 && distanceTo(event.latitude(), event.longitude()) <= radiusMeters
-                && isForViewer(event.audience());
+                && isForViewer(event.audience())
+                && event.accessibility().containsAll(accessibility);
     }
 
     /**

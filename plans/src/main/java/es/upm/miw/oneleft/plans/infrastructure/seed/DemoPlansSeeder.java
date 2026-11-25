@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.seed;
 
+import es.upm.miw.oneleft.plans.domain.model.AccessibilityFeature;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -52,7 +54,9 @@ public class DemoPlansSeeder implements ApplicationRunner {
                     new MeetingPoint("Parque Lineal de Palomeras", 40.3845, -3.6352), Duration.ofMinutes(45), 3,
                     Level.BEGINNER),
             new DemoPlan(MARTA, Activity.BOARD_GAMES, "Catan en la cafetería", "Traemos el juego y la ampliación",
-                    new MeetingPoint("Café La Partida", 40.3968, -3.6221), Duration.ofMinutes(150), 2, null),
+                    new MeetingPoint("Café La Partida", 40.3968, -3.6221, Set.of(
+                            AccessibilityFeature.WHEELCHAIR_ACCESSIBLE, AccessibilityFeature.ACCESSIBLE_TOILET)),
+                    Duration.ofMinutes(150), 2, null),
             new DemoPlan(DIEGO, Activity.FOOTBALL, "Pachanga 7 contra 7", "Faltan cuatro para completar",
                     new MeetingPoint("Campo de fútbol de Entrevías", 40.3801, -3.6690), Duration.ofHours(3), 4, null),
             new DemoPlan(JAVIER, Activity.TENNIS, "Dobles de tenis", "Buscamos pareja de nivel alto",
@@ -62,7 +66,9 @@ public class DemoPlansSeeder implements ApplicationRunner {
                     new MeetingPoint("Entrada del Parque de la Gavia", 40.3730, -3.6100), Duration.ofHours(5), 3,
                     Level.INTERMEDIATE),
             new DemoPlan(LUCIA, Activity.CINEMA, "Sesión doble de cine", null,
-                    new MeetingPoint("Cines del centro", 40.4169, -3.7035), Duration.ofHours(8), 2, null),
+                    new MeetingPoint("Cines del centro", 40.4169, -3.7035, Set.of(
+                            AccessibilityFeature.WHEELCHAIR_ACCESSIBLE, AccessibilityFeature.STEP_FREE_ACCESS,
+                            AccessibilityFeature.ACCESSIBLE_TOILET)), Duration.ofHours(8), 2, null),
             new DemoPlan(MARTA, Activity.CONCERTS, "Me sobra una entrada para un concierto",
                     "Concierto de indie en sala pequeña",
                     new MeetingPoint("Sala de conciertos de Malasaña", 40.4260, -3.7030), Duration.ofHours(10), 1,

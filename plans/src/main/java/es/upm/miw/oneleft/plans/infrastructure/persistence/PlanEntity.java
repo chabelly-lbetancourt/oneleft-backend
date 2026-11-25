@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.persistence;
 
+import es.upm.miw.oneleft.plans.domain.model.AccessibilityFeature;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.AudienceGender;
 import es.upm.miw.oneleft.plans.domain.model.Level;
@@ -23,7 +24,9 @@ import org.locationtech.jts.geom.Point;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -143,6 +146,15 @@ public class PlanEntity {
     @CollectionTable(name = "plan_arrival", joinColumns = @JoinColumn(name = "plan_id"))
     private List<ArrivalEmbeddable> arrivals = new ArrayList<>();
 
+    /** What makes the place accessible (HU-046); in batches like the people, for the nearby search */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "plan_accessibility", joinColumns = @JoinColumn(name = "plan_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "feature", nullable = false, length = 30)
+    @BatchSize(size = 50)
+    @Fetch(FetchMode.SELECT)
+    private Set<AccessibilityFeature> accessibility = new HashSet<>();
+
     protected PlanEntity() {
     }
 
@@ -154,7 +166,7 @@ public class PlanEntity {
                List<WaitingEmbeddable> waitlist, Instant remindedAt, Integer minParticipants,
                Instant minimumDeadline, Instant confirmedAt, List<ArrivalEmbeddable> arrivals, boolean requiresApproval,
                List<JoinRequestEmbeddable> requests, AudienceGender audienceGender, Integer minAge, Integer maxAge,
-               long version) {
+               Set<AccessibilityFeature> accessibility, long version) {
         this.id = id;
         this.organizerId = organizerId;
         this.organizerName = organizerName;
@@ -182,6 +194,7 @@ public class PlanEntity {
         this.audienceGender = audienceGender;
         this.minAge = minAge;
         this.maxAge = maxAge;
+        this.accessibility = new HashSet<>(accessibility);
         this.version = version;
     }
 
@@ -207,6 +220,7 @@ public class PlanEntity {
     AudienceGender getAudienceGender() { return audienceGender; }
     Integer getMinAge() { return minAge; }
     Integer getMaxAge() { return maxAge; }
+    Set<AccessibilityFeature> getAccessibility() { return accessibility; }
     Instant getRemindedAt() { return remindedAt; }
     Integer getMinParticipants() { return minParticipants; }
     Instant getMinimumDeadline() { return minimumDeadline; }

@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
+import es.upm.miw.oneleft.plans.domain.model.AccessibilityFeature;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Audience;
 import es.upm.miw.oneleft.plans.domain.model.AudienceGender;
@@ -16,6 +17,7 @@ import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
 import es.upm.miw.oneleft.plans.domain.model.Participant;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanStatus;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -39,14 +41,23 @@ public final class PlanDtos {
     public record MeetingPointDto(
             @NotBlank @Size(max = MeetingPoint.MAX_NAME_LENGTH) @Schema(example = "Sports centre courts") String name,
             @NotNull @DecimalMin("-90") @DecimalMax("90") @Schema(example = "40.3912") Double latitude,
-            @NotNull @DecimalMin("-180") @DecimalMax("180") @Schema(example = "-3.6287") Double longitude) {
+            @NotNull @DecimalMin("-180") @DecimalMax("180") @Schema(example = "-3.6287") Double longitude,
+            @ArraySchema(arraySchema = @Schema(description = "What makes the place accessible, as the organizer "
+                    + "declares it (HU-046): nothing if absent. Any other value is rejected with plan.accessibility"),
+                    schema = @Schema(implementation = AccessibilityFeature.class), uniqueItems = true)
+            List<String> accessibility) {
 
         static MeetingPointDto of(MeetingPoint point) {
-            return new MeetingPointDto(point.name(), point.latitude(), point.longitude());
+            return new MeetingPointDto(point.name(), point.latitude(), point.longitude(), accessibilityOf(point));
+        }
+
+        /** The features of the place by name, in the order of the list. */
+        static List<String> accessibilityOf(MeetingPoint point) {
+            return point.accessibility().stream().map(Enum::name).toList();
         }
 
         MeetingPoint toDomain() {
-            return new MeetingPoint(name, latitude, longitude);
+            return new MeetingPoint(name, latitude, longitude, AccessibilityFeature.of(accessibility));
         }
     }
 
@@ -224,7 +235,8 @@ public final class PlanDtos {
             return new PublicPlanResponse(plan.id(), plan.activity(), plan.activityOther(), plan.title(),
                     plan.description(),
                     new MeetingPointDto(point.name(), Math.round(point.latitude() * PRECISION) / PRECISION,
-                            Math.round(point.longitude() * PRECISION) / PRECISION),
+                            Math.round(point.longitude() * PRECISION) / PRECISION,
+                            MeetingPointDto.accessibilityOf(point)),
                     plan.startsAt(), plan.spots(), plan.occupied(), plan.freeSpots(), plan.level(), plan.status(),
                     MinimumDto.of(plan.minimum()));
         }

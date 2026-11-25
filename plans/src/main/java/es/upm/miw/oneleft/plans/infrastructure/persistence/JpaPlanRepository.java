@@ -35,6 +35,8 @@ public class JpaPlanRepository implements PlanRepository {
     private static final GeometryFactory GEOMETRY = new GeometryFactory(new PrecisionModel(), WGS84);
 
     private static final UUID NOBODY = new UUID(0, 0);
+    /** An empty list cannot go in an IN: a search that asks for no feature (HU-046) sends this name, which no row has. */
+    private static final List<String> NO_FEATURES = List.of("-");
 
     private final SpringDataPlanRepository jpa;
 
@@ -56,7 +58,7 @@ public class JpaPlanRepository implements PlanRepository {
                 minimum == null ? null : minimum.deadline(), minimum == null ? null : minimum.confirmedAt(),
                 plan.arrivals().stream().map(ArrivalEmbeddable::new).toList(), plan.requiresApproval(),
                 plan.requests().stream().map(JoinRequestEmbeddable::new).toList(), plan.audience().gender(),
-                plan.audience().minAge(), plan.audience().maxAge(), plan.version());
+                plan.audience().minAge(), plan.audience().maxAge(), point.accessibility(), plan.version());
         try {
             // Flushing here makes a stale version fail inside the adapter, where it becomes a domain exception
             return toDomain(jpa.saveAndFlush(entity));
@@ -92,8 +94,11 @@ public class JpaPlanRepository implements PlanRepository {
                 : search.activities().stream()).map(Enum::name).toList();
         // Without a requester no organizer is excluded (no user has the nil UUID)
         var requester = search.requesterId() == null ? NOBODY : search.requesterId();
+        var wanted = search.accessibility();
+        var features = wanted.isEmpty() ? NO_FEATURES : wanted.stream().map(Enum::name).toList();
         return jpa.findOpenNearby(search.latitude(), search.longitude(), search.radiusMeters(), activities, requester,
-                        now, search.until(now), limit, search.viewerGender(), search.viewerAge()).stream()
+                        now, search.until(now), limit, search.viewerGender(), search.viewerAge(), features,
+                        wanted.size()).stream()
                 .map(JpaPlanRepository::toDomain).toList();
     }
 
@@ -103,7 +108,8 @@ public class JpaPlanRepository implements PlanRepository {
     }
 
     private static Plan toDomain(PlanEntity e) {
-        var meetingPoint = new MeetingPoint(e.getMeetingPoint(), e.getLocation().getY(), e.getLocation().getX());
+        var meetingPoint = new MeetingPoint(e.getMeetingPoint(), e.getLocation().getY(), e.getLocation().getX(),
+                e.getAccessibility());
         var participants = e.getParticipants().stream().map(JpaPlanRepository::toParticipant).toList();
         var waitlist = e.getWaitlist().stream().map(JpaPlanRepository::toParticipant).toList();
         return new Plan(e.getId(), new Organizer(e.getOrganizerId(), e.getOrganizerName()), e.getActivity(),
