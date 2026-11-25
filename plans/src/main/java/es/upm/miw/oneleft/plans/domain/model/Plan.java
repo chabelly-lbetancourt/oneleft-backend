@@ -812,7 +812,7 @@ public class Plan {
     public PlanPublished publishedEvent() {
         return new PlanPublished(id, organizer.id(), activity, title, meetingPoint.name(), meetingPoint.latitude(),
                 meetingPoint.longitude(),
-                startsAt, freeSpots(), level, publishedAt, audience);
+                startsAt, freeSpots(), level, publishedAt, audience, meetingPoint.accessibility());
     }
 
     public UUID id() {

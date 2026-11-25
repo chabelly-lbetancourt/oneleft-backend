@@ -45,7 +45,8 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
     /**
      * Proximity search with PostGIS. {@code ST_DWithin} on {@code geography} measures in metres and uses the
      * {@code plan_location_geography} index; the {@code <->} operator sorts from the nearest to the farthest. The plans
-     * of someone blocked by the requester, or who blocked them, are left out (HU-033).
+     * of someone blocked by the requester, or who blocked them, are left out (HU-033). The place of the plan must have
+     * every feature asked for (HU-046): {@code featureCount} of them, none when the search asks for nothing.
      */
     @NativeQuery("""
             SELECT p.* FROM plan p
@@ -57,6 +58,8 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
               AND (p.audience_gender = 'ALL' OR p.audience_gender = CAST(:viewerGender AS varchar))
               AND (p.min_age IS NULL OR p.min_age <= CAST(:viewerAge AS integer))
               AND (p.max_age IS NULL OR p.max_age >= CAST(:viewerAge AS integer))
+              AND (SELECT count(*) FROM plan_accessibility a
+                   WHERE a.plan_id = p.id AND a.feature IN (:features)) = :featureCount
               AND NOT EXISTS (SELECT 1 FROM block b
                               WHERE (b.blocker_id = p.organizer_id AND b.blocked_id = :requester)
                                  OR (b.blocker_id = :requester AND b.blocked_id = p.organizer_id))
@@ -71,7 +74,9 @@ interface SpringDataPlanRepository extends JpaRepository<PlanEntity, UUID> {
                                     @Param("requester") UUID requester, @Param("now") Instant now,
                                     @Param("until") Instant until, @Param("limit") int limit,
                                     @Param("viewerGender") String viewerGender,
-                                    @Param("viewerAge") Integer viewerAge);
+                                    @Param("viewerAge") Integer viewerAge,
+                                    @Param("features") Collection<String> features,
+                                    @Param("featureCount") int featureCount);
 
     /** Plans not cancelled whose check-in has closed and whose attendance is still open, the oldest first. */
     @NativeQuery("""

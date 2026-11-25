@@ -1,5 +1,6 @@
 package es.upm.miw.oneleft.plans.infrastructure.rest;
 
+import es.upm.miw.oneleft.plans.domain.model.AccessibilityFeature;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Audience;
 import es.upm.miw.oneleft.plans.domain.model.ActivityCategory;
@@ -24,7 +25,9 @@ import es.upm.miw.oneleft.plans.infrastructure.rest.PlanDtos.PlanResponse;
 import es.upm.miw.oneleft.plans.infrastructure.rest.PlanDtos.PublishPlanRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -94,9 +97,11 @@ public class PlanController {
     @Operation(summary = "Publish a plan (HU-003)",
             description = "Publishes a plan that starts between 5 minutes and 12 hours from now, with the free spots "
                     + "still to fill and, optionally, a minimum of participants with its deadline (HU-039): if fewer "
-                    + "people have joined by then, the plan is cancelled. Emits the PlanPublished event.")
+                    + "people have joined by then, the plan is cancelled. The organizer can say what makes the "
+                    + "place accessible in `meetingPoint.accessibility` (HU-046). Emits the PlanPublished event.")
     @ApiResponse(responseCode = "201", description = "Plan published")
-    @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Invalid data; plan.accessibility when a feature of the "
+            + "place is not in the list", content = @Content)
     @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content)
     @ApiResponse(responseCode = "409", description = "plan.tooManyActive: the organizer already has as many plans "
             + "that have not started as their reputation allows (HU-063): 5, or up to 10 with the level; the "
@@ -210,7 +215,7 @@ public class PlanController {
                     + "`plan-arrival` (PlanArrivalNotice) when someone of the group of a plan is on the way or running late (HU-040).")
     @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
-                    schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PlanJoinedNotice.class)))
+                    schema = @Schema(implementation = PlanJoinedNotice.class)))
     public SseEmitter events(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         return userEvents.subscribe(UUID.fromString(jwt.getSubject()));
     }
@@ -229,9 +234,12 @@ public class PlanController {
                     + "farthest. Own plans are not included. At most 50. Each one says how well it fits me in "
                     + "`plan.compatibility` (HU-031), null if my profile is not known. `sort=COMPATIBILITY` orders "
                     + "those same plans, the 50 nearest, from the most compatible to the least and, among equals, "
-                    + "from the nearest; without a known profile the order stays by distance.")
+                    + "from the nearest; without a known profile the order stays by distance. `accessibility` "
+                    + "keeps only the plans whose place has every feature asked for (HU-046), as its organizer "
+                    + "declared it.")
     @ApiResponse(responseCode = "200", description = "Nearby plans")
-    @ApiResponse(responseCode = "400", description = "Parameters out of range", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Parameters out of range; or plan.accessibility: a feature "
+            + "that is not in the list", content = @Content)
     @SuppressWarnings("java:S107")
     public List<NearbyPlanResponse> nearby(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                            @Parameter(example = "40.391") @RequestParam double latitude,
@@ -247,9 +255,14 @@ public class PlanController {
                                            @Parameter(description = "Starting within the next hours (1 to 12)")
                                            @RequestParam(defaultValue = "12") int withinHours,
                                            @Parameter(description = "Order: by distance or by compatibility (HU-031)")
-                                           @RequestParam(defaultValue = "DISTANCE") NearbySort sort) {
+                                           @RequestParam(defaultValue = "DISTANCE") NearbySort sort,
+                                           @Parameter(description = "Only the plans whose place has all of these "
+                                                   + "(HU-046); any place if omitted", array = @ArraySchema(
+                                                   schema = @Schema(implementation = AccessibilityFeature.class)))
+                                           @RequestParam(required = false) List<String> accessibility) {
         var viewer = audiences.viewer(UUID.fromString(jwt.getSubject())).orElse(null);
-        var search = seenBy(viewer, search(jwt, latitude, longitude, radius, activities, categories, withinHours));
+        var search = seenBy(viewer, search(jwt, latitude, longitude, radius, activities, categories, withinHours))
+                .withAccessibility(AccessibilityFeature.of(accessibility));
         return queryPlans.nearbyPlans(search, viewer, sort).stream().map(NearbyPlanResponse::of).toList();
     }
 
@@ -259,7 +272,7 @@ public class PlanController {
                     + "`plan-published` with a NearbyPlanEvent every time a matching plan is published.")
     @ApiResponse(responseCode = "200", description = "Event stream",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
-                    schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = NearbyPlanEvent.class)))
+                    schema = @Schema(implementation = NearbyPlanEvent.class)))
     @SuppressWarnings("java:S107")
     public SseEmitter nearbyStream(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                    @RequestParam double latitude, @RequestParam double longitude,
@@ -267,10 +280,14 @@ public class PlanController {
                                    @RequestParam(name = "activity", required = false) List<Activity> activities,
                                    @RequestParam(name = "category", required = false)
                                    List<ActivityCategory> categories,
-                                   @RequestParam(defaultValue = "12") int withinHours) {
+                                   @RequestParam(defaultValue = "12") int withinHours,
+                                   @Parameter(array = @ArraySchema(
+                                           schema = @Schema(implementation = AccessibilityFeature.class)))
+                                   @RequestParam(required = false) List<String> accessibility) {
         var viewer = audiences.viewer(UUID.fromString(jwt.getSubject())).orElse(null);
         return nearbySubscriptions.subscribe(
-                seenBy(viewer, search(jwt, latitude, longitude, radius, activities, categories, withinHours)));
+                seenBy(viewer, search(jwt, latitude, longitude, radius, activities, categories, withinHours))
+                        .withAccessibility(AccessibilityFeature.of(accessibility)));
     }
 
     /** The activities asked for, plus every activity of the categories asked for (HU-068); none means all. */

@@ -10,7 +10,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 
 - `gateway`: punto de entrada único (Spring Cloud Gateway).
 - `users`: usuarios, perfiles y reputación.
-- `plans`: publicación de planes, plazas, caducidad y búsqueda de planes cercanos (PostGIS) en tiempo real (SSE), con la compatibilidad de cada plan con quien lo mira (HU-031, [ver más abajo](#compatibilidad-por-nivel-y-aficiones-hu-031)).
+- `plans`: publicación de planes, plazas, caducidad y búsqueda de planes cercanos (PostGIS) en tiempo real (SSE), con la compatibilidad de cada plan con quien lo mira (HU-031, [ver más abajo](#compatibilidad-por-nivel-y-aficiones-hu-031)) y la accesibilidad del lugar que declara quien organiza (HU-046, [ver más abajo](#planes-con-accesibilidad-hu-046)).
 - `notifications`: avisos de planes cercanos (HU-006): preferencias de cada persona, a quién avisar y Web Push.
 - `chat`: chat de cada plan en tiempo real (HU-008) por WebSocket, con el gateway como relé.
 - `social`: seguir a personas (HU-047), con perfiles públicos o privados y solicitudes, el feed de actividad (HU-051) y bloquear y reportar a personas y planes (HU-033).
@@ -360,6 +360,38 @@ perfil con su nivel, que `users` ya daba a `plans` junto al género y la edad (H
 - **Tiempo real:** el aviso `plan-published` del flujo SSE no cambia: solo avisa, y la web vuelve a pedir la lista.
 - **Pendiente:** usarla en el ranking de avisos (HU-012), que hoy puntúa con el servicio `ranker` y no conoce las
   aficiones del perfil.
+
+### Planes con accesibilidad (HU-046)
+
+Quien organiza un plan puede decir qué hace accesible el lugar donde se queda, y quien busca planes cercanos puede
+pedir solo los que lo tienen. Es información **del lugar, declarada por quien organiza**: OneLeft no la comprueba, y
+no se guarda nada sobre la salud ni las necesidades de ninguna persona (el filtro va en la petición y no se apunta).
+
+| Valor | Qué declara |
+|---|---|
+| `WHEELCHAIR_ACCESSIBLE` | Se puede entrar y moverse por el lugar en silla de ruedas |
+| `STEP_FREE_ACCESS` | Se entra sin escalones: a pie llano, con rampa o con ascensor |
+| `ACCESSIBLE_TOILET` | Hay aseo adaptado |
+| `ACCESSIBLE_PARKING` | Hay aparcamiento reservado o adaptado |
+
+- **Publicar:** `POST /api/v1/plans` admite `meetingPoint.accessibility`, una lista con esos valores. Es opcional: sin
+  ella, o vacía, el lugar queda sin nada declarado (que no es lo mismo que «no accesible»). Los repetidos se ignoran.
+  Cualquier otro valor responde `400 plan.accessibility` y no se publica nada.
+- **Dónde sale:** `meetingPoint.accessibility` (siempre una lista, en el orden de la tabla) en todas las respuestas con
+  un punto de encuentro: el detalle (`GET /api/v1/plans/{planId}`), cada `plan` de `GET /api/v1/plans/nearby` (de ahí
+  la toma el mapa), `GET /api/v1/plans/mine`, la vista pública de un plan compartido (`GET
+  /api/v1/public/plans/{planId}`) y la del contacto de confianza (HU-034).
+- **Filtrar:** `GET /api/v1/plans/nearby?accessibility=WHEELCHAIR_ACCESSIBLE` (se puede repetir el parámetro) deja
+  solo los planes cuyo lugar tiene **todo** lo pedido; sin el parámetro, la búsqueda es la de siempre. El flujo en
+  tiempo real (`/nearby/stream`) admite el mismo parámetro: el evento `plan.published` lleva ahora `accessibility`
+  (los eventos anteriores, sin el campo, cuentan como un lugar sin nada declarado). Un valor desconocido responde
+  `400 plan.accessibility`.
+- **Datos:** tabla `plan_accessibility` (`plan_id`, `feature`), una fila por característica, que se borra con el plan.
+  Los planes anteriores no tienen filas. No son datos personales: no entran en la exportación de HU-045.
+- **Datos de ejemplo:** dos planes del perfil `seed` («Catan en la cafetería» y «Sesión doble de cine») declaran
+  accesibilidad.
+- **Pendiente:** el plan no se puede editar después de publicarlo, así que tampoco su accesibilidad; y el asistente
+  de HU-010 no la propone.
 
 ### Ventajas por reputación (HU-063)
 
