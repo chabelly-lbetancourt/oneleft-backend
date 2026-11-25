@@ -194,7 +194,7 @@ Responde `204` y es idempotente: cancelar un plan ya cancelado responde `204` y 
   contar para el límite de planes a la vez** (HU-063).
 - **Evento:** `plan.cancelled` en el exchange `oneleft.plans`, con los mismos campos que el de HU-039 (`planId`,
   `organizerId`, `title`, `placeName`, `startsAt`, `reason`, `recipientIds` y `occurredAt`) y `reason = ORGANIZER`
-  (el del mínimo lleva `MINIMUM_NOT_REACHED`). `recipientIds` son los participantes y la lista de espera; la
+  (el del mínimo lleva `MINIMUM_NOT_REACHED`, y el de una cuenta borrada, `ACCOUNT_DELETED`). `recipientIds` son los participantes y la lista de espera; la
   organizadora no va, porque lo ha decidido ella.
 - **Quién se entera:** los mismos avisos que ya había para una cancelación: `plan-cancelled` en el flujo SSE de cada
   persona (`PlanCancelledNotice`, con `reason`) y la notificación del navegador de `notifications`, cuyo texto dice si
@@ -213,7 +213,11 @@ Responde `204` y es idempotente: cancelar un plan ya cancelado responde `204` y 
   `oneleft-accounts`, *client credentials*, solo gestiona usuarios) y publica `user.deleted` en el exchange
   `oneleft.accounts`, tras el commit. Cada servicio la recibe en su cola duradera `<servicio>.account-deleted`.
 - **Qué se borra y qué se anonimiza:** `plans` libera su plaza en los planes futuros, cancela los que organizaba y deja
-  «Persona eliminada» en los pasados; `chat` deja sus mensajes con una persona anónima; los kudos que dio pierden su
+  «Persona eliminada» en los pasados. Cada plan suyo sin empezar se cancela con la misma transición que cualquier otra
+  cancelación y publica `plan.cancelled` tras el commit, **antes** de borrar sus datos, con `reason = ACCOUNT_DELETED`:
+  quienes estaban apuntados o en lista de espera reciben el aviso (SSE y navegador, con el texto de «lo canceló quien
+  lo organizaba»), `chat` cierra el chat y `social` lo quita de los feeds; `reputation` no apunta nada, porque solo
+  resta por `ORGANIZER`. Además, `chat` deja sus mensajes con una persona anónima; los kudos que dio pierden su
   autor; el libro de `reputation` se borra con una excepción explícita de su trigger. El resto se borra.
 - **Repetible:** cada borrado puede recibirse dos veces sin efecto. No hay *outbox*: si `users` cae entre el commit y la
   publicación, hay que volver a pedir el borrado.

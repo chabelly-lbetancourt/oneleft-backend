@@ -17,11 +17,13 @@ class PlanCancelledMessageTest {
     }
 
     @Test
-    void onlyTheReasonOfTheOrganizerMakesItACancellationByTheOrganizer() {
+    void theReasonsOfTheOrganizerMakeItACancellationByTheOrganizer() {
         var byOrganizer = message("ORGANIZER");
 
         assertThat(byOrganizer.toDomain().byOrganizer()).isTrue();
         assertThat(byOrganizer.toDomain().recipientIds()).isEqualTo(byOrganizer.recipientIds());
+        // The organizer deleted their account (HU-045): not the minimum either
+        assertThat(message("ACCOUNT_DELETED").toDomain().byOrganizer()).isTrue();
         assertThat(message("MINIMUM_NOT_REACHED").toDomain().byOrganizer()).isFalse();
         // An event of before the reason existed
         assertThat(message(null).toDomain().byOrganizer()).isFalse();

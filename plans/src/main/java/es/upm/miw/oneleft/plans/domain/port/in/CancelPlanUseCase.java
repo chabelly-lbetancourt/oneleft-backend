@@ -13,4 +13,10 @@ public interface CancelPlanUseCase {
 
     /** Cancelling a plan that is already cancelled does nothing. */
     void cancel(UUID planId, UUID organizerId);
+
+    /**
+     * The organizer deleted their account (HU-045): every plan of theirs that has not started is cancelled and
+     * everyone in it is told, with the reason {@code ACCOUNT_DELETED}. Repeating it cancels and tells nothing more.
+     */
+    void cancelPlansOfDeletedAccount(UUID organizerId);
 }

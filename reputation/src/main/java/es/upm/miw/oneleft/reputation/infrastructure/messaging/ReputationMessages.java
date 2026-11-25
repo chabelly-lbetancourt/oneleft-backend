@@ -12,7 +12,10 @@ import java.util.UUID;
 /** The part of each event that the reputation reads: the JSON fields are the contract. */
 final class ReputationMessages {
 
-    /** The reason of a cancellation decided by the organizer */
+    /**
+     * The reason of a cancellation decided by the organizer. Any other costs nothing: the minimum of participants, or
+     * {@code ACCOUNT_DELETED}, which must not write in the ledger of an account that no longer exists (HU-045).
+     */
     static final String BY_ORGANIZER = "ORGANIZER";
 
     private ReputationMessages() {

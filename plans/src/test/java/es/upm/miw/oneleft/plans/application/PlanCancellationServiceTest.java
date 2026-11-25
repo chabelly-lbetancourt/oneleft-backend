@@ -39,7 +39,7 @@ class PlanCancellationServiceTest {
     private final UUID organizer = plan.organizer().id();
 
     private PlanCancellationService serviceAt(Clock clock) {
-        return new PlanCancellationService(new OptimisticPlanUpdates(plans,
+        return new PlanCancellationService(plans, new OptimisticPlanUpdates(plans,
                 TransactionOperations.withoutTransaction()), publisher, clock);
     }
 
