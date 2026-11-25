@@ -36,4 +36,20 @@ class RateLimitRulesTest {
         assertThat(ruleFor(properties, "POST", "/api/v1/plans").name()).isEqualTo("publish-plans");
         assertThat(ruleFor(properties, "GET", "/api/v1/plans/nearby").name()).isEqualTo("api");
     }
+
+    /** HU-034: the public reading of a trusted link is stricter than the general limit, which would apply first. */
+    @Test
+    void trustedLinksHaveTheirOwnLimitBeforeTheGeneralOne() throws IOException {
+        var properties = configured();
+
+        var trusted = ruleFor(properties, "GET", "/api/v1/public/plans/trusted-links/some-token");
+        assertThat(trusted.name()).isEqualTo("trusted-links");
+        assertThat(trusted.capacity()).isEqualTo(30);
+        assertThat(trusted.period()).isEqualTo(Duration.ofMinutes(1));
+        // The shared plans of HU-024 and the links I manage with my session keep the general limit
+        assertThat(ruleFor(properties, "GET", "/api/v1/public/plans/0b0f0c0e-0000-4000-8000-000000000000").name())
+                .isEqualTo("api");
+        assertThat(ruleFor(properties, "GET", "/api/v1/plans/0b0f0c0e-0000-4000-8000-000000000000/trusted-links")
+                .name()).isEqualTo("api");
+    }
 }

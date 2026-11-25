@@ -721,7 +721,8 @@ public class Plan {
         }
     }
 
-    private String memberName(UUID userId) {
+    /** The name, in this plan, of someone of its group. */
+    public String memberName(UUID userId) {
         return organizer.id().equals(userId) ? organizer.name() : participants.stream()
                 .filter(participant -> participant.userId().equals(userId)).findFirst().orElseThrow().name();
     }

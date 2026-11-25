@@ -27,7 +27,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 |---|---|---|
 | `gateway` | 8080 | Enruta `/api/v1/users/**` a `users`, `/api/v1/plans/**` y `/api/v1/places/**` a `plans`, `/api/v1/notifications/**` a `notifications`, `/api/v1/chats/**` a `chat`, `/api/v1/social/**` a `social` y `/api/v1/reputation/**` a `reputation`. Hace de relé del WebSocket `/ws/chat` (el token va en el subprotocolo `oneleft.bearer`) |
 | `users` | 8081 | HU-001 usuario autenticado · HU-002 perfil con zona aproximada y aficiones · HU-020 foto de perfil en un almacenamiento compatible con S3, con enlaces firmados · HU-048 bio del perfil social · HU-045 descargar mis datos y borrar mi cuenta (ver más abajo) |
-| `plans` | 8082 | HU-003 publicar un plan (evento `plan.published` en RabbitMQ) · HU-004 planes cercanos y avisos en tiempo real (SSE) · HU-025 check-in en el punto de encuentro (geocerca de 150 m con PostGIS; la ubicación no se guarda) y, al cerrarse, quién llegó (`plan.attendance-closed`) · HU-048 los 5 últimos planes celebrados de una persona, si `social` dice que se pueden ver · HU-051 reenvía por SSE los avisos de actividad nueva del feed (`feed-activity`) y HU-060 los de kudos (`kudos`) · HU-033 copia los bloqueos de `social` (cola duradera `plans.blocks`) y deja fuera, en los dos sentidos, los planes cercanos y su tiempo real, el detalle de un plan (salvo para quien ya está en él), unirse y las personas libres cerca · HU-063 quien tiene más reputación espera por delante en la lista de espera y puede organizar más planes a la vez (5 para todo el mundo, `409 plan.tooManyActive`): se lo pregunta a `reputation` con el token de la persona · HU-052 recuerdos del plan: álbum de fotos que comparten su organizador y sus participantes cuando el plan ha terminado, en el mismo almacenamiento que las fotos de perfil ([ver más abajo](#recuerdos-del-plan-hu-052)) · cancelar un plan propio antes de que empiece (`DELETE /api/v1/plans/{planId}`, evento `plan.cancelled` con `reason = ORGANIZER`; [ver más abajo](#cancelar-un-plan)) |
+| `plans` | 8082 | HU-003 publicar un plan (evento `plan.published` en RabbitMQ) · HU-004 planes cercanos y avisos en tiempo real (SSE) · HU-025 check-in en el punto de encuentro (geocerca de 150 m con PostGIS; la ubicación no se guarda) y, al cerrarse, quién llegó (`plan.attendance-closed`) · HU-048 los 5 últimos planes celebrados de una persona, si `social` dice que se pueden ver · HU-051 reenvía por SSE los avisos de actividad nueva del feed (`feed-activity`) y HU-060 los de kudos (`kudos`) · HU-033 copia los bloqueos de `social` (cola duradera `plans.blocks`) y deja fuera, en los dos sentidos, los planes cercanos y su tiempo real, el detalle de un plan (salvo para quien ya está en él), unirse y las personas libres cerca · HU-063 quien tiene más reputación espera por delante en la lista de espera y puede organizar más planes a la vez (5 para todo el mundo, `409 plan.tooManyActive`): se lo pregunta a `reputation` con el token de la persona · HU-052 recuerdos del plan: álbum de fotos que comparten su organizador y sus participantes cuando el plan ha terminado, en el mismo almacenamiento que las fotos de perfil ([ver más abajo](#recuerdos-del-plan-hu-052)) · cancelar un plan propio antes de que empiece (`DELETE /api/v1/plans/{planId}`, evento `plan.cancelled` con `reason = ORGANIZER`; [ver más abajo](#cancelar-un-plan)) · HU-034 compartir mi plan con un contacto de confianza: un enlace secreto, de solo lectura y sin cuenta, que caduca cuando el plan termina y se puede revocar ([ver más abajo](#compartir-mi-plan-con-un-contacto-de-confianza-hu-034)) |
 | `notifications` | 8083 | HU-006 avisos de planes cercanos: escucha `plan.published`, elige a quién avisar (zona, radio, actividades, horario sin avisos y máximo diario) y avisa en la app y por Web Push · HU-033 nadie recibe avisos de planes de alguien a quien bloqueó o que le bloqueó (copia de los bloqueos en la cola `notifications.blocks`) · HU-012 avisos a quien más probabilidad tiene de apuntarse: puntúa a las personas con el servicio `ranker` (si no responde, van primero las más cercanas), avisa por tandas (5 cada 3 minutos mientras queden plazas y falten más de 15 minutos; `NOTICES_*`), vuelve a comprobar horas de silencio, límite diario y bloqueos al enviar cada tanda y aprende de `plan.joined` quién aceptó (`sent_notice.accepted_at`). `NOTICES_STRATEGY=distance` ordena por distancia, para compararlo · HU-063 copia de `reputation` lo que vale el nivel de cada persona (cola duradera `notifications.perks`): la probabilidad del modelo se multiplica por su peso al ordenar los avisos y puede guardar más alertas (5 para todo el mundo) |
 | `chat` | 8084 | HU-008 chat de cada plan: solo su organizador y participantes (se pregunta a `plans`), de solo lectura cuando el plan termina, mensajes entre réplicas por RabbitMQ y borrados 24 h después |
 | `social` | 8085 | HU-047 seguir a personas: perfil público o privado (privado por defecto), solicitudes que se aceptan o rechazan, seguidores y seguidos. El nombre de alguien nuevo se pregunta una vez a `users` · HU-048 decide quién ve los planes y la red de alguien (su perfil es público, es uno mismo o se le sigue) y da sus seguidores y seguidos · HU-051 feed de actividad: escucha `plan.published`, `plan.joined`, `plan.left`, `plan.cancelled` y `plan.attendance-closed` en colas duraderas (`social.*`) y guarda una vez lo que hace cada persona; el feed se calcula al leerlo (*fan-out* al leer) con lo de quien se sigue y ha aceptado, guarda la primera página en Redis y avisa a cada seguidor en tiempo real (`notification.feed-activity`) · HU-059 privacidad del feed: quién ve mi actividad (mis seguidores, por defecto, o nadie; mientras es «nadie» no se guarda nada nuevo) y planes concretos que oculto de ella (un filtro al leer: al mostrarlo de nuevo vuelve lo guardado) · HU-033 bloquear: termina los seguimientos y solicitudes en los dos sentidos y, para la persona bloqueada, mi perfil no existe (404, sin aviso); publica `user.blocked` y `user.unblocked` en `oneleft.social`. Reportar a una persona o un plan con su motivo: los reportes abiertos se listan para la administración (rol `admin`) y se publican como `report.created` en `oneleft.reports` para la moderación |
@@ -202,6 +202,44 @@ Responde `204` y es idempotente: cancelar un plan ya cancelado responde `204` y 
   feeds. Quien tenía una solicitud pendiente (HU-069) no recibe aviso, igual que en HU-039.
 - **Reputación (HU-009):** `reputation` solo resta por `reason = ORGANIZER`, y solo si se cancela a menos de una hora
   del inicio (`LATE_CANCELLATION`, −10). Cancelar con más margen no cuesta nada.
+
+### Compartir mi plan con un contacto de confianza (HU-034)
+
+Quien va a un plan (su organizador o un participante) puede crear un enlace para que una persona de su confianza sepa
+dónde, cuándo y con quién ha quedado. Es una función de seguridad personal: el enlace lo envía la propia persona por
+donde quiera (la hoja de compartir del dispositivo); el backend no manda correos ni SMS ni guarda quién es el contacto.
+
+| Operación | Quién | Respuesta |
+|---|---|---|
+| `POST /api/v1/plans/{planId}/trusted-links` | Con sesión, quien va al plan | `201` con `id`, `planId`, `url`, `token`, `createdAt` y `expiresAt` |
+| `GET /api/v1/plans/{planId}/trusted-links` | Con sesión | `200` con `items` (`id`, `planId`, `createdAt`, `expiresAt`): solo mis enlaces vigentes de ese plan, del más antiguo al más nuevo, como mucho 5 (por eso no hay páginas) |
+| `DELETE /api/v1/plans/{planId}/trusted-links/{linkId}` | Con sesión | `204`: revoca mi enlace. Idempotente: repetirlo, o intentarlo con un enlace ajeno, responde igual y no cambia nada |
+| `GET /api/v1/public/plans/trusted-links/{token}` | Cualquiera con el enlace, sin cuenta | `200` con `title`, `activity`, `activityOther`, `meetingPoint` (`name`, `latitude`, `longitude` exactos), `startsAt`, `endsAt`, `status`, `organizerName`, `sharedBy` y `expiresAt` |
+
+| `code` | Estado | Cuándo |
+|---|---|---|
+| — | 401 | Sin token o con un token inválido (crear, listar y revocar) |
+| `plan.notParticipant` | 403 | Quien pide el enlace no organiza el plan ni participa en él (la lista de espera no cuenta) |
+| `plan.notFound` | 404 | El plan no existe (al crear) |
+| `trustedLink.planOver` | 409 | El plan ya ha terminado o está cancelado (al crear) |
+| `trustedLink.limit` | 409 | Ya tiene 5 enlaces vigentes para ese plan: hay que revocar uno |
+| `trustedLink.notFound` | 404 | El enlace no enseña nada. **La misma respuesta** si nunca existió, caducó, se revocó, no tiene forma de enlace o quien lo creó ya no está en el plan |
+| `rate.limited` | 429 | Más de 30 lecturas por minuto desde una misma IP (`RATE_LIMIT_TRUSTED_LINKS_PER_MINUTE`, en el gateway) |
+
+- **El secreto:** 256 bits de `SecureRandom` en Base64 para URL (43 caracteres). Solo se entrega al crear el enlace
+  (`url` = `WEB_URL` + `/trusted/` + `token`, la página de la web que lo enseña) y en la base de datos solo queda su
+  SHA-256 (`plan_trusted_link.token_hash`): ni una copia de la base de datos ni la lista de mis enlaces permiten abrir
+  ninguno. Si se pierde la dirección, se revoca el enlace y se crea otro.
+- **Caducidad ligada al plan:** `expiresAt` es el final del plan (3 horas después de empezar). Además el enlace deja de
+  funcionar en cuanto quien lo creó sale del plan, y se borra con el plan. Una tarea quita cada 10 minutos los enlaces
+  caducados.
+- **Qué ve el contacto y qué no:** el título, la actividad, el punto de encuentro exacto (a diferencia del enlace
+  público de HU-024, que lo redondea), el inicio y el final, el estado (`CANCELLED` le dice que el plan no se hace), el
+  nombre de quien organiza y el de quien compartió. Nada más de nadie: ni identificadores, ni el resto del grupo, ni la
+  descripción, ni el chat. Solo lectura (`GET`); la respuesta va con `Cache-Control: no-store`,
+  `Referrer-Policy: no-referrer` y `X-Robots-Tag: noindex, nofollow`.
+- **Mis datos y borrar la cuenta (HU-045):** mis enlaces salen en `trustedLinks` de `GET /api/v1/plans/me/data` (sin
+  el hash del secreto) y se borran con mi cuenta.
 
 ### Mis datos y borrar la cuenta (HU-045)
 

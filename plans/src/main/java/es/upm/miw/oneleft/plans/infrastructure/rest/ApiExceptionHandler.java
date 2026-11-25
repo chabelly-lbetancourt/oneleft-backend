@@ -9,6 +9,7 @@ import es.upm.miw.oneleft.plans.domain.model.NotOrganizerException;
 import es.upm.miw.oneleft.plans.domain.model.PersonActivityException;
 import es.upm.miw.oneleft.plans.domain.model.PlanLimitException;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
+import es.upm.miw.oneleft.plans.domain.model.TrustedLinkNotFoundException;
 import es.upm.miw.oneleft.plans.domain.model.ValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -83,6 +84,12 @@ public class ApiExceptionHandler {
     ProblemDetail memoryStorageUnavailable(MemoryStorageUnavailableException exception) {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(),
                 MemoryStorageUnavailableException.CODE);
+    }
+
+    /** One answer for every link that shows nothing (HU-034): missing, expired and revoked cannot be told apart. */
+    @ExceptionHandler(TrustedLinkNotFoundException.class)
+    ProblemDetail trustedLinkNotFound(TrustedLinkNotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage(), TrustedLinkNotFoundException.CODE);
     }
 
     @ExceptionHandler(ValidationException.class)

@@ -175,6 +175,12 @@ oneleft:
         path: /ws/**
         capacity: ${RATE_LIMIT_CHAT_PER_MINUTE:30}
         period: PT1M
+      # Links for trusted contacts (HU-034): public, so always per IP, and stricter than the rest of the API so that
+      # nobody can try secrets at speed
+      - name: trusted-links
+        path: /api/v1/public/plans/trusted-links/**
+        capacity: ${RATE_LIMIT_TRUSTED_LINKS_PER_MINUTE:30}
+        period: PT1M
       - name: api
         path: /api/**
         capacity: ${RATE_LIMIT_API_PER_MINUTE:120}
