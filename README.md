@@ -32,7 +32,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 | `chat` | 8084 | HU-008 chat de cada plan: solo su organizador y participantes (se pregunta a `plans`), de solo lectura cuando el plan termina, mensajes entre réplicas por RabbitMQ y borrados 24 h después |
 | `social` | 8085 | HU-047 seguir a personas: perfil público o privado (privado por defecto), solicitudes que se aceptan o rechazan, seguidores y seguidos. El nombre de alguien nuevo se pregunta una vez a `users` · HU-048 decide quién ve los planes y la red de alguien (su perfil es público, es uno mismo o se le sigue) y da sus seguidores y seguidos · HU-051 feed de actividad: escucha `plan.published`, `plan.joined`, `plan.left`, `plan.cancelled` y `plan.attendance-closed` en colas duraderas (`social.*`) y guarda una vez lo que hace cada persona; el feed se calcula al leerlo (*fan-out* al leer) con lo de quien se sigue y ha aceptado, guarda la primera página en Redis y avisa a cada seguidor en tiempo real (`notification.feed-activity`) · HU-059 privacidad del feed: quién ve mi actividad (mis seguidores, por defecto, o nadie; mientras es «nadie» no se guarda nada nuevo) y planes concretos que oculto de ella (un filtro al leer: al mostrarlo de nuevo vuelve lo guardado) · HU-033 bloquear: termina los seguimientos y solicitudes en los dos sentidos y, para la persona bloqueada, mi perfil no existe (404, sin aviso); publica `user.blocked` y `user.unblocked` en `oneleft.social`. Reportar a una persona o un plan con su motivo: los reportes abiertos se listan para la administración (rol `admin`) y se publican como `report.created` en `oneleft.reports` para la moderación |
 | `ranker` | 8087 | HU-012 servicio en Python (FastAPI + scikit-learn) que da la probabilidad de que cada persona se apunte a un plan; ver [`ranker/README.md`](ranker/README.md). No es un módulo de Maven: tiene su propio test (pytest) e imagen |
-| `reputation` | 8086 | HU-009 reputación: escucha `plan.checked-in`, `plan.attendance-closed`, `plan.cancelled` y `report.confirmed` en colas duraderas, apunta cada cambio en un libro inmutable (motivo, puntos, plan y fecha) y mantiene la puntuación como proyección recalculable · HU-044 insignias por hitos a partir de la asistencia, con aviso en tiempo real (`notification.badge-earned`) · HU-048 estadísticas de una persona (planes completados, organizados y actividades) · HU-060 kudos entre quienes llegaron a un mismo plan (Puntual, Buen rollo, Gran nivel y, al organizador, Organizó genial): uno por persona y plan, hasta 7 días después, +5 en el libro y aviso en tiempo real (`notification.kudos`, que `plans` reenvía por SSE) · HU-066 anti-trampas: topes diarios por motivo (4 asistencias, 3 planes organizados y 10 kudos recibidos al día, en hora de España), kudos de la misma persona en 30 días que valen la mitad cada vez (5, 2, 1, 0) y nada entre una pareja que se da 3 o más kudos en cada sentido; el apunte se guarda con los puntos que dio de verdad y el motivo del recorte (`limitedBy`) · HU-062 niveles por puntuación (`NEW` 0–99, `REGULAR` 100–499, `NEIGHBOURHOOD_REFERENCE` 500–1.499, `LEGEND` 1.500+) en todas las respuestas de reputación, y racha semanal: el primer check-in de cada semana (de lunes a domingo, en hora de España) da 5 puntos por semana seguida con plan, hasta 25 (`GET /me/streak`) · HU-063 ventajas por reputación: lo que vale cada nivel (`GET /me/perks`), el sello de «Organizador de confianza» (`trustedOrganizer`) en todas las respuestas de reputación y el evento `reputation.perks-changed` cuando alguien cambia de nivel ([ver más abajo](#ventajas-por-reputación-hu-063)) · HU-043 mis estadísticas (`GET /me/stats`): planes de este mes, actividad favorita y organizados frente a unidos, calculados al pedirlos sobre el historial que ya llenan los eventos de asistencia ([ver más abajo](#mis-estadísticas-hu-043)) |
+| `reputation` | 8086 | HU-009 reputación: escucha `plan.checked-in`, `plan.attendance-closed`, `plan.cancelled` y `report.confirmed` en colas duraderas, apunta cada cambio en un libro inmutable (motivo, puntos, plan y fecha) y mantiene la puntuación como proyección recalculable · HU-044 insignias por hitos a partir de la asistencia, con aviso en tiempo real (`notification.badge-earned`) · HU-048 estadísticas de una persona (planes completados, organizados y actividades) · HU-060 kudos entre quienes llegaron a un mismo plan (Puntual, Buen rollo, Gran nivel y, al organizador, Organizó genial): uno por persona y plan, hasta 7 días después, +5 en el libro y aviso en tiempo real (`notification.kudos`, que `plans` reenvía por SSE) · HU-066 anti-trampas: topes diarios por motivo (4 asistencias, 3 planes organizados y 10 kudos recibidos al día, en hora de España), kudos de la misma persona en 30 días que valen la mitad cada vez (5, 2, 1, 0) y nada entre una pareja que se da 3 o más kudos en cada sentido; el apunte se guarda con los puntos que dio de verdad y el motivo del recorte (`limitedBy`) · HU-062 niveles por puntuación (`NEW` 0–99, `REGULAR` 100–499, `NEIGHBOURHOOD_REFERENCE` 500–1.499, `LEGEND` 1.500+) en todas las respuestas de reputación, y racha semanal: el primer check-in de cada semana (de lunes a domingo, en hora de España) da 5 puntos por semana seguida con plan, hasta 25 (`GET /me/streak`) · HU-063 ventajas por reputación: lo que vale cada nivel (`GET /me/perks`), el sello de «Organizador de confianza» (`trustedOrganizer`) en todas las respuestas de reputación y el evento `reputation.perks-changed` cuando alguien cambia de nivel ([ver más abajo](#ventajas-por-reputación-hu-063)) · HU-043 mis estadísticas (`GET /me/stats`): planes de este mes, actividad favorita y organizados frente a unidos, calculados al pedirlos sobre el historial que ya llenan los eventos de asistencia ([ver más abajo](#mis-estadísticas-hu-043)) · HU-061 avales de nivel por actividad entre quienes llegaron a un mismo plan de esa actividad: uno por persona y actividad, +8 en el libro, con los límites anti-trampas de HU-066 ([ver más abajo](#avales-de-nivel-por-actividad-hu-061)) |
 
 El servicio `ai` se añade con sus historias de usuario.
 
@@ -255,8 +255,8 @@ donde quiera (la hoja de compartir del dispositivo); el backend no manda correos
   cancelación y publica `plan.cancelled` tras el commit, **antes** de borrar sus datos, con `reason = ACCOUNT_DELETED`:
   quienes estaban apuntados o en lista de espera reciben el aviso (SSE y navegador, con el texto de «lo canceló quien
   lo organizaba»), `chat` cierra el chat y `social` lo quita de los feeds; `reputation` no apunta nada, porque solo
-  resta por `ORGANIZER`. Además, `chat` deja sus mensajes con una persona anónima; los kudos que dio pierden su
-  autor; el libro de `reputation` se borra con una excepción explícita de su trigger. El resto se borra.
+  resta por `ORGANIZER`. Además, `chat` deja sus mensajes con una persona anónima; los kudos y los avales que dio
+  pierden su autor (los que recibió se borran); el libro de `reputation` se borra con una excepción explícita de su trigger. El resto se borra.
 - **Repetible:** cada borrado puede recibirse dos veces sin efecto. No hay *outbox*: si `users` cae entre el commit y la
   publicación, hay que volver a pedir el borrado.
 
@@ -292,6 +292,41 @@ y a qué juego:
 - **Actividades:** las que más he hecho, de más a menos y, si empatan, la más reciente; `favoriteActivity` es la
   primera (`null` sin planes). `activities` pide cuántas (5 por defecto, de 1 a 20).
 - **Errores:** `400 stats.invalid` si `months` o `activities` se salen de su rango; `401` sin token.
+
+### Avales de nivel por actividad (HU-061)
+
+Quien ha jugado con alguien avala el nivel que esa persona declara en una actividad: «Intermedio en pádel (avalado por
+7)». Un aval es una afirmación sobre **otra** persona, así que solo lo da quien coincidió de verdad con ella.
+
+| Método y ruta (`/api/v1/reputation`) | Qué hace |
+|---|---|
+| `POST /people/{userId}/endorsements` | Avalo su nivel: cuerpo `{ "activity": "PADEL", "level": "INTERMEDIATE" }` (`BEGINNER`, `INTERMEDIATE` o `ADVANCED`, los niveles de `users`). `201` con `receiverId`, `activity`, `level` y `givenAt` |
+| `GET /people/{userId}/endorsements` | `endorsements` (`activity`, `level`, `count`), `mine` (los que le di yo) y `endorsable` (actividades en las que todavía puedo avalarle). Nunca dice quién avaló |
+
+| `code` | HTTP | Cuándo |
+|---|---|---|
+| `endorsement.self` | 400 | Nadie se avala a sí mismo |
+| `validation` | 400 | Falta la actividad o el nivel, o el nivel no existe |
+| `endorsement.notPlayedTogether` | 403 | No llegamos los dos (check-in) a ningún plan de esa actividad |
+| `endorsement.alreadyGiven` | 409 | Ya le avalé en esa actividad |
+
+- **Solo tras jugar juntos:** las dos personas llegaron (check-in) a un mismo plan de esa actividad. Se comprueba con
+  `track_record`, el historial que `reputation` ya tiene de `plan.attendance-closed`, como los kudos: sin preguntar a
+  `plans`. No caduca: se puede avalar mucho después del plan.
+- **Uno por persona y actividad, para siempre**, con el nivel que se avala. El contador que enseña la web es el del
+  nivel que la persona declara **ahora**: si cambia su nivel, los avales del anterior no cuentan para el nuevo (nadie
+  junta avales de principiante y luego se declara avanzado). `reputation` no conoce el nivel declarado (está en
+  `users`): guarda el que avala cada persona y la web elige el contador.
+- **+8 en el libro** (`ENDORSEMENT`) para quien lo recibe, con los límites de HU-066 (`AntiCheatRules`): de la misma
+  persona en 30 días cada aval vale la mitad del anterior (8, 4, 2, 1, 0; `limitedBy = SAME_PERSON`), nada entre una
+  pareja que se avala 2 o más veces en cada sentido (`MUTUAL_PAIR`; uno en cada sentido son dos amigos, no una trampa)
+  y como mucho 5 avales al día que den puntos (`DAILY_CAP`). El aval se guarda y cuenta aunque no dé puntos: lo que se
+  recorta es la reputación.
+- **Bloqueos (HU-033):** `reputation` no copia los bloqueos y los kudos tampoco los miran; los avales siguen el mismo
+  criterio. No hay aviso en tiempo real.
+- **Mis datos y borrar la cuenta (HU-045):** `endorsementsGiven` y `endorsementsReceived` (sin quién me avaló) en
+  `GET /api/v1/reputation/me/data`. Al borrar la cuenta se borran los avales recibidos y los dados pierden su autor,
+  como los kudos.
 
 ### Compatibilidad por nivel y aficiones (HU-031)
 

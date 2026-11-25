@@ -14,7 +14,9 @@ import java.util.Optional;
  *     <li>a daily cap per reason: from the cap on, that day, the entries of that reason give nothing;</li>
  *     <li>kudos from the same person within {@link #SAME_PERSON_WINDOW} are worth half the one before (5, 2, 1, 0);</li>
  *     <li>two people who gave each other {@link #MUTUAL_PAIR_KUDOS} kudos or more within that window are a pair that
- *     rates each other: their kudos give nothing.</li>
+ *     rates each other: their kudos give nothing;</li>
+ *     <li>the endorsements of a level (HU-061) follow the same two rules between two people (8, 4, 2, 1, 0), and a
+ *     pair from {@link #MUTUAL_PAIR_ENDORSEMENTS} each way.</li>
  * </ul>
  * Plans only count with a check-in: attending is the check-in itself, organizing needs a participant who checked in,
  * and kudos are only given between people who checked in (HU-060).
@@ -30,16 +32,24 @@ public final class AntiCheatRules {
     public static final int MAX_ORGANIZED_PER_DAY = 3;
     /** Ten kudos received in one day (50 points) is a very good day */
     public static final int MAX_KUDOS_PER_DAY = 10;
+    /** Five endorsements received in one day (40 points): more look like a group endorsing each other in a row */
+    public static final int MAX_ENDORSEMENTS_PER_DAY = 5;
 
     /** How far back the kudos between two people are looked at */
     public static final Duration SAME_PERSON_WINDOW = Duration.ofDays(30);
     /** Kudos in each direction, within the window, that make two people a pair that rates each other */
     public static final int MUTUAL_PAIR_KUDOS = 3;
+    /**
+     * Endorsements in each direction, within the window, that make two people a pair that endorses each other. Fewer
+     * than kudos: there is one per activity, not one per plan, so two each way is already every activity they share
+     */
+    public static final int MUTUAL_PAIR_ENDORSEMENTS = 2;
 
     private static final Map<Reason, Integer> DAILY_CAPS = new EnumMap<>(Map.of(
             Reason.ATTENDED, MAX_ATTENDED_PER_DAY,
             Reason.ORGANIZED_HELD, MAX_ORGANIZED_PER_DAY,
-            Reason.KUDOS, MAX_KUDOS_PER_DAY));
+            Reason.KUDOS, MAX_KUDOS_PER_DAY,
+            Reason.ENDORSEMENT, MAX_ENDORSEMENTS_PER_DAY));
 
     private AntiCheatRules() {
     }
@@ -83,7 +93,22 @@ public final class AntiCheatRules {
      * @param givenBack   the kudos from the receiver to the giver within the window
      */
     public static LedgerEntry kudos(LedgerEntry entry, int givenToThem, int givenBack) {
-        if (givenToThem >= MUTUAL_PAIR_KUDOS && givenBack >= MUTUAL_PAIR_KUDOS) {
+        return betweenTwo(entry, givenToThem, givenBack, MUTUAL_PAIR_KUDOS);
+    }
+
+    /**
+     * The entry of an endorsement (HU-061), after the limits between two people.
+     *
+     * @param givenToThem the endorsements from the endorser to the receiver within the window, this one included
+     * @param givenBack   the endorsements from the receiver to the endorser within the window
+     */
+    public static LedgerEntry endorsement(LedgerEntry entry, int givenToThem, int givenBack) {
+        return betweenTwo(entry, givenToThem, givenBack, MUTUAL_PAIR_ENDORSEMENTS);
+    }
+
+    /** Nothing for a pair that keeps giving to each other; else half the one before for each one already given */
+    private static LedgerEntry betweenTwo(LedgerEntry entry, int givenToThem, int givenBack, int mutualPair) {
+        if (givenToThem >= mutualPair && givenBack >= mutualPair) {
             return entry.limited(0, PointsLimit.MUTUAL_PAIR);
         }
         var halvings = Math.clamp(givenToThem - 1L, 0, Integer.SIZE - 1);

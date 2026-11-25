@@ -12,6 +12,13 @@ interface SpringDataTrackRecordRepository extends JpaRepository<TrackRecordEntit
 
     List<TrackRecordEntity> findByIdPlanId(UUID planId);
 
+    /** The activities of the plans that two people both arrived at, with a check-in (HU-061) */
+    @NativeQuery("""
+            SELECT DISTINCT mine.activity FROM track_record mine
+            JOIN track_record theirs ON theirs.plan_id = mine.plan_id
+            WHERE mine.user_id = :one AND theirs.user_id = :other AND mine.arrived AND theirs.arrived""")
+    List<String> activitiesTogether(@Param("one") UUID one, @Param("other") UUID other);
+
     /** The plans of someone else that a person arrived at (HU-043) */
     @NativeQuery("SELECT COUNT(*) FROM track_record WHERE user_id = :userId AND arrived AND NOT organizer")
     long joinedOf(@Param("userId") UUID userId);

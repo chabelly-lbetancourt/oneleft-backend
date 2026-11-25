@@ -15,6 +15,8 @@ public enum Reason {
     CONFIRMED_REPORT(-50),
     /** Someone of the same plan gave them a kudos (HU-060). */
     KUDOS(5),
+    /** Someone who played with them vouched for their level in an activity (HU-061). */
+    ENDORSEMENT(8),
     /**
      * The first plan of a week with a check-in (HU-062): {@link StreakRules#POINTS_PER_WEEK} for each week in a row,
      * up to {@link StreakRules#MAX_BONUS}; the points are those of the week, kept with its entry.

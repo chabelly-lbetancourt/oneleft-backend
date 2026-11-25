@@ -21,7 +21,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Output adapter: the track record and the badges in PostgreSQL; who arrived at each plan, for the kudos; and my
+ * Output adapter: the track record and the badges in PostgreSQL; who arrived at each plan, for the kudos and the
+ * endorsements; and my
  * statistics (HU-043), read from the same track record.
  */
 @Repository
@@ -66,6 +67,11 @@ public class JpaBadgeRepository implements TrackRecords, Badges {
     @Override
     public List<Attendance> attendancesOf(UUID planId) {
         return lines.findByIdPlanId(planId).stream().map(TrackRecordEntity::toDomain).toList();
+    }
+
+    @Override
+    public List<String> activitiesTogether(UUID one, UUID other) {
+        return lines.activitiesTogether(one, other);
     }
 
     @Override

@@ -8,8 +8,11 @@ public enum PointsLimit {
 
     /** The person already had the most entries of that reason for one day. */
     DAILY_CAP,
-    /** The same giver already gave kudos to the same person lately: each one is worth half the one before. */
+    /**
+     * The same giver already gave kudos, or endorsements, to the same person lately: each one is worth half the one
+     * before.
+     */
     SAME_PERSON,
-    /** Two people who keep giving kudos to each other: their kudos give nothing. */
+    /** Two people who keep giving kudos, or endorsements, to each other: they give nothing. */
     MUTUAL_PAIR
 }

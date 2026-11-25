@@ -41,14 +41,18 @@ class PersonalDataIntegrationTest {
             "INSERT INTO reputation_entry (user_id, reason, points, source_id, plan_title, occurred_at) VALUES ('$user', 'ATTENDED', 10, '$a', 'Test', now())",
             "INSERT INTO reputation_score (user_id, score) VALUES ('$user', 10)",
             "INSERT INTO track_record (user_id, plan_id, activity, organizer, arrived, held, closed_at) VALUES ('$user', '$a', 'PADEL', false, true, true, now())",
-            "INSERT INTO kudos (giver_id, receiver_id, plan_id, kind, given_at) VALUES ('$user', '$other', '$a', 'PUNCTUAL', now()), ('$other', '$user', '$b', 'GOOD_VIBES', now())"};
+            "INSERT INTO kudos (giver_id, receiver_id, plan_id, kind, given_at) VALUES ('$user', '$other', '$a', 'PUNCTUAL', now()), ('$other', '$user', '$b', 'GOOD_VIBES', now())",
+            "INSERT INTO endorsement (endorser_id, receiver_id, activity, level, given_at) VALUES ('$user', '$other', 'PADEL', 'INTERMEDIATE', now()), ('$other', '$user', 'PADEL', 'ADVANCED', now())"};
     private static final Check[] AFTER = {
             new Check("SELECT count(*) FROM reputation_entry WHERE user_id = '$user'", "0", "her ledger, although it is append-only"),
             new Check("SELECT count(*) FROM reputation_score WHERE user_id = '$user'", "0", "her score"),
             new Check("SELECT count(*) FROM track_record WHERE user_id = '$user'", "0", "her track record"),
             new Check("SELECT count(*) FROM kudos WHERE receiver_id = '$user'", "0", "the kudos she received"),
             new Check("SELECT count(*) FROM kudos WHERE giver_id = '$user'", "0", "and none says she gave one"),
-            new Check("SELECT count(*) FROM kudos WHERE receiver_id = '$other' AND plan_id = '$a'", "1", "but what she gave stays for who received it")};
+            new Check("SELECT count(*) FROM kudos WHERE receiver_id = '$other' AND plan_id = '$a'", "1", "but what she gave stays for who received it"),
+            new Check("SELECT count(*) FROM endorsement WHERE receiver_id = '$user'", "0", "the endorsements she received"),
+            new Check("SELECT count(*) FROM endorsement WHERE endorser_id = '$user'", "0", "and none says she endorsed anyone"),
+            new Check("SELECT count(*) FROM endorsement WHERE receiver_id = '$other' AND activity = 'PADEL'", "1", "but her endorsement stays for who received it")};
     private static final String[] CLEANUP = {
             };
 
@@ -100,7 +104,12 @@ class PersonalDataIntegrationTest {
         .andExpect(jsonPath("$.score", hasSize(1)))
         .andExpect(jsonPath("$.trackRecord", hasSize(1)))
         .andExpect(jsonPath("$.kudosGiven", hasSize(1)))
-        .andExpect(jsonPath("$.kudosReceived", hasSize(1)));
+        .andExpect(jsonPath("$.kudosReceived", hasSize(1)))
+        .andExpect(jsonPath("$.endorsementsGiven", hasSize(1)))
+        .andExpect(jsonPath("$.endorsementsGiven[0].level").value("INTERMEDIATE"))
+        .andExpect(jsonPath("$.endorsementsReceived", hasSize(1)))
+        .andExpect(jsonPath("$.endorsementsReceived[0].level").value("ADVANCED"))
+        .andExpect(jsonPath("$.endorsementsReceived[0].endorser_id").doesNotExist());
     }
 
     @Test
