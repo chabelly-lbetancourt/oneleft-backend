@@ -6,6 +6,8 @@ import es.upm.miw.oneleft.plans.domain.model.AudienceGender;
 import es.upm.miw.oneleft.plans.domain.model.Arrival;
 import es.upm.miw.oneleft.plans.domain.model.ArrivalStatus;
 import es.upm.miw.oneleft.plans.domain.model.CheckIn;
+import es.upm.miw.oneleft.plans.domain.model.Compatibility;
+import es.upm.miw.oneleft.plans.domain.model.CompatibilityReason;
 import es.upm.miw.oneleft.plans.domain.model.DeviceLocation;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
@@ -157,7 +159,11 @@ public final class PlanDtos {
                                boolean requiresApproval,
                                @Schema(description = "My request for a spot, if I asked (HU-069)")
                                JoinRequestController.JoinRequestDto myRequest,
-                               @Schema(description = "For whom the plan is (HU-070)") AudienceDto audience) {
+                               @Schema(description = "For whom the plan is (HU-070)") AudienceDto audience,
+                               @Schema(description = "How well the plan fits me (HU-031): only in the detail of a "
+                                       + "plan and in the nearby plans, and null if the plan is mine or my profile "
+                                       + "is not known")
+                               CompatibilityDto compatibility) {
 
         /** The plan without the statuses of arrival: for anyone, such as in the nearby search. */
         static PlanResponse of(Plan plan) {
@@ -166,6 +172,11 @@ public final class PlanDtos {
 
         /** The plan as {@code viewer} sees it: the statuses of arrival only if they are in its group (HU-040). */
         static PlanResponse of(Plan plan, UUID viewer) {
+            return of(plan, viewer, null);
+        }
+
+        /** The same, with how well the plan fits them (HU-031), which can be {@code null}. */
+        static PlanResponse of(Plan plan, UUID viewer, Compatibility compatibility) {
             var arrivals = viewer != null && plan.isMember(viewer)
                     ? plan.arrivals().stream().map(ArrivalDto::of).toList() : List.<ArrivalDto>of();
             return new PlanResponse(plan.id(), plan.organizer().id(), plan.organizer().name(), plan.activity(),
@@ -176,7 +187,23 @@ public final class PlanDtos {
                     arrivals, plan.requiresApproval(),
                     viewer == null ? null : plan.requestOf(viewer)
                             .map(request -> JoinRequestController.JoinRequestDto.of(plan, request)).orElse(null),
-                    AudienceDto.of(plan.audience()));
+                    AudienceDto.of(plan.audience()), CompatibilityDto.of(compatibility));
+        }
+    }
+
+    @Schema(description = "How well a plan fits me (HU-031): fixed rules over the activity and the level of the plan "
+            + "and the hobbies of my profile")
+    public record CompatibilityDto(
+            @Schema(description = "From 0 to 100: up to 60 for the activity and up to 40 for the level",
+                    minimum = "0", maximum = "100", example = "80") int score,
+            @Schema(description = "Why: first the activity (SAME_ACTIVITY 60, SIMILAR_ACTIVITY 30 or NEW_ACTIVITY "
+                    + "0) and then the level (SAME_LEVEL, ANY_LEVEL or BEGINNER_FRIENDLY 40, CLOSE_LEVEL 20, "
+                    + "LEVEL_GAP 0, NEEDS_EXPERIENCE 20 or 0)", example = "[\"SAME_ACTIVITY\", \"CLOSE_LEVEL\"]")
+            List<CompatibilityReason> reasons) {
+
+        static CompatibilityDto of(Compatibility compatibility) {
+            return compatibility == null ? null
+                    : new CompatibilityDto(compatibility.score(), compatibility.reasons());
         }
     }
 
@@ -203,11 +230,13 @@ public final class PlanDtos {
         }
     }
 
-    @Schema(description = "Nearby plan with the distance from the search position")
+    @Schema(description = "Nearby plan with the distance from the search position; how well it fits me goes in "
+            + "plan.compatibility (HU-031)")
     public record NearbyPlanResponse(PlanResponse plan, @Schema(example = "850") long distanceMeters) {
 
         static NearbyPlanResponse of(NearbyPlan nearby) {
-            return new NearbyPlanResponse(PlanResponse.of(nearby.plan()), Math.round(nearby.distanceMeters()));
+            return new NearbyPlanResponse(PlanResponse.of(nearby.plan(), null, nearby.compatibility()),
+                    Math.round(nearby.distanceMeters()));
         }
     }
 }

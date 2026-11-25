@@ -6,7 +6,9 @@ import es.upm.miw.oneleft.plans.domain.model.Audience;
 import es.upm.miw.oneleft.plans.domain.model.AudienceGender;
 import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
 import es.upm.miw.oneleft.plans.domain.model.AudienceUnavailableException;
+import es.upm.miw.oneleft.plans.domain.model.CompatibilityReason;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
+import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
 import es.upm.miw.oneleft.plans.domain.model.PersonGender;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
@@ -116,5 +118,36 @@ class AudienceServiceTest {
         assertThat(service.describe(DIEGO)).isEmpty();
         usersDown = true;
         assertThat(service.describe(LUCIA)).isEmpty();
+    }
+
+    /** HU-031 */
+    @Test
+    void thePlanSaysHowWellItFitsWhoLooksAtItFromTheHobbiesOfTheirProfile() {
+        people.put(LUCIA, new AudienceMember(PersonGender.WOMAN, 33, "25–34", Map.of(Activity.PADEL, Level.ADVANCED)));
+
+        var compatibility = service.compatibility(plan(Audience.EVERYONE), LUCIA);
+
+        assertThat(compatibility).hasValueSatisfying(found -> {
+            assertThat(found.score()).isEqualTo(100);
+            assertThat(found.reasons())
+                    .containsExactly(CompatibilityReason.SAME_ACTIVITY, CompatibilityReason.ANY_LEVEL);
+        });
+        assertThat(asked).isEqualTo(1);
+    }
+
+    @Test
+    void theOrganizerGetsNoCompatibilityWithTheirOwnPlanAndNobodyIsAsked() {
+        var plan = plan(Audience.EVERYONE);
+
+        assertThat(service.compatibility(plan, plan.organizer().id())).isEmpty();
+        assertThat(asked).isZero();
+    }
+
+    @Test
+    void withoutAKnownProfileThereIsNoCompatibilityAndNothingFails() {
+        assertThat(service.compatibility(plan(Audience.EVERYONE), DIEGO)).isEmpty();
+
+        usersDown = true;
+        assertThat(service.compatibility(plan(Audience.EVERYONE), LUCIA)).isEmpty();
     }
 }

@@ -10,7 +10,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 
 - `gateway`: punto de entrada único (Spring Cloud Gateway).
 - `users`: usuarios, perfiles y reputación.
-- `plans`: publicación de planes, plazas, caducidad y búsqueda de planes cercanos (PostGIS) en tiempo real (SSE).
+- `plans`: publicación de planes, plazas, caducidad y búsqueda de planes cercanos (PostGIS) en tiempo real (SSE), con la compatibilidad de cada plan con quien lo mira (HU-031, [ver más abajo](#compatibilidad-por-nivel-y-aficiones-hu-031)).
 - `notifications`: avisos de planes cercanos (HU-006): preferencias de cada persona, a quién avisar y Web Push.
 - `chat`: chat de cada plan en tiempo real (HU-008) por WebSocket, con el gateway como relé.
 - `social`: seguir a personas (HU-047), con perfiles públicos o privados y solicitudes, el feed de actividad (HU-051) y bloquear y reportar a personas y planes (HU-033).
@@ -264,6 +264,39 @@ donde quiera (la hoja de compartir del dispositivo); el backend no manda correos
 |---|---|
 | `KEYCLOAK_ADMIN_URL` | Dónde `users` llama al API de administración de Keycloak |
 | `ACCOUNTS_CLIENT_SECRET` | Secreto del cliente `oneleft-accounts` (en producción, obligatorio) |
+
+### Compatibilidad por nivel y aficiones (HU-031)
+
+Cada plan dice lo bien que encaja con quien lo mira: una puntuación de 0 a 100 y sus motivos. No es un modelo: son
+reglas fijas (`Compatibility`, en el dominio de `plans`), así que el mismo plan y el mismo perfil dan siempre lo mismo
+y cada punto se puede explicar. Solo usa datos que ya había: la actividad y el nivel del plan, y las aficiones del
+perfil con su nivel, que `users` ya daba a `plans` junto al género y la edad (HU-070, `GET
+/api/v1/users/me/demographics/audience`, con el token de la persona). No se guarda nada nuevo.
+
+| Parte | Puntos | Motivo (`reasons`) |
+|---|---|---|
+| Actividad | 60 | `SAME_ACTIVITY`: es una de mis aficiones |
+| | 30 | `SIMILAR_ACTIVITY`: no lo es, pero una de mis aficiones es de la misma categoría (deporte, cultura, ocio, comer y beber) |
+| | 0 | `NEW_ACTIVITY`: nada parecido en mi perfil (y siempre con `OTHER`) |
+| Nivel, en una afición mía | 40 | `SAME_LEVEL`: el plan es de mi nivel · `ANY_LEVEL`: el plan no pide nivel |
+| | 20 | `CLOSE_LEVEL`: un nivel por encima o por debajo |
+| | 0 | `LEVEL_GAP`: dos niveles de diferencia |
+| Nivel, en una actividad que no está en mi perfil (cuento como principiante) | 40 | `ANY_LEVEL` · `BEGINNER_FRIENDLY`: el plan es para principiantes |
+| | 20 · 0 | `NEEDS_EXPERIENCE`: el plan pide nivel intermedio (20) o avanzado (0) |
+
+- **Dónde sale:** `compatibility` (`score` y `reasons`, siempre dos: primero el de la actividad y después el del nivel)
+  dentro del plan, en `GET /api/v1/plans/{planId}` y en cada `plan` de `GET /api/v1/plans/nearby`. En el resto de
+  respuestas con un plan va a `null`.
+- **Cuándo es `null`:** si el plan es mío (lo organizo yo) o si mi perfil no se puede saber: no he puesto mi fecha de
+  nacimiento y género (sin ellos `users` no da nada, y tampoco me dejaría apuntarme) o `users` no responde. Una
+  compatibilidad nunca hace fallar nada.
+- **Ordenar:** `GET /api/v1/plans/nearby?sort=COMPATIBILITY` (por defecto `sort=DISTANCE`, como hasta ahora). Ordena
+  los mismos planes que devuelve la búsqueda (los 50 más cercanos que pasan los filtros), del más compatible al menos y,
+  a igualdad, del más cercano al más lejano. Sin perfil conocido el orden sigue siendo por distancia. Un `sort`
+  desconocido responde `400`.
+- **Tiempo real:** el aviso `plan-published` del flujo SSE no cambia: solo avisa, y la web vuelve a pedir la lista.
+- **Pendiente:** usarla en el ranking de avisos (HU-012), que hoy puntúa con el servicio `ranker` y no conoce las
+  aficiones del perfil.
 
 ### Ventajas por reputación (HU-063)
 
