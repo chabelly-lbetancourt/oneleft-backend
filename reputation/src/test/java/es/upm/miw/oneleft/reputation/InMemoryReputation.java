@@ -1,13 +1,16 @@
 package es.upm.miw.oneleft.reputation;
 
+import es.upm.miw.oneleft.reputation.domain.model.ActivityPlans;
 import es.upm.miw.oneleft.reputation.domain.model.Attendance;
 import es.upm.miw.oneleft.reputation.domain.model.Badge;
 import es.upm.miw.oneleft.reputation.domain.model.Kudos;
 import es.upm.miw.oneleft.reputation.domain.model.KudosKind;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
+import es.upm.miw.oneleft.reputation.domain.model.MonthPlans;
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
+import es.upm.miw.oneleft.reputation.domain.model.StatsRules;
 import es.upm.miw.oneleft.reputation.domain.model.TrackRecord;
 import es.upm.miw.oneleft.reputation.domain.port.out.Badges;
 import es.upm.miw.oneleft.reputation.domain.port.out.KudosStore;
@@ -26,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The ledger, the scores, the track record, the badges and the kudos in memory, with the same rules as the SQL (tested
@@ -71,6 +75,39 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
     @Override
     public List<Attendance> attendancesOf(UUID planId) {
         return lines.values().stream().filter(line -> line.planId().equals(planId)).toList();
+    }
+
+    @Override
+    public int joinedOf(UUID userId) {
+        return (int) linesOf(userId).filter(line -> line.arrived() && !line.organizer()).count();
+    }
+
+    @Override
+    public List<ActivityPlans> topActivitiesOf(UUID userId, int limit) {
+        var latest = linesOf(userId).filter(Attendance::arrived)
+                .collect(Collectors.toMap(Attendance::activity, Attendance::closedAt, (one, other) ->
+                        one.isAfter(other) ? one : other));
+        var plans = linesOf(userId).filter(Attendance::arrived)
+                .collect(Collectors.groupingBy(Attendance::activity, Collectors.counting()));
+        return plans.keySet().stream()
+                .sorted(Comparator.<String, Long>comparing(plans::get).reversed()
+                        .thenComparing(latest::get, Comparator.reverseOrder()).thenComparing(Comparator.naturalOrder()))
+                .limit(limit).map(activity -> new ActivityPlans(activity, plans.get(activity).intValue())).toList();
+    }
+
+    @Override
+    public List<MonthPlans> monthsOf(UUID userId, Instant since) {
+        return linesOf(userId).filter(line -> !line.closedAt().isBefore(since))
+                .collect(Collectors.groupingBy(line -> StatsRules.monthOf(line.closedAt()))).entrySet().stream()
+                .map(month -> new MonthPlans(month.getKey(),
+                        (int) month.getValue().stream().filter(Attendance::arrived).count(),
+                        (int) month.getValue().stream().filter(line -> line.organizer() && line.held()).count(),
+                        (int) month.getValue().stream().filter(line -> line.arrived() && !line.organizer()).count()))
+                .toList();
+    }
+
+    private Stream<Attendance> linesOf(UUID userId) {
+        return lines.values().stream().filter(line -> line.userId().equals(userId));
     }
 
     @Override

@@ -32,7 +32,7 @@ Microservicios con **Spring Boot** y arquitectura hexagonal, expuestos a través
 | `chat` | 8084 | HU-008 chat de cada plan: solo su organizador y participantes (se pregunta a `plans`), de solo lectura cuando el plan termina, mensajes entre réplicas por RabbitMQ y borrados 24 h después |
 | `social` | 8085 | HU-047 seguir a personas: perfil público o privado (privado por defecto), solicitudes que se aceptan o rechazan, seguidores y seguidos. El nombre de alguien nuevo se pregunta una vez a `users` · HU-048 decide quién ve los planes y la red de alguien (su perfil es público, es uno mismo o se le sigue) y da sus seguidores y seguidos · HU-051 feed de actividad: escucha `plan.published`, `plan.joined`, `plan.left`, `plan.cancelled` y `plan.attendance-closed` en colas duraderas (`social.*`) y guarda una vez lo que hace cada persona; el feed se calcula al leerlo (*fan-out* al leer) con lo de quien se sigue y ha aceptado, guarda la primera página en Redis y avisa a cada seguidor en tiempo real (`notification.feed-activity`) · HU-059 privacidad del feed: quién ve mi actividad (mis seguidores, por defecto, o nadie; mientras es «nadie» no se guarda nada nuevo) y planes concretos que oculto de ella (un filtro al leer: al mostrarlo de nuevo vuelve lo guardado) · HU-033 bloquear: termina los seguimientos y solicitudes en los dos sentidos y, para la persona bloqueada, mi perfil no existe (404, sin aviso); publica `user.blocked` y `user.unblocked` en `oneleft.social`. Reportar a una persona o un plan con su motivo: los reportes abiertos se listan para la administración (rol `admin`) y se publican como `report.created` en `oneleft.reports` para la moderación |
 | `ranker` | 8087 | HU-012 servicio en Python (FastAPI + scikit-learn) que da la probabilidad de que cada persona se apunte a un plan; ver [`ranker/README.md`](ranker/README.md). No es un módulo de Maven: tiene su propio test (pytest) e imagen |
-| `reputation` | 8086 | HU-009 reputación: escucha `plan.checked-in`, `plan.attendance-closed`, `plan.cancelled` y `report.confirmed` en colas duraderas, apunta cada cambio en un libro inmutable (motivo, puntos, plan y fecha) y mantiene la puntuación como proyección recalculable · HU-044 insignias por hitos a partir de la asistencia, con aviso en tiempo real (`notification.badge-earned`) · HU-048 estadísticas de una persona (planes completados, organizados y actividades) · HU-060 kudos entre quienes llegaron a un mismo plan (Puntual, Buen rollo, Gran nivel y, al organizador, Organizó genial): uno por persona y plan, hasta 7 días después, +5 en el libro y aviso en tiempo real (`notification.kudos`, que `plans` reenvía por SSE) · HU-066 anti-trampas: topes diarios por motivo (4 asistencias, 3 planes organizados y 10 kudos recibidos al día, en hora de España), kudos de la misma persona en 30 días que valen la mitad cada vez (5, 2, 1, 0) y nada entre una pareja que se da 3 o más kudos en cada sentido; el apunte se guarda con los puntos que dio de verdad y el motivo del recorte (`limitedBy`) · HU-062 niveles por puntuación (`NEW` 0–99, `REGULAR` 100–499, `NEIGHBOURHOOD_REFERENCE` 500–1.499, `LEGEND` 1.500+) en todas las respuestas de reputación, y racha semanal: el primer check-in de cada semana (de lunes a domingo, en hora de España) da 5 puntos por semana seguida con plan, hasta 25 (`GET /me/streak`) · HU-063 ventajas por reputación: lo que vale cada nivel (`GET /me/perks`), el sello de «Organizador de confianza» (`trustedOrganizer`) en todas las respuestas de reputación y el evento `reputation.perks-changed` cuando alguien cambia de nivel ([ver más abajo](#ventajas-por-reputación-hu-063)) |
+| `reputation` | 8086 | HU-009 reputación: escucha `plan.checked-in`, `plan.attendance-closed`, `plan.cancelled` y `report.confirmed` en colas duraderas, apunta cada cambio en un libro inmutable (motivo, puntos, plan y fecha) y mantiene la puntuación como proyección recalculable · HU-044 insignias por hitos a partir de la asistencia, con aviso en tiempo real (`notification.badge-earned`) · HU-048 estadísticas de una persona (planes completados, organizados y actividades) · HU-060 kudos entre quienes llegaron a un mismo plan (Puntual, Buen rollo, Gran nivel y, al organizador, Organizó genial): uno por persona y plan, hasta 7 días después, +5 en el libro y aviso en tiempo real (`notification.kudos`, que `plans` reenvía por SSE) · HU-066 anti-trampas: topes diarios por motivo (4 asistencias, 3 planes organizados y 10 kudos recibidos al día, en hora de España), kudos de la misma persona en 30 días que valen la mitad cada vez (5, 2, 1, 0) y nada entre una pareja que se da 3 o más kudos en cada sentido; el apunte se guarda con los puntos que dio de verdad y el motivo del recorte (`limitedBy`) · HU-062 niveles por puntuación (`NEW` 0–99, `REGULAR` 100–499, `NEIGHBOURHOOD_REFERENCE` 500–1.499, `LEGEND` 1.500+) en todas las respuestas de reputación, y racha semanal: el primer check-in de cada semana (de lunes a domingo, en hora de España) da 5 puntos por semana seguida con plan, hasta 25 (`GET /me/streak`) · HU-063 ventajas por reputación: lo que vale cada nivel (`GET /me/perks`), el sello de «Organizador de confianza» (`trustedOrganizer`) en todas las respuestas de reputación y el evento `reputation.perks-changed` cuando alguien cambia de nivel ([ver más abajo](#ventajas-por-reputación-hu-063)) · HU-043 mis estadísticas (`GET /me/stats`): planes de este mes, actividad favorita y organizados frente a unidos, calculados al pedirlos sobre el historial que ya llenan los eventos de asistencia ([ver más abajo](#mis-estadísticas-hu-043)) |
 
 El servicio `ai` se añade con sus historias de usuario.
 
@@ -264,6 +264,34 @@ donde quiera (la hoja de compartir del dispositivo); el backend no manda correos
 |---|---|
 | `KEYCLOAK_ADMIN_URL` | Dónde `users` llama al API de administración de Keycloak |
 | `ACCOUNTS_CLIENT_SECRET` | Secreto del cliente `oneleft-accounts` (en producción, obligatorio) |
+
+### Mis estadísticas (HU-043)
+
+`GET /api/v1/reputation/me/stats` (con token; la persona es la del token, no hay `userId` en la ruta) devuelve cuánto
+y a qué juego:
+
+```json
+{
+  "plansThisMonth": 6, "plansCompleted": 42, "plansOrganized": 12, "plansJoined": 30,
+  "favoriteActivity": "PADEL",
+  "activities": [{ "activity": "PADEL", "plans": 17 }, { "activity": "RUNNING", "plans": 9 }],
+  "months": [{ "month": "2026-10", "plans": 4, "organized": 1, "joined": 3 },
+             { "month": "2026-11", "plans": 6, "organized": 2, "joined": 4 }]
+}
+```
+
+- **Sin datos duplicados:** no hay tabla nueva. Todo se calcula al pedirlo sobre `track_record`, el historial que
+  `reputation` ya llena con `plan.attendance-closed` para las insignias (HU-044); por eso tampoco hay nada nuevo que
+  borrar ni exportar con la cuenta (HU-045).
+- **Qué cuenta:** lo mismo que en las insignias y en las estadísticas de una persona (HU-048), así que los totales
+  coinciden con `GET /people/{userId}/stats`. `plans` y `plansCompleted` son planes a los que llegué (check-in);
+  `organized` y `plansOrganized`, planes que organicé y se celebraron; `joined` y `plansJoined`, planes de otra persona
+  a los que llegué. La fecha de un plan es la del cierre de su asistencia.
+- **Meses:** los de España (`Europe/Madrid`), del más antiguo al actual, también los que no tienen planes;
+  `plansThisMonth` es el último. `months` pide cuántos (6 por defecto, de 1 a 12).
+- **Actividades:** las que más he hecho, de más a menos y, si empatan, la más reciente; `favoriteActivity` es la
+  primera (`null` sin planes). `activities` pide cuántas (5 por defecto, de 1 a 20).
+- **Errores:** `400 stats.invalid` si `months` o `activities` se salen de su rango; `401` sin token.
 
 ### Compatibilidad por nivel y aficiones (HU-031)
 
