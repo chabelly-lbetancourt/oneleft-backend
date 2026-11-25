@@ -2,9 +2,11 @@ package es.upm.miw.oneleft.plans.application;
 
 import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
 import es.upm.miw.oneleft.plans.domain.model.AudienceUnavailableException;
+import es.upm.miw.oneleft.plans.domain.model.Compatibility;
 import es.upm.miw.oneleft.plans.domain.model.JoinRejectedException;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.port.in.AudienceQueryUseCase;
+import es.upm.miw.oneleft.plans.domain.port.in.CompatibilityUseCase;
 import es.upm.miw.oneleft.plans.domain.port.out.AudienceDirectory;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +19,7 @@ import java.util.UUID;
  * the date of birth). Without them, or if they cannot be known, the person does not join.
  */
 @Service
-public class AudienceService implements AudienceCheck, AudienceQueryUseCase {
+public class AudienceService implements AudienceCheck, AudienceQueryUseCase, CompatibilityUseCase {
 
     private final AudienceDirectory directory;
 
@@ -50,6 +52,18 @@ public class AudienceService implements AudienceCheck, AudienceQueryUseCase {
     @Override
     public Optional<AudienceMember> describe(UUID userId) {
         return viewer(userId);
+    }
+
+    /**
+     * How well the plan fits the person (HU-031), from the hobbies the users service already gives with their gender
+     * and age. The organizer is not asked about: the plan is theirs.
+     */
+    @Override
+    public Optional<Compatibility> compatibility(Plan plan, UUID userId) {
+        if (plan.organizer().id().equals(userId)) {
+            return Optional.empty();
+        }
+        return viewer(userId).map(person -> Compatibility.of(plan, person));
     }
 
     private Optional<AudienceMember> memberOf(UUID userId) {

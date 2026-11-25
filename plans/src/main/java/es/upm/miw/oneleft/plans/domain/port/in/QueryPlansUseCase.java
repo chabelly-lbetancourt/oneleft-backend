@@ -1,7 +1,9 @@
 package es.upm.miw.oneleft.plans.domain.port.in;
 
+import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
 import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
+import es.upm.miw.oneleft.plans.domain.model.NearbySort;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 
 import java.util.List;
@@ -28,4 +30,14 @@ public interface QueryPlansUseCase {
      * {@link NearbySearch#MAX_RESULTS}.
      */
     List<NearbyPlan> nearbyPlans(NearbySearch search);
+
+    /**
+     * The same plans, each with its compatibility with who searches (HU-031), in the order asked for. Sorting by
+     * compatibility orders these same plans, the {@link NearbySearch#MAX_RESULTS} nearest: from the most compatible
+     * to the least and, among equals, from the nearest.
+     *
+     * @param viewer who searches, with the hobbies of their profile; {@code null} if unknown: the plans then come
+     *               without compatibility and from the nearest to the farthest
+     */
+    List<NearbyPlan> nearbyPlans(NearbySearch search, AudienceMember viewer, NearbySort sort);
 }

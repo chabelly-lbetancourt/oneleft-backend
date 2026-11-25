@@ -1,9 +1,14 @@
 package es.upm.miw.oneleft.plans.application;
 
 import es.upm.miw.oneleft.plans.domain.model.Activity;
+import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
+import es.upm.miw.oneleft.plans.domain.model.CompatibilityReason;
 import es.upm.miw.oneleft.plans.domain.model.Level;
 import es.upm.miw.oneleft.plans.domain.model.MeetingPoint;
+import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
+import es.upm.miw.oneleft.plans.domain.model.NearbySort;
+import es.upm.miw.oneleft.plans.domain.model.PersonGender;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.RecentPlan;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
@@ -195,5 +200,59 @@ class PlanServiceTest {
         assertThat(nearby).extracting(n -> n.plan()).containsExactly(near, far);
         assertThat(nearby.get(0).distanceMeters()).isZero();
         assertThat(nearby.get(1).distanceMeters()).isBetween(1_100.0, 1_120.0);
+    }
+
+    /** HU-031: Lucía plays padel at an intermediate level. */
+    private static final AudienceMember LUCIA_PROFILE = new AudienceMember(PersonGender.WOMAN, 33, "25–34",
+            Map.of(Activity.PADEL, Level.INTERMEDIATE));
+
+    private Plan planAt(Activity activity, Level level, double north) {
+        return repository.save(Plan.publish(ana(), activity, activity + " plan", null,
+                new MeetingPoint("Place", COURTS.latitude() + north, COURTS.longitude()),
+                NOW.plus(Duration.ofHours(1)), 2, level, CLOCK));
+    }
+
+    @Test
+    void nearbyPlansSayHowWellTheyFitWhoSearchesAndStayByDistanceUnlessAsked() {
+        var run = planAt(Activity.RUNNING, Level.ADVANCED, 0);
+        var padel = planAt(Activity.PADEL, Level.INTERMEDIATE, 0.01);
+        var search = new NearbySearch(COURTS.latitude(), COURTS.longitude(), 5_000, null, null, UUID.randomUUID());
+
+        var nearby = service.nearbyPlans(search, LUCIA_PROFILE, NearbySort.DISTANCE);
+
+        assertThat(nearby).extracting(NearbyPlan::plan).containsExactly(run, padel);
+        assertThat(nearby).extracting(n -> n.compatibility().score()).containsExactly(30, 100);
+        assertThat(nearby.get(1).compatibility().reasons())
+                .containsExactly(CompatibilityReason.SAME_ACTIVITY, CompatibilityReason.SAME_LEVEL);
+    }
+
+    @Test
+    void sortedByCompatibilityTheBestGoFirstAndEqualsStayFromTheNearest() {
+        var cinema = planAt(Activity.CINEMA, null, 0);
+        var tennisNear = planAt(Activity.TENNIS, null, 0.005);
+        var padel = planAt(Activity.PADEL, Level.ADVANCED, 0.01);
+        var tennisFar = planAt(Activity.TENNIS, Level.BEGINNER, 0.015);
+        var best = planAt(Activity.PADEL, Level.INTERMEDIATE, 0.02);
+        var search = new NearbySearch(COURTS.latitude(), COURTS.longitude(), 5_000, null, null, UUID.randomUUID());
+
+        var nearby = service.nearbyPlans(search, LUCIA_PROFILE, NearbySort.COMPATIBILITY);
+
+        assertThat(nearby).extracting(NearbyPlan::plan).containsExactly(best, padel, tennisNear, tennisFar, cinema);
+        assertThat(nearby).extracting(n -> n.compatibility().score()).containsExactly(100, 80, 70, 70, 40);
+    }
+
+    @Test
+    void withoutAKnownProfileThereIsNoCompatibilityAndTheOrderIsByDistance() {
+        var near = planAt(Activity.RUNNING, null, 0);
+        var far = planAt(Activity.PADEL, Level.INTERMEDIATE, 0.01);
+        var search = new NearbySearch(COURTS.latitude(), COURTS.longitude(), 5_000, null, null, UUID.randomUUID());
+
+        for (var sort : NearbySort.values()) {
+            var nearby = service.nearbyPlans(search, null, sort);
+
+            assertThat(nearby).extracting(NearbyPlan::plan).containsExactly(near, far);
+            assertThat(nearby).extracting(NearbyPlan::compatibility).containsOnlyNulls();
+        }
+        assertThat(service.nearbyPlans(search)).extracting(NearbyPlan::compatibility).containsOnlyNulls();
     }
 }

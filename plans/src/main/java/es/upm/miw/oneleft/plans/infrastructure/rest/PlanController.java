@@ -3,10 +3,13 @@ package es.upm.miw.oneleft.plans.infrastructure.rest;
 import es.upm.miw.oneleft.plans.domain.model.Activity;
 import es.upm.miw.oneleft.plans.domain.model.Audience;
 import es.upm.miw.oneleft.plans.domain.model.ActivityCategory;
+import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
+import es.upm.miw.oneleft.plans.domain.model.NearbySort;
 import es.upm.miw.oneleft.plans.domain.model.Organizer;
 import es.upm.miw.oneleft.plans.domain.port.in.AudienceQueryUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.CancelPlanUseCase;
+import es.upm.miw.oneleft.plans.domain.port.in.CompatibilityUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.JoinPlanUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.ParticipationUseCase;
 import es.upm.miw.oneleft.plans.domain.port.in.PublishPlanCommand;
@@ -62,6 +65,7 @@ public class PlanController {
     public static final String EVENTS_STREAM = "/events/stream";
 
     private final AudienceQueryUseCase audiences;
+    private final CompatibilityUseCase compatibilities;
     private final PublishPlanUseCase publishPlan;
     private final QueryPlansUseCase queryPlans;
     private final JoinPlanUseCase joinPlan;
@@ -74,8 +78,9 @@ public class PlanController {
     public PlanController(PublishPlanUseCase publishPlan, QueryPlansUseCase queryPlans, JoinPlanUseCase joinPlan,
                           ParticipationUseCase participation, CancelPlanUseCase cancelPlan,
                           NearbyPlanSubscriptions nearbySubscriptions, UserEventSubscriptions userEvents,
-                          AudienceQueryUseCase audiences) {
+                          AudienceQueryUseCase audiences, CompatibilityUseCase compatibilities) {
         this.audiences = audiences;
+        this.compatibilities = compatibilities;
         this.publishPlan = publishPlan;
         this.queryPlans = queryPlans;
         this.joinPlan = joinPlan;
@@ -109,12 +114,16 @@ public class PlanController {
     }
 
     @GetMapping(PLAN)
-    @Operation(summary = "Plan detail")
+    @Operation(summary = "Plan detail",
+            description = "With how well the plan fits me in `compatibility` (HU-031): a score from 0 to 100 and its "
+                    + "reasons, from the activity and the level of the plan and the hobbies of my profile. It is "
+                    + "null if the plan is mine or my profile is not known.")
     @ApiResponse(responseCode = "200", description = "Plan")
     @ApiResponse(responseCode = "404", description = "The plan does not exist", content = @Content)
     public PlanResponse plan(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt, @PathVariable UUID planId) {
         var me = UUID.fromString(jwt.getSubject());
-        return PlanResponse.of(queryPlans.plan(planId, me), me);
+        var plan = queryPlans.plan(planId, me);
+        return PlanResponse.of(plan, me, compatibilities.compatibility(plan, me).orElse(null));
     }
 
     @DeleteMapping(PLAN)
@@ -217,7 +226,10 @@ public class PlanController {
     @GetMapping(NEARBY)
     @Operation(summary = "Nearby plans (HU-004)",
             description = "Open plans with free spots less than `radius` metres away, from the nearest to the "
-                    + "farthest. Own plans are not included. At most 50.")
+                    + "farthest. Own plans are not included. At most 50. Each one says how well it fits me in "
+                    + "`plan.compatibility` (HU-031), null if my profile is not known. `sort=COMPATIBILITY` orders "
+                    + "those same plans, the 50 nearest, from the most compatible to the least and, among equals, "
+                    + "from the nearest; without a known profile the order stays by distance.")
     @ApiResponse(responseCode = "200", description = "Nearby plans")
     @ApiResponse(responseCode = "400", description = "Parameters out of range", content = @Content)
     @SuppressWarnings("java:S107")
@@ -233,9 +245,12 @@ public class PlanController {
                                            @RequestParam(name = "category", required = false)
                                            List<ActivityCategory> categories,
                                            @Parameter(description = "Starting within the next hours (1 to 12)")
-                                           @RequestParam(defaultValue = "12") int withinHours) {
-        var search = search(jwt, latitude, longitude, radius, activities, categories, withinHours);
-        return queryPlans.nearbyPlans(search).stream().map(NearbyPlanResponse::of).toList();
+                                           @RequestParam(defaultValue = "12") int withinHours,
+                                           @Parameter(description = "Order: by distance or by compatibility (HU-031)")
+                                           @RequestParam(defaultValue = "DISTANCE") NearbySort sort) {
+        var viewer = audiences.viewer(UUID.fromString(jwt.getSubject())).orElse(null);
+        var search = seenBy(viewer, search(jwt, latitude, longitude, radius, activities, categories, withinHours));
+        return queryPlans.nearbyPlans(search, viewer, sort).stream().map(NearbyPlanResponse::of).toList();
     }
 
     @GetMapping(path = NEARBY_STREAM, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -253,13 +268,14 @@ public class PlanController {
                                    @RequestParam(name = "category", required = false)
                                    List<ActivityCategory> categories,
                                    @RequestParam(defaultValue = "12") int withinHours) {
-        return nearbySubscriptions.subscribe(search(jwt, latitude, longitude, radius, activities, categories,
-                withinHours));
+        var viewer = audiences.viewer(UUID.fromString(jwt.getSubject())).orElse(null);
+        return nearbySubscriptions.subscribe(
+                seenBy(viewer, search(jwt, latitude, longitude, radius, activities, categories, withinHours)));
     }
 
     /** The activities asked for, plus every activity of the categories asked for (HU-068); none means all. */
     @SuppressWarnings("java:S107")
-    private NearbySearch search(Jwt jwt, double latitude, double longitude, int radius,
+    private static NearbySearch search(Jwt jwt, double latitude, double longitude, int radius,
                                        List<Activity> activities, List<ActivityCategory> categories,
                                        int withinHours) {
         var wanted = new HashSet<Activity>();
@@ -269,9 +285,12 @@ public class PlanController {
         if (categories != null) {
             wanted.addAll(ActivityCategory.activitiesOf(categories));
         }
-        var requester = UUID.fromString(jwt.getSubject());
-        var search = new NearbySearch(latitude, longitude, radius, wanted, Duration.ofHours(withinHours), requester);
-        // The plans that are not for the person are left out (HU-070); if they cannot be known, only those for everyone
-        return audiences.viewer(requester).map(search::forViewer).orElse(search);
+        return new NearbySearch(latitude, longitude, radius, wanted, Duration.ofHours(withinHours),
+                UUID.fromString(jwt.getSubject()));
+    }
+
+    /** The plans that are not for the person are left out (HU-070); if they cannot be known, only those for everyone. */
+    private static NearbySearch seenBy(AudienceMember viewer, NearbySearch search) {
+        return viewer == null ? search : search.forViewer(viewer);
     }
 }

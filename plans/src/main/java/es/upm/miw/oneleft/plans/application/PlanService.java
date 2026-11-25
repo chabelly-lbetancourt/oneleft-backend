@@ -1,7 +1,10 @@
 package es.upm.miw.oneleft.plans.application;
 
+import es.upm.miw.oneleft.plans.domain.model.AudienceMember;
+import es.upm.miw.oneleft.plans.domain.model.Compatibility;
 import es.upm.miw.oneleft.plans.domain.model.NearbyPlan;
 import es.upm.miw.oneleft.plans.domain.model.NearbySearch;
+import es.upm.miw.oneleft.plans.domain.model.NearbySort;
 import es.upm.miw.oneleft.plans.domain.model.Plan;
 import es.upm.miw.oneleft.plans.domain.model.PlanLimitException;
 import es.upm.miw.oneleft.plans.domain.model.PlanNotFoundException;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -98,9 +102,22 @@ public class PlanService implements PublishPlanUseCase, QueryPlansUseCase {
     @Override
     @Transactional(readOnly = true)
     public List<NearbyPlan> nearbyPlans(NearbySearch search) {
-        return plans.findOpenNearby(search, clock.instant(), NearbySearch.MAX_RESULTS).stream()
+        return nearbyPlans(search, null, NearbySort.DISTANCE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NearbyPlan> nearbyPlans(NearbySearch search, AudienceMember viewer, NearbySort sort) {
+        var nearest = plans.findOpenNearby(search, clock.instant(), NearbySearch.MAX_RESULTS).stream()
                 .map(plan -> new NearbyPlan(plan, search.distanceTo(plan.meetingPoint().latitude(),
-                        plan.meetingPoint().longitude())))
+                        plan.meetingPoint().longitude()), viewer == null ? null : Compatibility.of(plan, viewer)))
+                .toList();
+        if (sort != NearbySort.COMPATIBILITY || viewer == null) {
+            return nearest;
+        }
+        // A stable sort: the plans with the same score stay from the nearest to the farthest
+        return nearest.stream()
+                .sorted(Comparator.comparingInt((NearbyPlan nearby) -> nearby.compatibility().score()).reversed())
                 .toList();
     }
 }
