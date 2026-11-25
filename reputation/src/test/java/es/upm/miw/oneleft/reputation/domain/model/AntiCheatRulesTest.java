@@ -82,6 +82,27 @@ class AntiCheatRulesTest {
     }
 
     @Test
+    void theEndorsementsOfALevelFollowTheSameRulesBetweenTwoPeople() {
+        var endorsement = entry(Reason.ENDORSEMENT);
+        var pair = AntiCheatRules.MUTUAL_PAIR_ENDORSEMENTS;
+
+        assertThat(IntStream.rangeClosed(1, 5).mapToObj(given -> AntiCheatRules.endorsement(endorsement, given, 0)))
+                .extracting(LedgerEntry::points, LedgerEntry::limitedBy)
+                .containsExactly(tuple(8, null), tuple(4, PointsLimit.SAME_PERSON), tuple(2, PointsLimit.SAME_PERSON),
+                        tuple(1, PointsLimit.SAME_PERSON), tuple(0, PointsLimit.SAME_PERSON));
+        assertThat(AntiCheatRules.endorsement(endorsement, pair, pair))
+                .extracting(LedgerEntry::points, LedgerEntry::limitedBy).containsExactly(0, PointsLimit.MUTUAL_PAIR);
+        // One each way is two friends, not a pair that keeps endorsing each other
+        assertThat(AntiCheatRules.endorsement(endorsement, 1, 1).points()).isEqualTo(8);
+        assertThat(AntiCheatRules.endorsement(endorsement, pair, pair - 1).limitedBy())
+                .isEqualTo(PointsLimit.SAME_PERSON);
+        assertThat(AntiCheatRules.dailyCapped(endorsement, AntiCheatRules.MAX_ENDORSEMENTS_PER_DAY))
+                .extracting(LedgerEntry::points, LedgerEntry::limitedBy).containsExactly(0, PointsLimit.DAILY_CAP);
+        assertThat(AntiCheatRules.dailyCapped(endorsement, AntiCheatRules.MAX_ENDORSEMENTS_PER_DAY - 1))
+                .isEqualTo(endorsement);
+    }
+
+    @Test
     void theLastLimitThatCutAnEntryExplainsItsPoints() {
         var halved = AntiCheatRules.kudos(entry(Reason.KUDOS), 2, 0);
 

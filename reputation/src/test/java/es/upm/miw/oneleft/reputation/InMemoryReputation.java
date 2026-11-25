@@ -3,6 +3,8 @@ package es.upm.miw.oneleft.reputation;
 import es.upm.miw.oneleft.reputation.domain.model.ActivityPlans;
 import es.upm.miw.oneleft.reputation.domain.model.Attendance;
 import es.upm.miw.oneleft.reputation.domain.model.Badge;
+import es.upm.miw.oneleft.reputation.domain.model.Endorsement;
+import es.upm.miw.oneleft.reputation.domain.model.EndorsementCount;
 import es.upm.miw.oneleft.reputation.domain.model.Kudos;
 import es.upm.miw.oneleft.reputation.domain.model.KudosKind;
 import es.upm.miw.oneleft.reputation.domain.model.LedgerEntry;
@@ -10,9 +12,11 @@ import es.upm.miw.oneleft.reputation.domain.model.MonthPlans;
 import es.upm.miw.oneleft.reputation.domain.model.PageQuery;
 import es.upm.miw.oneleft.reputation.domain.model.PageResult;
 import es.upm.miw.oneleft.reputation.domain.model.Reason;
+import es.upm.miw.oneleft.reputation.domain.model.SkillLevel;
 import es.upm.miw.oneleft.reputation.domain.model.StatsRules;
 import es.upm.miw.oneleft.reputation.domain.model.TrackRecord;
 import es.upm.miw.oneleft.reputation.domain.port.out.Badges;
+import es.upm.miw.oneleft.reputation.domain.port.out.EndorsementStore;
 import es.upm.miw.oneleft.reputation.domain.port.out.KudosStore;
 import es.upm.miw.oneleft.reputation.domain.port.out.Ledger;
 import es.upm.miw.oneleft.reputation.domain.port.out.Scores;
@@ -32,16 +36,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * The ledger, the scores, the track record, the badges and the kudos in memory, with the same rules as the SQL (tested
- * in ReputationIntegrationTest and KudosIntegrationTest).
+ * The ledger, the scores, the track record, the badges, the kudos and the endorsements in memory, with the same rules
+ * as the SQL (tested in ReputationIntegrationTest, KudosIntegrationTest and EndorsementIntegrationTest).
  */
-public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges, KudosStore {
+public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges, KudosStore, EndorsementStore {
 
     public final List<LedgerEntry> entries = new ArrayList<>();
     public final Map<UUID, Integer> scores = new HashMap<>();
     public final Map<String, Attendance> lines = new HashMap<>();
     public final Map<UUID, Map<Badge, Instant>> badges = new HashMap<>();
     public final List<Kudos> kudos = new ArrayList<>();
+    public final List<Endorsement> endorsements = new ArrayList<>();
 
     @Override
     public void record(List<Attendance> attendances) {
@@ -75,6 +80,13 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
     @Override
     public List<Attendance> attendancesOf(UUID planId) {
         return lines.values().stream().filter(line -> line.planId().equals(planId)).toList();
+    }
+
+    @Override
+    public List<String> activitiesTogether(UUID one, UUID other) {
+        return linesOf(one).filter(Attendance::arrived)
+                .filter(mine -> attendance(other, mine.planId()).filter(Attendance::arrived).isPresent())
+                .map(Attendance::activity).distinct().toList();
     }
 
     @Override
@@ -200,5 +212,36 @@ public class InMemoryReputation implements Ledger, Scores, TrackRecords, Badges,
         return kudos.stream().filter(given -> given.receiverId().equals(receiverId))
                 .collect(Collectors.groupingBy(Kudos::kind, () -> new EnumMap<>(KudosKind.class),
                         Collectors.counting()));
+    }
+
+    @Override
+    public boolean save(Endorsement given) {
+        var known = endorsements.stream().anyMatch(other -> other.id().equals(given.id()));
+        return !known && endorsements.add(given);
+    }
+
+    @Override
+    public List<EndorsementCount> endorsementCountsOf(UUID receiverId) {
+        record Vouched(String activity, SkillLevel level) {
+        }
+        return endorsements.stream().filter(given -> given.receiverId().equals(receiverId))
+                .collect(Collectors.groupingBy(given -> new Vouched(given.activity(), given.level()),
+                        Collectors.counting())).entrySet().stream()
+                .map(count -> new EndorsementCount(count.getKey().activity(), count.getKey().level(),
+                        count.getValue()))
+                .sorted(Comparator.comparing(EndorsementCount::activity).thenComparing(EndorsementCount::level))
+                .toList();
+    }
+
+    @Override
+    public List<Endorsement> endorsementsBy(UUID endorserId, UUID receiverId) {
+        return endorsements.stream().filter(given -> given.endorserId().equals(endorserId)
+                && given.receiverId().equals(receiverId)).toList();
+    }
+
+    @Override
+    public int countEndorsements(UUID endorserId, UUID receiverId, Instant from, Instant to) {
+        return (int) endorsementsBy(endorserId, receiverId).stream()
+                .filter(given -> !given.givenAt().isBefore(from) && !given.givenAt().isAfter(to)).count();
     }
 }

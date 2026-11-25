@@ -33,6 +33,10 @@ public class JdbcPersonalData implements PersonalData {
                 "SELECT receiver_id, plan_id, kind, given_at FROM kudos WHERE giver_id = :userId");
         EXPORT.put("kudosReceived",
                 "SELECT plan_id, kind, given_at FROM kudos WHERE receiver_id = :userId");
+        EXPORT.put("endorsementsGiven",
+                "SELECT receiver_id, activity, level, given_at FROM endorsement WHERE endorser_id = :userId");
+        EXPORT.put("endorsementsReceived",
+                "SELECT activity, level, given_at FROM endorsement WHERE receiver_id = :userId");
     }
 
     private static final List<String> ERASE = List.of(
@@ -42,7 +46,9 @@ public class JdbcPersonalData implements PersonalData {
             "DELETE FROM track_record WHERE user_id = :userId",
             "DELETE FROM badge WHERE user_id = :userId",
             "DELETE FROM kudos WHERE receiver_id = :userId",
-            "UPDATE kudos SET giver_id = gen_random_uuid() WHERE giver_id = :userId");
+            "UPDATE kudos SET giver_id = gen_random_uuid() WHERE giver_id = :userId",
+            "DELETE FROM endorsement WHERE receiver_id = :userId",
+            "UPDATE endorsement SET endorser_id = gen_random_uuid() WHERE endorser_id = :userId");
 
     private final NamedParameterJdbcTemplate jdbc;
 

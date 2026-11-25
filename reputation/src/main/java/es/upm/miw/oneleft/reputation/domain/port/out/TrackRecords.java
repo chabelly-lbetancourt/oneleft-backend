@@ -29,6 +29,9 @@ public interface TrackRecords {
     /** The people of a plan whose attendance closed */
     List<Attendance> attendancesOf(UUID planId);
 
+    /** The activities of the plans that two people both arrived at (HU-061) */
+    List<String> activitiesTogether(UUID one, UUID other);
+
     /** The plans of someone else that a person arrived at (HU-043) */
     int joinedOf(UUID userId);
 
